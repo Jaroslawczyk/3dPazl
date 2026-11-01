@@ -11,3 +11,5 @@ graphify-out/
 textures/library/*/
 textures/library/SOURCES.json
 scripts/__pycache__/
+dist/
+build/
