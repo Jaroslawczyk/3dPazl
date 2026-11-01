@@ -471,7 +471,7 @@ class Chat:
                 raise RuntimeError("сначала установите программу")
             cmd = [exe, *c["login"]]
         if os.name == "nt":
-            subprocess.Popen(["cmd", "/c", "start", "3dPazl", "cmd", "/k", *cmd], env=_cli_env())
+            subprocess.Popen(["cmd", "/k", *cmd], env=_cli_env(), creationflags=0x00000010)  # CREATE_NEW_CONSOLE
         else:
             subprocess.Popen(cmd, env=_cli_env())
         return {"ok": True}
