@@ -406,8 +406,8 @@ class Chat:
             for b in ev.get("message", {}).get("content", []):
                 if b.get("type") == "text" and b.get("text", "").strip():
                     self._emit("assistant", b["text"])
-                elif b.get("type") == "tool_use":
-                    self._emit("tool", b.get("name", "").removeprefix("mcp__pazl__"), args=b.get("input"))
+                elif b.get("type") == "tool_use" and b.get("name", "").startswith("mcp__pazl__"):  # not CLI internals
+                    self._emit("tool", b["name"].removeprefix("mcp__pazl__"), args=b.get("input"))
         elif ev.get("type") == "result" and ev.get("is_error"):
             self._fail(p, st, str(ev.get("result") or ev.get("subtype")))
 
