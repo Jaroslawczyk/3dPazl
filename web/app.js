@@ -27,9 +27,11 @@ const S = { recipe: null, state: null, tree: [], catalog: [], styles: [], select
 
 // ---------------------------------------------------------------- three.js scene
 const vp = $('#viewport');
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(window.devicePixelRatio);
+// logarithmic depth: mm-level depth precision at any distance -> coplanar-ish faces and decals don't flicker
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.autoUpdate = false; // shadows are static: re-rendered only when the model/light changes
 vp.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fb4c8);
@@ -42,8 +44,9 @@ scene.add(new THREE.HemisphereLight(0xdde8ff, 0x6a6458, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 2.2);
 sun.position.set(-60, 100, 50); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; // no shadow acne (striped flicker on walls)
 Object.assign(sun.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, far: 500 });
-scene.add(sun);
+scene.add(sun); scene.add(sun.target);
 const ground = new THREE.Mesh(new THREE.CircleGeometry(800, 64), new THREE.MeshStandardMaterial({ color: 0x77806f, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
 scene.add(ground);
@@ -63,10 +66,38 @@ gizmo.addEventListener('mouseDown', () => { gizmoStart = { p: proxy.position.clo
 
 function resize() {
   const w = vp.clientWidth, h = vp.clientHeight;
-  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); invalidate();
 }
 new ResizeObserver(resize).observe(vp);
-function loop() { requestAnimationFrame(loop); orbit.update(); tickCamAnim(); renderer.render(scene, camera); }
+// render on demand: an idle viewport costs nothing; any input / camera move / model change requests a frame
+let dirty = true;
+function invalidate(shadows = false) { dirty = true; if (shadows) renderer.shadowMap.needsUpdate = true; }
+orbit.addEventListener('change', () => invalidate());
+gizmo.addEventListener('change', () => invalidate());
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown'])
+  document.addEventListener(ev, () => invalidate(), { passive: true, capture: true });
+for (const ev of ['input', 'change', 'click'])  // UI toggles may change what casts shadows
+  document.addEventListener(ev, () => invalidate(true), { passive: true, capture: true });
+THREE.DefaultLoadingManager.onLoad = () => invalidate();
+const modelBox = new THREE.Box3();
+function updateClipRange() {
+  // near/far hug the scene: keeps depth precision where the model is
+  const box = modelBox;
+  const r = box.isEmpty() ? 50 : box.getSize(new THREE.Vector3()).length() / 2;
+  const d = box.isEmpty() ? camera.position.length() : camera.position.distanceTo(box.getCenter(new THREE.Vector3()));
+  const near = THREE.MathUtils.clamp((d - r) * 0.5, 0.05, 10), far = Math.max(d + r * 4, 1500);
+  if (Math.abs(camera.near - near) > near * 0.1 || camera.far !== far) {
+    camera.near = near; camera.far = far; camera.updateProjectionMatrix();
+  }
+}
+function loop() {
+  requestAnimationFrame(loop);
+  orbit.update(); tickCamAnim();
+  if (!dirty && !camAnim) return;
+  dirty = false;
+  updateClipRange();
+  renderer.render(scene, camera);
+}
 
 // ---------------------------------------------------------------- model loading
 const loader = new GLTFLoader();
@@ -78,6 +109,11 @@ async function reloadModel(fit = false) {
     const welded = $('#chkWelded').checked;
     const buf = await api(welded ? 'model.glb' : 'preview.glb');
     const gltf = await loader.parseAsync(buf, '');
+    root.traverse((o) => {  // free GPU memory of the previous model (otherwise every edit leaks and slows down)
+      if (!o.isMesh) return;
+      o.geometry.dispose();
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+    });
     root.clear();
     S.meshesById.clear();
     const realistic = (S.state?.detail || 'realistic') === 'realistic';
@@ -90,6 +126,8 @@ async function reloadModel(fit = false) {
       if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
       const id = welded ? null : name.split('|')[0].replaceAll('~', '/');
       o.userData.eid = id;
+      // own material per mesh: glTF shares them by index, so highlighting one element lit up all of that material
+      o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       mats.forEach((m) => {
         m.flatShading = !realistic; m.side = THREE.FrontSide; m.wireframe = $('#chkWire').checked;
@@ -101,7 +139,15 @@ async function reloadModel(fit = false) {
     root.add(gltf.scene);
     applyHighlights();
     applyClip();
-    const box = new THREE.Box3().setFromObject(root);
+    const box = modelBox.setFromObject(root);
+    if (!box.isEmpty()) {  // shadow frustum fitted to the model: sharper shadows, no acne
+      const c = box.getCenter(new THREE.Vector3()), r = Math.max(10, box.getSize(new THREE.Vector3()).length() / 2 + 2);
+      sun.target.position.copy(c);
+      sun.position.copy(c).add(new THREE.Vector3(-60, 100, 50).normalize().multiplyScalar(r * 2));
+      Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 0.5, far: r * 4 });
+      sun.shadow.camera.updateProjectionMatrix();
+    }
+    invalidate(true);
     if (fit || !S.lastCenter) fitView(box, 'iso');
     S.lastCenter = box.getCenter(new THREE.Vector3());
     const tris = countTris();
@@ -135,17 +181,23 @@ function applyTextures(m) {
   if (have.includes('roughness')) { m.roughnessMap = tex(base, 'roughness'); m.roughness = 1; }
   if (have.includes('ao')) { m.aoMap = tex(base, 'ao'); m.aoMapIntensity = 0.8; }
 }
-const INTERIOR_VS = `#include <clipping_planes_pars_vertex>
+const INTERIOR_VS = `#include <common>
+#include <logdepthbuf_pars_vertex>
+#include <clipping_planes_pars_vertex>
 varying vec2 vUv; varying vec3 vPos; varying vec3 vN;
 void main(){ vUv = uv; vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz;
   vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = viewMatrix * wp;
   gl_Position = projectionMatrix * mvPosition;
+  #include <logdepthbuf_vertex>
   #include <clipping_planes_vertex>
 }`;
-const INTERIOR_FS = `#include <clipping_planes_pars_fragment>
+const INTERIOR_FS = `#include <common>
+#include <logdepthbuf_pars_fragment>
+#include <clipping_planes_pars_fragment>
 uniform sampler2D map; uniform float depth; varying vec2 vUv; varying vec3 vPos; varying vec3 vN;
 void main(){
   #include <clipping_planes_fragment>
+  #include <logdepthbuf_fragment>
   vec3 N = normalize(vN); vec3 up = vec3(0.0, 1.0, 0.0);
   vec3 T = normalize(cross(up, N)); vec3 B = normalize(cross(N, T));
   vec3 V = normalize(vPos - cameraPosition);
@@ -215,7 +267,8 @@ let camAnim = null;
 function camAnimTo(pos, target, ms = 500) { camAnim = { p0: camera.position.clone(), t0: orbit.target.clone(), p1: pos, t1: target, s: performance.now(), ms }; }
 function tickCamAnim() {
   if (!camAnim) return;
-  const k = Math.min(1, (performance.now() - camAnim.s) / camAnim.ms), e = k * k * (3 - 2 * k);
+  invalidate();
+  const k =Math.min(1, (performance.now() - camAnim.s) / camAnim.ms), e = k * k * (3 - 2 * k);
   camera.position.lerpVectors(camAnim.p0, camAnim.p1, e);
   orbit.target.lerpVectors(camAnim.t0, camAnim.t1, e);
   if (k >= 1) camAnim = null;
@@ -255,6 +308,7 @@ function applyHighlights() {
     const col = id && id === S.selected ? 0x7a5a10 : (id && S.highlight.has(id) ? 0x8a0000 : 0x000000);
     mats.forEach((m) => { if (m.emissive) m.emissive.setHex(col); });
   });
+  invalidate();
 }
 
 function select(id) {
@@ -285,6 +339,7 @@ gizmo.addEventListener('objectChange', () => {
     if (m.userData.p0 === undefined) { m.userData.p0 = m.position.clone(); }
     m.position.copy(m.userData.p0).add(d);
   });
+  invalidate(true);
   if (dr) $('#status').textContent = `поворот ${(THREE.MathUtils.radToDeg(dr)).toFixed(1)}°`;
 });
 async function commitGizmo() {

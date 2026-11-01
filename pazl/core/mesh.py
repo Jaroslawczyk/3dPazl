@@ -308,18 +308,20 @@ def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured
 
 def preview_scene(result, textured=False) -> trimesh.Scene:
     """Per-element, per-material meshes for the interactive viewport. Node name = 'elementId|material'.
-    Geometry carries box-projected UVs; the viewer loads texture maps itself (by material name)."""
+    Geometry carries box-projected UVs; the viewer loads texture maps itself (by material name).
+    Cut from the welded shell (triangles keep their element id), so touching elements never leave coplanar
+    faces on top of each other (no z-fighting) and hidden inner faces are not drawn at all."""
     scene = trimesh.Scene()
     R = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
-    for eid, r in result.elements.items():
-        if not r.solids:
-            continue
-        m = g.union([s for s, _ in r.solids])
-        if m.is_empty():
-            continue
-        V, F, oid = manifold_to_arrays(m)
-        mats, _ = tri_materials(oid)
-        for name, tm in split_by_material(V, F, mats).items():
+    final = result.final()
+    if not final.is_empty():
+        V, F, oid = manifold_to_arrays(final)
+        mats, elems = tri_materials(oid)
+        keys = np.array([f"{e}|{m}" for e, m in zip(elems, mats)], dtype=object)
+        for key in sorted(set(keys)):
+            eid, name = key.split("|", 1)
+            tm = trimesh.Trimesh(V, F[keys == key], process=False)
+            tm.remove_unreferenced_vertices()
             tm = box_uv(tm, MATS.get(name).get("tile") or 1.0)
             tm.visual.material = material_for(name, None, False)
             tm.apply_transform(R)
