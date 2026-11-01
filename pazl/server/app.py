@@ -302,6 +302,19 @@ def chat_settings(body: dict = Body(...)):
     return CHAT.save_settings(body)
 
 
+@app.get("/api/chat/account")
+def chat_account(provider: str):
+    return CHAT.account(provider)
+
+
+@app.post("/api/chat/console")
+def chat_console(body: dict = Body(...)):
+    try:
+        return CHAT.open_console(body["provider"], body.get("what", "login"))
+    except (KeyError, RuntimeError) as ex:
+        raise HTTPException(400, str(ex))
+
+
 @app.post("/api/chat/stop")
 def chat_stop():
     CHAT.stop()

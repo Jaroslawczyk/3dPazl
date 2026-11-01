@@ -14,3 +14,4 @@ scripts/__pycache__/
 dist/
 build/
 chat_settings.json
+ai_workspace/

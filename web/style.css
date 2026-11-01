@@ -100,7 +100,8 @@ legend { color: var(--mute); font-size: 11px; padding: 0 4px; }
 #chatLog .msg.error { align-self: flex-start; color: var(--bad); }
 #chatLog .msg.info { align-self: center; color: var(--mute); font-size: 11px; }
 #chatCfg { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
-#chatCfg input { width: 150px; } #chatCfg #chatUrl { width: 230px; }
+#chatCfg input { width: 150px; } #chatAcct { display: inline-flex; gap: 4px; align-items: center; }
+#chatAcct[hidden] { display: none; } #chatAcctSt { color: var(--mute); } #chatCfg #chatUrl { width: 230px; }
 #chatInput { display: flex; gap: 6px; }
 #chatInput textarea { flex: 1; resize: vertical; font: inherit; color: var(--text); background: var(--panel2);
                       border: 1px solid var(--line); border-radius: var(--radius); padding: 6px; }

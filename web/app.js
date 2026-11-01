@@ -783,17 +783,39 @@ function chatEvent(ev) {
 }
 function chatFill() {
   const s = CH.settings, p = s.providers.find((x) => x.id === s.provider) || s.providers[0];
-  $('#chatProvider').innerHTML = s.providers.map((x) => `<option value="${x.id}" ${x.id === s.provider ? 'selected' : ''}>${esc(x.title)}${x.id === 'claude_code' && !s.claude_cli ? ' — не установлен' : ''}</option>`).join('');
+  $('#chatProvider').innerHTML = s.providers.map((x) => `<option value="${x.id}" ${x.id === s.provider ? 'selected' : ''}>${esc(x.title)}${x.id in s.cli && !s.cli[x.id] ? ' (не установлен)' : ''}</option>`).join('');
   $('#chatModel').value = s.models[p.id] || '';
-  $('#chatModel').placeholder = p.model || (p.id === 'claude_code' ? 'модель (как в Claude Code)' : 'модель (имя у провайдера)');
-  const compat = !['anthropic', 'claude_code'].includes(p.id);
+  const acct = p.id in s.cli;  // signs in with an account, no API key
+  $('#chatModel').placeholder = p.model || (acct ? 'модель (по умолчанию)' : 'модель (имя у провайдера)');
+  const compat = p.id !== 'anthropic' && !acct;
   $('#chatUrl').hidden = !compat; $('#chatUrl').value = s.base_urls[p.id] || p.base_url;
-  $('#chatKey').hidden = p.id === 'claude_code';
+  $('#chatKey').hidden = acct;
+  $('#chatAcct').hidden = !acct;
+  if (acct) chatAccount(p.id);
   $('#chatKey').value = '';
   $('#chatKey').placeholder = s.has_key[p.id] ? 'ключ сохранён (ввести новый)' : (p.needs_key ? 'API-ключ' : 'API-ключ (не обязателен)');
   $('#chatEffort').hidden = p.id !== 'anthropic'; $('#chatEffort').value = s.effort || 'high';
   $('#chatVision').parentElement.hidden = !compat; $('#chatVision').checked = s.vision !== false;
 }
+async function chatAccount(id) {
+  $('#chatAcctSt').textContent = 'проверяю вход…';
+  const a = await api('chat/account?provider=' + id).catch(() => ({}));
+  if (CH.settings.provider !== id) return;
+  $('#chatInstall').hidden = !!a.installed;
+  $('#chatLogin').hidden = !a.installed;
+  $('#chatAcctSt').textContent = !a.installed ? 'не установлен' : a.logged_in === true ? '✓ вход выполнен' : a.logged_in === false ? 'не выполнен вход' : '';
+  $('#chatAcctSt').title = a.status || '';
+}
+async function chatConsole(what) {
+  try {
+    await api('chat/console', { provider: CH.settings.provider, what });
+    chatItem({ role: 'info', text: what === 'install' ? 'Идёт установка в отдельном окне. Когда закончится, нажмите «Войти».'
+      : 'Открылось окно входа: войдите в аккаунт в браузере, затем закройте окно и пишите в чат.' });
+  } catch (e) { chatItem({ role: 'error', text: e.message }); }
+}
+$('#chatLogin').onclick = () => chatConsole('login');
+$('#chatInstall').onclick = () => chatConsole('install');
+window.addEventListener('focus', () => { const id = CH.settings?.provider; if (id && id in CH.settings.cli) chatAccount(id); });
 async function chatSave(upd) { CH.settings = await api('chat/settings', upd); chatFill(); }
 async function chatInit() {
   const st = await api('chat');

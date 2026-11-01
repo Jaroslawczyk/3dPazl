@@ -3,7 +3,8 @@
 - "anthropic"  Claude API (official SDK)
 - OpenAI-compatible chat/completions: OpenAI, Google Gemini, DeepSeek, OpenRouter, Groq, Mistral, xAI,
   local Ollama / LM Studio, or any custom base URL
-- "claude_code" the local Claude Code CLI (`claude -p`) with the pazl MCP server - works exactly like the terminal agent
+- AI apps signed in with the user's own account (subscription, no API key), like the VS Code extensions:
+  Claude Code, OpenAI Codex (ChatGPT account), Gemini CLI (Google account) - run headless with the pazl MCP server
 
 Settings (incl. API keys) live in <DATA>/chat_settings.json on this computer only; keys are never sent to the browser.
 """
@@ -31,7 +32,9 @@ MAX_STEPS = 60
 
 PROVIDERS = {  # id: (title, base_url, needs key)
     "anthropic": ("Claude (Anthropic API)", "", True),
-    "claude_code": ("Claude Code (локальный CLI, подписка)", "", False),
+    "claude_code": ("Claude Code — вход аккаунтом Claude", "", False),
+    "codex": ("ChatGPT / Codex — вход аккаунтом OpenAI", "", False),
+    "gemini_cli": ("Gemini CLI — вход аккаунтом Google", "", False),
     "openai": ("OpenAI", "https://api.openai.com/v1", True),
     "gemini": ("Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", True),
     "deepseek": ("DeepSeek", "https://api.deepseek.com/v1", True),
@@ -128,7 +131,7 @@ def public_settings(s: dict) -> dict:
             "has_key": {p: bool(k) for p, k in keys.items()},
             "providers": [{"id": k, "title": v[0], "base_url": v[1], "needs_key": v[2], "model": DEFAULT_MODEL.get(k, "")}
                           for k, v in PROVIDERS.items()],
-            "claude_cli": bool(shutil.which("claude"))}
+            "cli": {p: bool(shutil.which(c["exe"])) for p, c in CLIS.items()}}
 
 
 # ------------------------------------------------------------------ session
@@ -198,8 +201,8 @@ class Chat:
         try:
             if p == "anthropic":
                 self._anthropic(text)
-            elif p == "claude_code":
-                self._claude_code(text)
+            elif p in CLIS:
+                self._cli(p, text)
             else:
                 self._openai_compat(p, text)
         except Exception as ex:
@@ -320,49 +323,161 @@ class Chat:
                     for i in pics]})
         self._emit("error", f"Остановлено после {MAX_STEPS} шагов.")
 
-    # ---- local Claude Code CLI with the pazl MCP server
-    def _claude_code(self, text):
-        exe = shutil.which("claude")
+
+    # ---- AI apps signed in with the user's account (like the VS Code extensions): Claude Code, Codex, Gemini CLI.
+    # Each runs headless with the pazl MCP server attached; the conversation continues via its session id.
+    def _mcp_cmd(self, p):
+        cmd = [sys.executable, "--mcp"] if FROZEN else [sys.executable, "-m", "pazl.mcp"]
+        return cmd[0], cmd[1:], {"PAZL_AGENT": self._agent(p)}
+
+    def _first(self, text):  # CLIs without a system-prompt flag get the instructions with the first message
+        return text if self.cli_session else f"{SYSTEM}\n\nUser request:\n{text}"
+
+    def _cli_args(self, p, exe, text):
+        model = self.settings.get("models", {}).get(p)
+        cmd, cargs, env = self._mcp_cmd(p)
+        if p == "claude_code":
+            cfg = Path(tempfile.gettempdir()) / "pazl_chat_mcp.json"
+            cfg.write_text(json.dumps({"mcpServers": {"pazl": {"command": cmd, "args": cargs, "env": env}}}), "utf-8")
+            args = [exe, "-p", text, "--output-format", "stream-json", "--verbose", "--mcp-config", str(cfg),
+                    "--strict-mcp-config", "--allowedTools", "mcp__pazl", "--append-system-prompt", SYSTEM]
+            args += ["--model", model] if model else []
+            args += ["--resume", self.cli_session] if self.cli_session else []
+            return args, DATA
+        if p == "codex":
+            def toml(v):  # JSON strings/arrays are valid TOML values
+                return json.dumps(v, ensure_ascii=False)
+            args = [exe, "exec", "--json", "--skip-git-repo-check", "-s", "read-only",
+                    "-c", f"mcp_servers.pazl.command={toml(cmd)}", "-c", f"mcp_servers.pazl.args={toml(cargs)}",
+                    "-c", "mcp_servers.pazl.env={PAZL_AGENT=" + toml(env["PAZL_AGENT"]) + "}",
+                    "-c", 'approval_policy="never"']
+            args += ["-m", model] if model else []
+            args += ["resume", self.cli_session] if self.cli_session else []
+            return args + [self._first(text)], DATA
+        # gemini_cli: MCP servers come from the workspace's .gemini/settings.json
+        ws = DATA / "ai_workspace" / "gemini"
+        (ws / ".gemini").mkdir(parents=True, exist_ok=True)
+        (ws / ".gemini" / "settings.json").write_text(json.dumps(
+            {"mcpServers": {"pazl": {"command": cmd, "args": cargs, "env": env, "trust": True}}}), "utf-8")
+        args = [exe, "-p", self._first(text), "-o", "stream-json", "--approval-mode", "yolo",
+                "--allowed-mcp-server-names", "pazl", "--skip-trust"]
+        args += ["-m", model] if model else []
+        args += ["--resume", "latest"] if self.cli_session else []  # the workspace holds only this chat
+        return args, ws
+
+    def _cli(self, p, text):
+        exe = shutil.which(CLIS[p]["exe"])
         if not exe:
-            return self._emit("error", "Claude Code не найден. Установите его (claude.com/claude-code) и войдите: `claude`.")
-        cmd_mcp = [sys.executable, "--mcp"] if FROZEN else [sys.executable, "-m", "pazl.mcp"]
-        cfg = {"mcpServers": {"pazl": {"command": cmd_mcp[0], "args": cmd_mcp[1:],
-                                       "env": {"PAZL_AGENT": self._agent("claude_code")}}}}
-        cfg_path = Path(tempfile.gettempdir()) / "pazl_chat_mcp.json"
-        cfg_path.write_text(json.dumps(cfg), "utf-8")
-        args = [exe, "-p", text, "--output-format", "stream-json", "--verbose", "--mcp-config", str(cfg_path),
-                "--strict-mcp-config", "--allowedTools", "mcp__pazl", "--append-system-prompt", SYSTEM]
-        model = self.settings.get("models", {}).get("claude_code")
-        if model:
-            args += ["--model", model]
-        if self.cli_session:
-            args += ["--resume", self.cli_session]
+            return self._emit("error", f"{PROVIDERS[p][0]}: программа не установлена - нажмите «Установить».")
+        args, cwd = self._cli_args(p, exe, text)
+        had_session = self.cli_session
         flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
-        self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(DATA),
+        err = tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace")
+        self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err, cwd=str(cwd),
                                      text=True, encoding="utf-8", errors="replace", creationflags=flags)
-        failed = False
+        st = {"failed": False, "buf": ""}
         for line in self.proc.stdout:
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if ev.get("session_id"):
-                self.cli_session = ev["session_id"]
-            if ev.get("type") == "assistant" and not ev.get("error"):
-                for b in ev.get("message", {}).get("content", []):
-                    if b.get("type") == "text" and b.get("text", "").strip():
-                        self._emit("assistant", b["text"])
-                    elif b.get("type") == "tool_use":
-                        self._emit("tool", b.get("name", "").removeprefix("mcp__pazl__"), args=b.get("input"))
-            elif ev.get("type") == "result" and ev.get("is_error"):
-                msg = str(ev.get("result") or ev.get("subtype"))
-                if "authenticate" in msg or "login" in msg.lower():
-                    msg += " - откройте терминал и выполните `claude`, чтобы войти заново."
-                self._emit("error", msg)
-                failed = True
+            getattr(self, "_ev_" + p)(p, ev, st)
         self.proc.wait()
-        if self.proc.returncode and not self.stop_flag and not failed:
-            err = self.proc.stderr.read().strip()
-            self._emit("error", f"claude завершился с кодом {self.proc.returncode}: {err[:500]}")
+        if st["buf"].strip():
+            self._emit("assistant", st["buf"])
         if self.stop_flag:
-            self._emit("info", "остановлено")
+            return self._emit("info", "остановлено")
+        if self.proc.returncode and not st["failed"]:
+            err.seek(0)
+            self._fail(p, st, f"{CLIS[p]['exe']} завершился с кодом {self.proc.returncode}: {err.read().strip()[-500:]}")
+        if st["failed"] and not had_session:  # nothing to resume: the next message starts the conversation again
+            self.cli_session = None
+
+    def _fail(self, p, st, msg):
+        st["failed"] = True
+        if any(w in msg.lower() for w in ("auth", "login", "401", "unauthorized", "sign in")):
+            msg += "  →  нажмите «Войти», чтобы войти в аккаунт."
+        self._emit("error", msg)
+
+    def _ev_claude_code(self, p, ev, st):
+        if ev.get("session_id"):
+            self.cli_session = ev["session_id"]
+        if ev.get("type") == "assistant" and not ev.get("error"):
+            for b in ev.get("message", {}).get("content", []):
+                if b.get("type") == "text" and b.get("text", "").strip():
+                    self._emit("assistant", b["text"])
+                elif b.get("type") == "tool_use":
+                    self._emit("tool", b.get("name", "").removeprefix("mcp__pazl__"), args=b.get("input"))
+        elif ev.get("type") == "result" and ev.get("is_error"):
+            self._fail(p, st, str(ev.get("result") or ev.get("subtype")))
+
+    def _ev_codex(self, p, ev, st):
+        t, item = ev.get("type"), ev.get("item") or {}
+        if t == "thread.started":
+            self.cli_session = ev.get("thread_id")
+        elif t == "item.started" and item.get("type") == "mcp_tool_call":
+            self._emit("tool", item.get("tool", ""), args=item.get("arguments"))
+        elif t == "item.completed" and item.get("type") == "agent_message" and item.get("text", "").strip():
+            self._emit("assistant", item["text"])
+        elif t == "turn.failed":
+            self._fail(p, st, str((ev.get("error") or {}).get("message", "ошибка")))
+        elif t == "error" and not str(ev.get("message", "")).startswith("Reconnecting"):
+            self._fail(p, st, str(ev.get("message")))
+
+    def _ev_gemini_cli(self, p, ev, st):
+        t = ev.get("type")
+        if t == "init":
+            self.cli_session = ev.get("session_id") or "1"
+        elif t == "message" and ev.get("role") == "assistant":
+            st["buf"] += ev.get("content", "") if ev.get("delta") else "\n" + ev.get("content", "")
+        elif t == "tool_use":
+            if st["buf"].strip():
+                self._emit("assistant", st["buf"])
+            st["buf"] = ""
+            self._emit("tool", str(ev.get("tool_name", "")).removeprefix("mcp_pazl_"), args=ev.get("parameters"))
+        elif t == "result" and ev.get("status") not in (None, "success"):
+            self._fail(p, st, json.dumps(ev.get("error") or ev, ensure_ascii=False)[:500])
+        elif t == "error":
+            self._fail(p, st, str(ev.get("message") or ev)[:500])
+
+    # ---- account sign-in / install, in a visible console window (the CLI opens the browser itself)
+    def account(self, p):
+        c = CLIS.get(p)
+        if not c:
+            return {"cli": False}
+        exe = shutil.which(c["exe"])
+        out = {"cli": True, "installed": bool(exe), "status": ""}
+        if exe and c["status"]:
+            try:
+                r = subprocess.run([exe, *c["status"]], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                   timeout=20, stdin=subprocess.DEVNULL, creationflags=0x08000000 if os.name == "nt" else 0)
+                out["status"] = (r.stdout + r.stderr).strip()[-300:]
+                try:  # claude auth status prints JSON {"loggedIn": ...}
+                    out["logged_in"] = bool(json.loads(r.stdout)["loggedIn"])
+                except (ValueError, KeyError, TypeError):
+                    out["logged_in"] = r.returncode == 0 and "not logged" not in out["status"].lower()
+            except Exception as ex:
+                out["status"] = str(ex)
+        return out
+
+    def open_console(self, p, what):
+        c = CLIS[p]
+        if what == "install":
+            cmd = ["npm", "install", "-g", c["npm"]]
+        else:
+            exe = shutil.which(c["exe"])
+            if not exe:
+                raise RuntimeError("сначала установите программу")
+            cmd = [exe, *c["login"]]
+        if os.name == "nt":
+            subprocess.Popen(["cmd", "/c", "start", "3dPazl", "cmd", "/k", *cmd])
+        else:
+            subprocess.Popen(cmd)
+        return {"ok": True}
+
+
+CLIS = {  # account-based AI apps: executable, npm package, sign-in and status commands
+    "claude_code": {"exe": "claude", "npm": "@anthropic-ai/claude-code", "login": ["auth", "login"], "status": ["auth", "status"]},
+    "codex": {"exe": "codex", "npm": "@openai/codex", "login": ["login"], "status": ["login", "status"]},
+    "gemini_cli": {"exe": "gemini", "npm": "@google/gemini-cli", "login": [], "status": None},  # signs in on its own screen
+}

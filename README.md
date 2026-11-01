@@ -19,7 +19,9 @@ start.bat
   (его же отдаёт `GET /api/guide`).
 Если программа не запущена, MCP‑сервер запустит её сам (окно). `PAZL_HEADLESS=1` — без окна.
 - **Чат прямо в программе** (вкладка «💬 Чат с ИИ» внизу): тот же набор инструментов, что у MCP. ИИ на выбор:
-  Claude (Anthropic API, ключ), Claude Code (локальный `claude`, по подписке), OpenAI, Gemini, DeepSeek, OpenRouter,
+  **вход аккаунтом без API-ключа, как в VS Code**: Claude Code (аккаунт Claude), Codex (аккаунт ChatGPT),
+  Gemini CLI (аккаунт Google) — кнопки «Установить» и «Войти» прямо в чате; или по API-ключу:
+  Claude (Anthropic API), OpenAI, Gemini, DeepSeek, OpenRouter,
   Groq, Mistral, xAI, Ollama / LM Studio (локально) или любой OpenAI‑совместимый URL. Ключи хранятся только
   на этом компьютере в `chat_settings.json`.
 

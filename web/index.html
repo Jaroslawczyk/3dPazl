@@ -122,6 +122,9 @@
         <input id="chatKey" type="password" placeholder="API-ключ" title="Хранится только на этом компьютере" autocomplete="off">
         <select id="chatEffort" title="Глубина размышлений (Claude)"><option value="low">быстро</option><option value="medium">средне</option><option value="high">тщательно</option><option value="xhigh">очень тщательно</option></select>
         <label title="Отправлять модели скриншоты (нужна модель с поддержкой изображений)"><input type="checkbox" id="chatVision"> картинки</label>
+        <span id="chatAcct" hidden><span id="chatAcctSt"></span>
+          <button id="chatLogin" title="Открыть вход в аккаунт (откроется окно и браузер)">Войти</button>
+          <button id="chatInstall" title="Установить программу через npm (нужен Node.js)">Установить</button></span>
         <button id="chatReset" title="Начать новый разговор">Новый чат</button>
       </div>
       <div id="chatInput">
