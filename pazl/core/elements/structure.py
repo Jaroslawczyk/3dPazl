@@ -53,7 +53,13 @@ def block(p, ctx):
     solid = g.subtract(g.tag(solid, wall_mat), cav)
     part = Part().add(solid, wall_mat)
     if ph > 0:
-        part.add(g.extrude(g.offset2(cs, float(p["plinth_out"])), ph), ctx.mat(p["plinth_material"]))
+        # a ring around the walls, never under the rooms: its top would lie in the floor plane and the union would
+        # split the floor into random triangles of both materials. Always projects a little -> no flush coplanar faces.
+        plinth = g.extrude(g.offset2(cs, max(float(p["plinth_out"]), 0.01)), ph)
+        inner = g.offset2(cs, -t)
+        if p["hollow"] and not inner.is_empty():
+            plinth = g.subtract(plinth, [g.extrude(inner, ph + 1.0, -0.5)])
+        part.add(plinth, ctx.mat(p["plinth_material"]))
     part.anchors.update(face_anchors(fp, H, t, floors, fh, ph))
     part.anchors["top"] = top_anchor(fp, H, H, floors, fh)
     part.anchors["base"] = top_anchor(fp, 0.0, 0.0, floors, fh)

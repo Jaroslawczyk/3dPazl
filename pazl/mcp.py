@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 mcp = FastMCP("pazl", instructions=(
     "3dPazl building constructor. Read `guide` once per session. Workflow: new_building (macro or blocks) -> patch -> "
-    "validate -> render_views (ONE contact-sheet image with 12 views incl. sections; red = problems) -> fix -> export. "
+    "validate -> render_views (ONE contact-sheet image: sides, isometric, eye-level, top, below, a section and two floor plans; red = problems) -> fix -> export. "
     "Ids inside macros look like 'b/roof' and can be patched directly. Use note() to tell the user what you are doing."))
 
 
@@ -242,11 +242,11 @@ def weather(amount: float = 0.6, clear: bool = False) -> str:
 
 
 @mcp.tool()
-def set_options(interiors: bool | None = None, decals: bool | None = None, detail: str | None = None,
+def set_options(interiors: bool | None = None, decals: bool | None = None, rooms: bool | None = None, detail: str | None = None,
                 style: str | None = None, reroll: bool = False) -> str:
-    """Project switches: fake interiors behind windows, decals, detail (realistic = PBR textures | lowpoly = flat colours),
+    """Project switches: fake interiors behind windows (window plugs), rooms (real interior geometry on/off), decals, detail (realistic = PBR textures | lowpoly = flat colours),
     style (mix with '+', e.g. 'gothic+russian_orthodox'), reroll = new random seed for ranges/mixes/decals."""
-    ops = [{"op": "set", "key": k, "value": v} for k, v in (("interiors", interiors), ("decals", decals), ("detail", detail),
+    ops = [{"op": "set", "key": k, "value": v} for k, v in (("interiors", interiors), ("rooms", rooms), ("decals", decals), ("detail", detail),
                                                               ("style", style)) if v is not None]
     if reroll:
         ops.append({"op": "reroll"})

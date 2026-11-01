@@ -8,7 +8,7 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
 1. `list_styles` → pick a style (sets materials + default proportions). `list_elements` once if needed.
 2. `new_building(name, style, elements=[...])`. Fastest start: one macro, e.g. `{"id":"b","type":"orthodox_church"}`.
 3. `validate` → fix every error (floating parts are listed with element ids and coordinates).
-4. `render_views` → ONE image, 12 views (4 sides, 4 isometric, top, below, 2 sections). Red = problem elements.
+4. `render_views` → ONE image, 16 views (4 sides, 4 isometric, 3 eye-level, top, below, section, plans of the 1st floor and mid height — check floors, walls and textures inside the cuts too). Red = problem elements.
    Check every view, not just the front. Zoom: `render_views(views=["iso_fl","front"], tile_w=640)` or `render_custom`.
 5. `patch` small changes, repeat 3–4. Then `export` (glb) and `texture_manifest`.
 6. Use `note("...")` to tell the user what you are doing — they watch the live log and the 3D view.
@@ -76,8 +76,8 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
 
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
-degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 4 eye-level from the ground, top,
-below, section, plan.
+degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,
+below, section, plan (1st floor) and plan_mid (mid height). Look at the floors and walls inside the cuts: a floor split into random triangles of two materials means two solids share that plane.
 
 ## Editing macro children
 Children ids look like `b/roof`. `patch([{op:"update", id:"b/roof", params:{pitch:50}}])` stores an override in the

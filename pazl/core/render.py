@@ -29,16 +29,18 @@ _R = {}
 VIEWS = {  # name: (azimuth deg from +X counter-clockwise, elevation deg)
     "front": (-90, 8), "right": (0, 8), "back": (90, 8), "left": (180, 8),
     "iso_fl": (-135, 32), "iso_fr": (-45, 32), "iso_br": (45, 32), "iso_bl": (135, 32),
-    "top": (-90, 89), "below": (-60, -35), "section_x": (0, 15), "section_y": (-90, 15),
-    "eye_fl": (-120, 2), "eye_fr": (-60, 2), "eye_br": (60, 2), "eye_bl": (120, 2), "plan": (-90, 89),
+    "top": (-90, 89), "below": (-60, -35), "section_x": (20, 30), "section_y": (-70, 30),
+    "eye_fl": (-120, 2), "eye_fr": (-60, 2), "eye_br": (60, 2), "eye_bl": (120, 2),
+    # cuts are looked at from an angle and close up: floors, walls and textures inside must be checked too
+    "plan": (-60, 62), "plan_mid": (-60, 62),
 }
 DEFAULT_VIEWS = ["front", "right", "back", "left", "iso_fl", "iso_fr", "iso_br", "iso_bl",
-                 "eye_fl", "eye_fr", "eye_br", "eye_bl", "top", "below", "section_x", "plan"]
+                 "eye_fl", "eye_fr", "eye_br", "top", "below", "section_x", "plan", "plan_mid"]
 VIEW_RU = {"front": "спереди", "right": "справа", "back": "сзади", "left": "слева", "iso_fl": "3/4 перед-лево",
            "iso_fr": "3/4 перед-право", "iso_br": "3/4 зад-право", "iso_bl": "3/4 зад-лево", "top": "сверху",
            "below": "снизу", "section_x": "разрез X", "section_y": "разрез Y", "eye_fl": "с земли перед-лево",
            "eye_fr": "с земли перед-право", "eye_br": "с земли зад-право", "eye_bl": "с земли зад-лево",
-           "plan": "план (горизонтальный разрез)"}
+           "plan": "план 1 этажа (разрез)", "plan_mid": "план середины (разрез)"}
 
 
 def look_at(eye, target, up=(0, 0, 1)):
@@ -92,16 +94,21 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
     ground.visual = trimesh.visual.ColorVisuals(ground, face_colors=[120, 130, 120, 255])
     images = []
     for v in views:
-        tm = base_tm
-        if v == "plan":  # horizontal cut through the first floor, looked at from above
-            zc = float(mn[2] + min(2.4, (mx[2] - mn[2]) * 0.35))
+        tm, vc, vr = base_tm, center, radius
+        cut = None
+        if v in ("plan", "plan_mid"):  # horizontal cut (1st floor / mid height), looked at from above at an angle
+            zc = float(mn[2] + (min(2.4, (mx[2] - mn[2]) * 0.35) if v == "plan" else (mx[2] - mn[2]) * 0.5))
             cut = final.trim_by_plane([0, 0, -1], -zc)
-            tm = _tm_from_manifold(cut, highlight) if not cut.is_empty() else base_tm
         elif v.startswith("section"):
             axis = [1, 0, 0] if v == "section_x" else [0, -1, 0]
             n = [-axis[0], -axis[1], 0]
             cut = final.trim_by_plane(n, float(np.dot(center, n)))
-            tm = _tm_from_manifold(cut, highlight) if not cut.is_empty() else base_tm
+        if cut is not None and not cut.is_empty():
+            tm = _tm_from_manifold(cut, highlight)
+            cmn, cmx = g.bbox(cut)
+            vc, vr = (cmn + cmx) / 2, float(np.linalg.norm(cmx - cmn) / 2) or radius
+            if v.startswith("plan"):
+                vr *= 0.8  # closer: rooms fill the tile
         sc = pyrender.Scene(ambient_light=[0.35, 0.35, 0.38], bg_color=[0.82, 0.88, 0.95, 1.0])
         sc.add(pyrender.Mesh.from_trimesh(tm, smooth=False))
         if v not in ("below",):
@@ -116,7 +123,7 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
             eye[2] = mn[2] + 1.7
             pose = look_at(eye, [center[0], center[1], mn[2] + (mx[2] - mn[2]) * 0.4])
         else:
-            pose, eye = camera_for(v, center, radius)
+            pose, eye = camera_for(v, vc, vr)
         sc.add(pyrender.PerspectiveCamera(yfov=math.radians(40), aspectRatio=size[0] / size[1], znear=0.05, zfar=radius * 20), pose=pose)
         for la, le, inten in ((-50, 50, 3.2), (130, 35, 1.4), (40, -20, 0.6)):
             lp, _ = camera_for(None, center, radius, az=la, el=le)

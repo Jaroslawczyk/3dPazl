@@ -325,7 +325,7 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
         r.anchors = {k: Anchor(W0 @ a.m, a.kind, a.w, a.h, a.depth, a.footprint, a.height, a.floors, a.floor_h, a.base, a.extra)
                      for k, a in part.anchors.items()}
         r.anchors["origin"] = Anchor(W0)
-        if e.get("hidden"):
+        if e.get("hidden") or (e.get("type") == "interior" and recipe.get("rooms") is False):  # rooms switched off
             continue
         targets = [t for t in ([host_id] if host_id else []) + list(e.get("cut", [])) if t]
         for W, part in zip(r.world, parts):

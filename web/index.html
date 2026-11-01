@@ -82,7 +82,10 @@
       <label><input type="checkbox" id="chkWire"> Каркас</label>
       <label title="Камера повторяет ракурсы, с которых ИИ проверяет модель"><input type="checkbox" id="chkFollow" checked> Камера ИИ</label>
       <span class="sep"></span>
-      <label title="Картинки комнат за окнами (как в Cities: Skylines 2)"><input type="checkbox" id="chkInteriors" checked> Интерьеры за окнами</label>
+      <label title="Настоящий интерьер внутри здания: комнаты, перегородки, лестницы, мебель"><input type="checkbox" id="chkRooms" checked> Интерьер</label>
+      <div class="seg" id="segWin" title="Окна: прозрачное стекло (видно, что внутри) или визуальная затычка — картинка комнаты за стеклом">
+        <button data-v="glass">Окна прозрачные</button><button data-v="plug">Затычка</button>
+      </div>
       <label title="3D-иллюзия глубины комнат (interior mapping) вместо плоской картинки"><input type="checkbox" id="chkParallax" checked> 3D-иллюзия</label>
       <label><input type="checkbox" id="chkDecals" checked> Декали</label>
       <label title="Срез по высоте, чтобы заглянуть внутрь">Срез <input type="range" id="rngClip" min="0" max="100" value="100"></label>

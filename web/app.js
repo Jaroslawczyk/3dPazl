@@ -132,6 +132,7 @@ async function reloadModel(fit = false) {
       mats.forEach((m) => {
         m.flatShading = !realistic; m.side = THREE.FrontSide; m.wireframe = $('#chkWire').checked;
         if (realistic && !welded) applyTextures(m);
+        if ((m.name || '').split('#')[0].startsWith('glass') && m.transparent) { o.userData.glass = true; setGlass(m); }
         m.needsUpdate = true;
       });
       if (id) { if (!S.meshesById.has(id)) S.meshesById.set(id, []); S.meshesById.get(id).push(o); }
@@ -231,14 +232,21 @@ function setupOverlay(o, mat) {
       ? new THREE.ShaderMaterial({ uniforms: { map: { value: map }, depth: { value: 1.0 } }, vertexShader: INTERIOR_VS,
         fragmentShader: INTERIOR_FS, clipping: true })
       : new THREE.MeshBasicMaterial({ map });
-    o.visible = $('#chkInteriors').checked;
+    o.visible = winPlug();
   }
   o.renderOrder = isDecal ? 2 : 0;
+}
+// windows: "plug" = room picture behind slightly reflective glass; "glass" = clear glass, the real interior is visible
+const winPlug = () => S.state?.interiors !== false;
+function setGlass(m) {
+  m.transparent = true; m.depthWrite = false;
+  m.opacity = winPlug() ? 0.6 : 0.18;
 }
 function setOverlayVisibility() {
   root.traverse((o) => {
     if (o.userData.overlay === 'decal') o.visible = $('#chkDecals').checked;
-    if (o.userData.overlay === 'interior') o.visible = $('#chkInteriors').checked;
+    if (o.userData.overlay === 'interior') o.visible = winPlug();
+    if (o.userData.glass) setGlass(o.material);
   });
 }
 // height cut to look inside
@@ -357,7 +365,8 @@ async function refreshAll(fit = false) {
   $('#projName').value = S.state.name || '';
   const [st1, st2] = String(S.state.style || 'generic').split('+');
   $('#selStyle').value = st1; $('#selStyle2').value = st2 || '';
-  $('#chkInteriors').checked = S.state.interiors !== false; $('#chkDecals').checked = S.state.decals !== false;
+  $('#chkRooms').checked = S.state.rooms !== false; $('#chkDecals').checked = S.state.decals !== false;
+  $$('#segWin button').forEach((b) => b.classList.toggle('on', b.dataset.v === (winPlug() ? 'plug' : 'glass')));
   $$('#segDetail button').forEach((b) => b.classList.toggle('on', b.dataset.v === S.state.detail));
   $('#btnUndo').disabled = !S.state.can_undo; $('#btnRedo').disabled = !S.state.can_redo;
   renderTree();
@@ -667,7 +676,17 @@ $('#btnInterior').onclick = async () => {
   feedLine({ type: 'note', agent: 'ui', note: 'Интерьер создан. Ползунок «Срез» показывает этажи изнутри; план — в свойствах элемента interior.' });
 };
 $('#btnWeather').onclick = () => patch([{ op: 'weather_all', amount: 0.6 }], 'состаривание');
-$('#chkInteriors').onchange = () => { setOverlayVisibility(); patch([{ op: 'set', key: 'interiors', value: $('#chkInteriors').checked }], 'интерьеры за окнами'); };
+$('#chkRooms').onchange = () => {
+  const on = $('#chkRooms').checked;
+  const have = S.tree.some((t) => t.type === 'interior');  // nothing generated yet -> create rooms for every volume
+  patch([{ op: 'set', key: 'rooms', value: on }, ...(on && !have ? [{ op: 'interior_all' }] : [])], on ? 'интерьер включён' : 'интерьер выключен');
+};
+$$('#segWin button').forEach((b) => b.onclick = () => {
+  S.state.interiors = b.dataset.v === 'plug';
+  $$('#segWin button').forEach((x) => x.classList.toggle('on', x === b));
+  setOverlayVisibility(); invalidate(true);
+  patch([{ op: 'set', key: 'interiors', value: S.state.interiors }], b.dataset.v === 'plug' ? 'окна: затычка' : 'окна: прозрачные');
+});
 $('#chkDecals').onchange = () => { setOverlayVisibility(); patch([{ op: 'set', key: 'decals', value: $('#chkDecals').checked }], 'декали'); };
 $('#chkParallax').onchange = () => reloadModel();
 $('#rngClip').oninput = applyClip;
