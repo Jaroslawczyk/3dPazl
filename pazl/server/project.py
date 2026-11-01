@@ -43,6 +43,7 @@ def slug(s: str) -> str:
 class Project:
     def __init__(self, broadcast=None):
         self.lock = threading.RLock()
+        self.scope: set | None = None  # while the AI fixes marked places: the only element ids it may change
         self.broadcast = broadcast or (lambda ev: None)
         self.recipe = {"name": "untitled", "style": "generic", "detail": "realistic", "elements": []}
         self.undo_stack: list[dict] = []
@@ -102,6 +103,7 @@ class Project:
 
     # ------------------------------------------------------------ recipe ops
     def new(self, name, style="generic", detail="realistic", elements=None, agent="?", recipe=None):
+        self.check_scope(agent, what="new project")
         with self.lock:
             self._push_undo()
             self.recipe = recipe or {"name": name, "style": style, "detail": detail, "elements": elements or []}
@@ -109,6 +111,7 @@ class Project:
             return self._changed(agent, f"new project '{self.recipe.get('name')}'")
 
     def load(self, name_or_path, agent="?"):
+        self.check_scope(agent, what="loading a project")
         p = Path(name_or_path)
         if not p.exists():
             p = PROJECTS / slug(str(name_or_path)) / "recipe.json"
@@ -129,6 +132,7 @@ class Project:
         self.redo_stack.clear()
 
     def undo(self, agent="?"):
+        self.check_scope(agent, what="undo")
         with self.lock:
             if not self.undo_stack:
                 return {"error": "nothing to undo"}
@@ -137,6 +141,7 @@ class Project:
             return self._changed(agent, "undo")
 
     def redo(self, agent="?"):
+        self.check_scope(agent, what="redo")
         with self.lock:
             if not self.redo_stack:
                 return {"error": "nothing to redo"}
@@ -150,12 +155,47 @@ class Project:
                 return i, e
         return None, None
 
+    # ------------------------------------------------------------ scope lock (marks -> AI changes only those elements)
+    def _in_scope(self, eid: str) -> bool:
+        """A marked element, its macro children ("m/x") and everything attached to it (host chain)."""
+        els = self._res.elements if self._res is not None else {}
+        seen = set()
+        while eid and eid not in seen:
+            if any(eid == s or eid.startswith(s + "/") for s in self.scope):
+                return True
+            seen.add(eid)
+            eid = getattr(els.get(eid), "host", None)
+        return False
+
+    def check_scope(self, agent: str, ops: list[dict] | None = None, what: str = ""):
+        """AI agents (X-Agent chat:*) may only touch the marked elements (and their children) while a scope is set."""
+        if not self.scope or not str(agent).startswith("chat:"):
+            return
+        allowed = ", ".join(sorted(self.scope))
+        if what:
+            raise PermissionError(f"{what} is locked: change only the marked elements ({allowed})")
+        for op in ops or []:
+            kind = op.get("op")
+            if kind == "add":
+                host = str((op.get("element") or {}).get("on") or "").partition(":")[0]
+                ok = bool(host) and self._in_scope(host)
+            elif kind in ("update", "remove", "nudge", "explode", "facade", "paint"):
+                ok = self._in_scope(str(op.get("id", "")))
+            elif kind == "paint_random" and op.get("ids"):
+                ok = all(self._in_scope(str(i)) for i in op["ids"])
+            else:
+                ok = False
+            if not ok:
+                raise PermissionError(f"op {kind} {op.get('id') or ''} is outside the marked area. "
+                                      f"Only these elements (and their children) may be changed: {allowed}")
+
     def patch(self, ops: list[dict], agent="?", note=""):
         """Apply a list of ops atomically. Ops:
         add {element}, update {id, params?, at?, on?, offset?, rot?, ...}, remove {id, cascade?},
         nudge {id, world_delta:[x,y,z], rot_delta}, explode {id}, set {key: style|detail|name, value}
         Ids inside macros ("church/roof") are stored as overrides of the macro element.
         """
+        self.check_scope(agent, ops)
         with self.lock:
             before = copy.deepcopy(self.recipe)
             msgs = []

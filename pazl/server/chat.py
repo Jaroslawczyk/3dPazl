@@ -136,8 +136,9 @@ def public_settings(s: dict) -> dict:
 
 # ------------------------------------------------------------------ session
 class Chat:
-    def __init__(self, broadcast):
+    def __init__(self, broadcast, project=None):
         self.broadcast = broadcast
+        self.project = project
         self.settings = load_settings()
         self.transcript: list[dict] = []   # what the chat panel shows
         self.history: list = []            # provider-specific conversation
@@ -146,6 +147,7 @@ class Chat:
         self.busy = False
         self.stop_flag = False
         self.proc = None
+        self.image = None
 
     # -------------------------------------------------- api
     def save_settings(self, upd: dict):
@@ -179,13 +181,22 @@ class Chat:
         if self.proc and self.proc.poll() is None:
             self.proc.kill()
 
-    def send(self, text: str):
+    def send(self, text: str, scope: list | None = None, image: str | None = None):
+        """scope: element ids the AI may change (marks on the model); image: data-URL screenshot with the marks."""
         if self.busy:
             raise RuntimeError("ИИ ещё отвечает")
         if not text.strip():
             raise ValueError("пустое сообщение")
         self.busy, self.stop_flag = True, False
-        self._emit("user", text)
+        self.image = None
+        if image and image.startswith("data:image/png;base64,") and self.project is not None:
+            d = self.project.dir / "renders"
+            d.mkdir(parents=True, exist_ok=True)
+            self.image = d / f"marks_{len(list(d.glob('marks_*.png'))) + 1:03d}.png"
+            self.image.write_bytes(base64.b64decode(image.split(",", 1)[1]))
+        if self.project is not None:
+            self.project.scope = {str(s) for s in scope if s} if scope else None
+        self._emit("user", text, scope=sorted(scope or []))
         threading.Thread(target=self._run, args=(text,), daemon=True).start()
 
     # -------------------------------------------------- internals
@@ -208,6 +219,8 @@ class Chat:
         except Exception as ex:
             self._emit("error", f"{type(ex).__name__}: {ex}")
         finally:
+            if self.project is not None:
+                self.project.scope = None
             self.busy = False
             self.broadcast({"type": "chat", "role": "done", "text": ""})
 
@@ -228,7 +241,11 @@ class Chat:
         tools = [{"name": d["name"], "description": d["description"], "input_schema": d["parameters"]}
                  for d in (_schema(n, f) for n, f in _tools().items())]
         extra = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"} if model in FALLBACK_MODELS else {}
-        self.history.append({"role": "user", "content": text})
+        content = [{"type": "text", "text": text}]
+        if self.image:
+            content.insert(0, {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                                            "data": base64.b64encode(self.image.read_bytes()).decode()}})
+        self.history.append({"role": "user", "content": content})
         for _ in range(MAX_STEPS):
             if self.stop_flag:
                 return self._emit("info", "остановлено")
@@ -290,8 +307,13 @@ class Chat:
         tools = [{"type": "function", "function": _schema(n, f)} for n, f in _tools().items()]
         if not self.history:
             self.history.append({"role": "system", "content": SYSTEM})
-        self.history.append({"role": "user", "content": text})
         vision = s.get("vision", True)
+        if self.image and vision:
+            url = "data:image/png;base64," + base64.b64encode(self.image.read_bytes()).decode()
+            self.history.append({"role": "user", "content": [{"type": "text", "text": text},
+                                                             {"type": "image_url", "image_url": {"url": url}}]})
+        else:
+            self.history.append({"role": "user", "content": text})
         for _ in range(MAX_STEPS):
             if self.stop_flag:
                 return self._emit("info", "остановлено")
@@ -339,8 +361,11 @@ class Chat:
         if p == "claude_code":
             cfg = Path(tempfile.gettempdir()) / "pazl_chat_mcp.json"
             cfg.write_text(json.dumps({"mcpServers": {"pazl": {"command": cmd, "args": cargs, "env": env}}}), "utf-8")
+            if self.image:
+                text += f"\n\nScreenshot with the marks (red numbers/lines): {self.image} - look at it with Read."
             args = [exe, "-p", text, "--output-format", "stream-json", "--verbose", "--mcp-config", str(cfg),
-                    "--strict-mcp-config", "--allowedTools", "mcp__pazl", "--append-system-prompt", SYSTEM]
+                    "--strict-mcp-config", "--allowedTools", "mcp__pazl,Read" if self.image else "mcp__pazl",
+                    "--append-system-prompt", SYSTEM]
             args += ["--model", model] if model else []
             args += ["--resume", self.cli_session] if self.cli_session else []
             return args, DATA
@@ -352,6 +377,7 @@ class Chat:
                     "-c", "mcp_servers.pazl.env={PAZL_AGENT=" + toml(env["PAZL_AGENT"]) + "}",
                     "-c", 'approval_policy="never"']
             args += ["-m", model] if model else []
+            args += ["-i", str(self.image)] if self.image else []
             args += ["resume", self.cli_session] if self.cli_session else []
             return args + [self._first(text)], DATA
         # gemini_cli: MCP servers come from the workspace's .gemini/settings.json
@@ -359,6 +385,8 @@ class Chat:
         (ws / ".gemini").mkdir(parents=True, exist_ok=True)
         (ws / ".gemini" / "settings.json").write_text(json.dumps(
             {"mcpServers": {"pazl": {"command": cmd, "args": cargs, "env": env, "trust": True}}}), "utf-8")
+        if self.image:
+            text += f"\n\nScreenshot with the marks (red numbers/lines): @{self.image}"
         args = [exe, "-p", self._first(text), "-o", "stream-json", "--approval-mode", "yolo",
                 "--allowed-mcp-server-names", "pazl", "--skip-trust"]
         args += ["-m", model] if model else []

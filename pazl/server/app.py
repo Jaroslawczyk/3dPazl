@@ -42,7 +42,7 @@ def broadcast(ev: dict):
 
 
 P = Project(broadcast)
-CHAT = Chat(broadcast)
+CHAT = Chat(broadcast, P)
 
 
 @app.on_event("startup")
@@ -63,6 +63,8 @@ def _run(fn, *a, **kw):
         return fn(*a, **kw)
     except KeyError as ex:
         raise HTTPException(404, str(ex))
+    except PermissionError as ex:
+        raise HTTPException(403, str(ex))
     except Exception as ex:
         raise HTTPException(400, f"{type(ex).__name__}: {ex}")
 
@@ -291,7 +293,7 @@ def chat_state():
 @app.post("/api/chat")
 def chat_send(body: dict = Body(...)):
     try:
-        CHAT.send(str(body.get("text", "")))
+        CHAT.send(str(body.get("text", "")), scope=body.get("scope"), image=body.get("image"))
     except (RuntimeError, ValueError) as ex:
         raise HTTPException(409, str(ex))
     return {"ok": True}

@@ -81,6 +81,8 @@
       <button data-mode="translate" title="Двигать (W)">✥</button>
       <button data-mode="rotate" title="Вращать вокруг вертикали (E)">⟳</button>
       <span class="sep"></span>
+      <button id="btnMark" title="Пометки для ИИ: клик — точка, протянуть — нарисовать. Вращать камеру — правой кнопкой">✎ Пометки</button>
+      <span class="sep"></span>
       <button id="vFront" title="Вид спереди">Перед</button>
       <button id="vSide" title="Вид сбоку">Бок</button>
       <button id="vTop" title="Вид сверху">Верх</button>
@@ -126,6 +128,14 @@
           <button id="chatLogin" title="Открыть вход в аккаунт (откроется окно и браузер)">Войти</button>
           <button id="chatInstall" title="Установить программу через npm (нужен Node.js)">Установить</button></span>
         <button id="chatReset" title="Начать новый разговор">Новый чат</button>
+      </div>
+      <div id="markBar" hidden>
+        <div id="markList"></div>
+        <div class="row">
+          <button id="markRun" class="act" title="ИИ поменяет только отмеченные элементы, остальное заблокировано">▶ ИИ: переделать отмеченное</button>
+          <button id="markClear">Очистить пометки</button>
+          <span class="hint">Текст ниже — общая задача (необязательно).</span>
+        </div>
       </div>
       <div id="chatInput">
         <textarea id="chatText" rows="2" placeholder="Например: построй деревянную церковь с тремя куполами (Enter — отправить, Shift+Enter — новая строка)"></textarea>

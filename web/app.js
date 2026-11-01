@@ -97,6 +97,7 @@ function loop() {
   dirty = false;
   updateClipRange();
   renderer.render(scene, camera);
+  drawMarks();
 }
 
 // ---------------------------------------------------------------- model loading
@@ -302,6 +303,7 @@ const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
 renderer.domElement.addEventListener('pointerup', (e) => {
+  if (S.marking) return;
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4 || gizmo.dragging) return;
   const r = renderer.domElement.getBoundingClientRect();
   mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -762,6 +764,126 @@ $('#matList').onchange = (e) => {
   const swap = { ...(S.state.tex_swap || {}) };
   if (e.target.value) swap[e.target.dataset.m] = e.target.value; else delete swap[e.target.dataset.m];
   patch([{ op: 'set', key: 'tex_swap', value: swap }], `текстура ${e.target.dataset.m} → ${e.target.value || 'своя'}`);
+};
+
+// ---------------------------------------------------------------- marks for the AI: points and drawings on the model
+// The AI then changes only the marked elements (the server locks everything else for the run).
+S.marks = []; S.marking = false;
+const markCv = document.createElement('canvas');
+markCv.id = 'markCanvas';
+if (getComputedStyle(vp).position === 'static') vp.style.position = 'relative';
+vp.appendChild(markCv);
+const toCore = (v) => [+(v.x).toFixed(2), +(-v.z).toFixed(2), +(v.y).toFixed(2)];  // Y-up -> Z-up
+function markHit(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const cut = renderer.clippingPlanes.length ? clipPlane : null;
+  const hits = ray.intersectObjects(root.children, true)
+    .filter((h) => h.object.visible && !h.object.userData.overlay && (!cut || cut.distanceToPoint(h.point) >= 0));
+  return hits.find((h) => h.object.userData.eid) || hits[0] || null;
+}
+let drawing = null;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!S.marking || e.button !== 0) return;
+  drawing = { x: e.clientX, y: e.clientY, last: [e.clientX, e.clientY], pts: [], eids: new Set() };
+  markAdd(drawing, e);
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!drawing || !(e.buttons & 1)) return;
+  if (Math.hypot(e.clientX - drawing.last[0], e.clientY - drawing.last[1]) < 6) return;
+  drawing.last = [e.clientX, e.clientY];
+  markAdd(drawing, e);
+  invalidate();
+});
+window.addEventListener('pointerup', (e) => {
+  if (!drawing) return;
+  const d = drawing; drawing = null;
+  const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6;
+  if (!d.pts.length || (moved && d.pts.length < 2)) return invalidate();
+  S.marks.push({ kind: moved ? 'stroke' : 'point', pts: moved ? d.pts : d.pts.slice(0, 1), eids: [...d.eids], note: '' });
+  renderMarks(); invalidate();
+  setTimeout(() => $(`#markList input[data-i="${S.marks.length - 1}"]`)?.focus(), 0);
+});
+function markAdd(d, e) {
+  const h = markHit(e);
+  if (!h) return;
+  d.pts.push(h.point.clone());
+  if (h.object.userData.eid) d.eids.add(h.object.userData.eid);
+}
+function drawMarks() {
+  const w = vp.clientWidth, h = vp.clientHeight, k = renderer.getPixelRatio();
+  if (markCv.width !== Math.round(w * k) || markCv.height !== Math.round(h * k)) { markCv.width = Math.round(w * k); markCv.height = Math.round(h * k); }
+  const c = markCv.getContext('2d');
+  c.setTransform(k, 0, 0, k, 0, 0);
+  c.clearRect(0, 0, w, h);
+  const scr = (v) => { const p = v.clone().project(camera); return p.z > 1 ? null : [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h]; };
+  const all = drawing ? [...S.marks, { kind: 'stroke', pts: drawing.pts, live: true }] : S.marks;
+  all.forEach((m, i) => {
+    const P = m.pts.map(scr).filter(Boolean);
+    if (!P.length) return;
+    c.strokeStyle = '#ff3b30'; c.fillStyle = '#ff3b30'; c.lineWidth = 3; c.lineJoin = c.lineCap = 'round';
+    if (m.kind === 'stroke') { c.beginPath(); P.forEach(([x, y], j) => (j ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); }
+    if (m.live) return;
+    const [x, y] = P[0];
+    c.beginPath(); c.arc(x, y, 10, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.font = 'bold 12px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(i + 1), x, y + 0.5);
+  });
+}
+function typeOf(id) { return S.tree.find((t) => t.id === id)?.type || ''; }
+function renderMarks() {
+  $('#markBar').hidden = !S.marks.length;
+  $('#markList').innerHTML = S.marks.map((m, i) => {
+    const what = m.eids.length ? m.eids.map((id) => `${esc(id)} <i>${esc(typeOf(id))}</i>`).join(', ') : 'без элемента (точка в пространстве)';
+    return `<div class="mk"><b>${i + 1}</b><span class="what" title="${m.kind === 'stroke' ? 'рисунок' : 'точка'}">${m.kind === 'stroke' ? '〰' : '•'} ${what}</span>
+      <input data-i="${i}" value="${esc(m.note)}" placeholder="что здесь сделать"><button data-del="${i}" title="Удалить пометку">✕</button></div>`;
+  }).join('');
+  if (S.marks.length) showTab('bottom', 'chat');
+}
+function setMarking(on) {
+  S.marking = on;
+  $('#btnMark').classList.toggle('on', on);
+  renderer.domElement.style.cursor = on ? 'crosshair' : '';
+  orbit.mouseButtons = on ? { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+    : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  if (on) { gizmo.detach(); $('#status').textContent = 'Пометки: клик — точка, протянуть — нарисовать; камера — правая кнопка мыши'; }
+}
+$('#btnMark').onclick = () => setMarking(!S.marking);
+$('#markList').oninput = (e) => { if (e.target.dataset.i) S.marks[+e.target.dataset.i].note = e.target.value; };
+$('#markList').onclick = (e) => { if (e.target.dataset.del) { S.marks.splice(+e.target.dataset.del, 1); renderMarks(); invalidate(); } };
+$('#markClear').onclick = () => { S.marks = []; renderMarks(); invalidate(); };
+function markShot() {  // the view with the marks drawn on top, as the AI should see it
+  renderer.render(scene, camera); drawMarks();
+  const src = renderer.domElement, s = Math.min(1, 1280 / src.width);
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(src.width * s); cv.height = Math.round(src.height * s);
+  const c = cv.getContext('2d');
+  c.drawImage(src, 0, 0, cv.width, cv.height); c.drawImage(markCv, 0, 0, cv.width, cv.height);
+  return cv.toDataURL('image/png');
+}
+$('#markRun').onclick = async () => {
+  if (!S.marks.length) return;
+  const task = $('#chatText').value.trim();
+  const scope = [...new Set(S.marks.flatMap((m) => m.eids))];
+  const lines = S.marks.map((m, i) => {
+    const where = m.kind === 'stroke'
+      ? `рисунок по ${m.eids.length ? 'элементам ' + m.eids.map((id) => `\`${id}\` (${typeOf(id)})`).join(', ') : 'пустому месту'}, от ${JSON.stringify(toCore(m.pts[0]))} до ${JSON.stringify(toCore(m.pts.at(-1)))}`
+      : `точка на ${m.eids.length ? `элементе \`${m.eids[0]}\` (${typeOf(m.eids[0])})` : 'пустом месте'} в ${JSON.stringify(toCore(m.pts[0]))}`;
+    return `${i + 1}. ${where}: «${m.note || task || 'переделать'}»`;
+  });
+  const text = ['Переделай ТОЛЬКО отмеченные места модели. Всё остальное не трогай.',
+    scope.length ? `Менять можно только элементы ${scope.map((s) => '`' + s + '`').join(', ')} и их дочерние элементы, новые элементы — только прикреплённые к ним; остальные правки сервер отклонит.`
+      : 'Пометки не попали на элементы — ориентируйся по координатам.',
+    task ? `Общая задача: ${task}` : '',
+    'Пометки (координаты в метрах, Z вверх; на скриншоте — красные номера и линии):', ...lines,
+    'После правок проверь validate и render_views (только что отмеченное).'].filter(Boolean).join('\n');
+  try {
+    chatBusy(true); showTab('bottom', 'chat');
+    await api('chat', { text, scope, image: markShot() });
+    $('#chatText').value = '';
+    setMarking(false);
+  } catch (e) { chatBusy(false); chatItem({ role: 'error', text: e.message }); }
 };
 
 // ---------------------------------------------------------------- AI chat (any provider; runs on the server)
