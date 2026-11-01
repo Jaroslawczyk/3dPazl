@@ -13,7 +13,7 @@ datas = [
 ]
 binaries, hiddenimports = [], collect_submodules("pazl") + collect_submodules("uvicorn")
 for pkg in ("webview", "manifold3d", "trimesh", "pyrender", "pyglet", "OpenGL", "fast_simplification", "mapbox_earcut",
-            "shapely", "clr_loader", "pythonnet"):
+            "shapely", "clr_loader", "pythonnet", "anthropic"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
 

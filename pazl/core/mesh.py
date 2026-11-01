@@ -219,9 +219,9 @@ def _orm(tex: dict):
     return _IMG_CACHE[key]
 
 
-def material_for(name: str, tex_dir: Path | None, textured: bool):
+def material_for(name: str, tex_dir: Path | None, textured: bool, swap: dict | None = None):
     """PBR material: realistic = texture maps (albedo, normal, AO+roughness+metal) tinted by paint;
-    low-poly = flat colour only."""
+    low-poly = flat colour only. swap = {material: other texture set | "none"} (recipe "tex_swap")."""
     from .decals import ensure_all, file_for
     info = MATS.get(name)
     col = [c / 255 for c in info.get("color", [200, 200, 200])] + [float(info.get("alpha", 1.0))]
@@ -237,7 +237,8 @@ def material_for(name: str, tex_dir: Path | None, textured: bool):
         kw["roughnessFactor"] = 0.9
         kw["alphaMode"] = "BLEND" if name.startswith("decal_") else "OPAQUE"
         return trimesh.visual.material.PBRMaterial(**kw)
-    tex = MATS.texture_files(name, tex_dir or Path(".")) if textured else {}
+    alt = (swap or {}).get(name.partition("#")[0])
+    tex = MATS.texture_files(alt or name, tex_dir or Path(".")) if textured and alt != "none" else {}
     if "albedo" in tex:
         kw["baseColorTexture"] = _img(tex["albedo"])
         kw["baseColorFactor"] = (col[:3] if info.get("tint") else [1, 1, 1]) + [col[3]]
@@ -255,7 +256,10 @@ def material_for(name: str, tex_dir: Path | None, textured: bool):
 def overlay_meshes(result, kinds=None, y_up=True):
     """Decal / fake-interior quads as separate (non-welded) meshes grouped by material: [(name, Trimesh)]."""
     groups: dict[str, list] = {}
+    off = set(result.recipe.get("decals_off") or [])  # decal kinds switched off: graffiti, moss, ...
     for eid, d in result.overlay(kinds):
+        if d["mat"].startswith("decal_") and d["mat"][6:].rsplit("_", 1)[0] in off:
+            continue
         groups.setdefault(d["mat"], []).append(d)
     out = []
     R = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
@@ -292,10 +296,13 @@ def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured
     V, F, oid = manifold_to_arrays(final)
     mats, _ = tri_materials(oid)
     scene = trimesh.Scene()
+    recipe = result.recipe if result is not None else {}
+    textured = textured and recipe.get("textures") is not False
+    swap = recipe.get("tex_swap") or {}
     for name, tm in split_by_material(V, F, mats).items():
         info = MATS.get(name)
         tm2 = box_uv(tm, info.get("tile") or 1.0)
-        tm2.visual.material = material_for(name, tex_dir, textured)
+        tm2.visual.material = material_for(name, tex_dir, textured, swap)
         if y_up:
             tm2.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
         scene.add_geometry(tm2, node_name=name, geom_name=name)

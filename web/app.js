@@ -173,7 +173,9 @@ function tex(name, kind, srgb) {
 }
 function applyTextures(m) {
   // material name: "brick_red" or painted "brick_red#aa3322" (tint = paint colour)
-  const [base, hex] = (m.name || '').split('#');
+  const [mat, hex] = (m.name || '').split('#');
+  if (S.state?.textures === false) return;
+  const base = S.state?.tex_swap?.[mat] || mat;  // texture set swapped by the user
   const have = S.texAvail?.[base];
   if (!have || !have.includes('albedo')) return;
   m.map = tex(base, 'albedo', true);
@@ -371,6 +373,7 @@ async function refreshAll(fit = false) {
   $('#btnUndo').disabled = !S.state.can_undo; $('#btnRedo').disabled = !S.state.can_redo;
   renderTree();
   await reloadModel(fit);
+  renderMats();
   if (S.selected && !S.tree.find((t) => t.id === S.selected)) select(null);
   else if (S.selected) { attachGizmo(); showProps(S.selected); }
 }
@@ -729,6 +732,96 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'Delete' && S.selected) patch([{ op: 'remove', id: S.selected }], 'удалён ' + S.selected);
   else if (e.key === 'f' && S.selected) { const b = new THREE.Box3(); (S.meshesById.get(S.selected) || []).forEach((m) => b.expandByObject(m)); fitView(b, 'iso'); }
 });
+// ---------------------------------------------------------------- materials: textures on/off, swaps, decal kinds
+const DECAL_RU = { dirt: 'грязь', soot: 'копоть', moss: 'мох', rust: 'ржавчина', water_stain: 'подтёки', crack: 'трещины',
+                   peeling: 'облупленная краска', graffiti: 'граффити', poster: 'плакаты', scuff: 'потёртости' };
+async function renderMats() {
+  if (!S.state) return;
+  if (!S.texAvail) S.texAvail = await api('textures/available').catch(() => ({}));
+  $('#chkTextures').checked = S.state.textures !== false;
+  const off = new Set(S.state.decals_off || []);
+  $('#decalKinds').innerHTML = Object.entries(DECAL_RU).map(([k, ru]) =>
+    `<label class="chip ${off.has(k) ? '' : 'on'}"><input type="checkbox" data-k="${k}" ${off.has(k) ? '' : 'checked'}> ${ru}</label>`).join('');
+  const used = new Set();
+  root.traverse((o) => { if (o.isMesh && !o.userData.overlay) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.name && used.add(m.name.split('#')[0])); });
+  const avail = Object.keys(S.texAvail || {}).filter((k) => S.texAvail[k].includes('albedo')).sort();
+  const swap = S.state.tex_swap || {};
+  $('#matList').innerHTML = [...used].sort().map((m) => {
+    const cur = swap[m] || '';
+    const opts = [`<option value="">${S.texAvail?.[m] ? 'своя' : 'своя (нет файла)'}</option>`, `<option value="none" ${cur === 'none' ? 'selected' : ''}>без текстуры</option>`]
+      .concat(avail.filter((a) => a !== m).map((a) => `<option ${cur === a ? 'selected' : ''}>${esc(a)}</option>`));
+    return `<div class="row"><span>${esc(m)}</span><select data-m="${esc(m)}">${opts.join('')}</select></div>`;
+  }).join('') || '<div class="hint">Нет материалов (включите «Реализм»).</div>';
+}
+$('#chkTextures').onchange = () => patch([{ op: 'set', key: 'textures', value: $('#chkTextures').checked }], $('#chkTextures').checked ? 'текстуры включены' : 'текстуры выключены');
+$('#decalKinds').onchange = (e) => {
+  const off = $$('#decalKinds input').filter((i) => !i.checked).map((i) => i.dataset.k);
+  patch([{ op: 'set', key: 'decals_off', value: off }], 'декали: ' + (DECAL_RU[e.target.dataset.k] || '') + (e.target.checked ? ' вкл.' : ' выкл.'));
+};
+$('#matList').onchange = (e) => {
+  const swap = { ...(S.state.tex_swap || {}) };
+  if (e.target.value) swap[e.target.dataset.m] = e.target.value; else delete swap[e.target.dataset.m];
+  patch([{ op: 'set', key: 'tex_swap', value: swap }], `текстура ${e.target.dataset.m} → ${e.target.value || 'своя'}`);
+};
+
+// ---------------------------------------------------------------- AI chat (any provider; runs on the server)
+const CH = { settings: null };
+function chatItem(it) {
+  const log = $('#chatLog');
+  log.querySelector('.hint')?.remove();
+  const d = document.createElement('div');
+  d.className = 'msg ' + it.role;
+  if (it.role === 'tool') d.textContent = '🔧 ' + it.text + (it.args && Object.keys(it.args).length ? ' ' + JSON.stringify(it.args).slice(0, 160) : '');
+  else d.textContent = it.text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+function chatBusy(b) { $('#chatSend').hidden = b; $('#chatStop').hidden = !b; }
+function chatEvent(ev) {
+  if (ev.role === 'done') return chatBusy(false);
+  chatItem(ev);
+}
+function chatFill() {
+  const s = CH.settings, p = s.providers.find((x) => x.id === s.provider) || s.providers[0];
+  $('#chatProvider').innerHTML = s.providers.map((x) => `<option value="${x.id}" ${x.id === s.provider ? 'selected' : ''}>${esc(x.title)}${x.id === 'claude_code' && !s.claude_cli ? ' — не установлен' : ''}</option>`).join('');
+  $('#chatModel').value = s.models[p.id] || '';
+  $('#chatModel').placeholder = p.model || (p.id === 'claude_code' ? 'модель (как в Claude Code)' : 'модель (имя у провайдера)');
+  const compat = !['anthropic', 'claude_code'].includes(p.id);
+  $('#chatUrl').hidden = !compat; $('#chatUrl').value = s.base_urls[p.id] || p.base_url;
+  $('#chatKey').hidden = p.id === 'claude_code';
+  $('#chatKey').value = '';
+  $('#chatKey').placeholder = s.has_key[p.id] ? 'ключ сохранён (ввести новый)' : (p.needs_key ? 'API-ключ' : 'API-ключ (не обязателен)');
+  $('#chatEffort').hidden = p.id !== 'anthropic'; $('#chatEffort').value = s.effort || 'high';
+  $('#chatVision').parentElement.hidden = !compat; $('#chatVision').checked = s.vision !== false;
+}
+async function chatSave(upd) { CH.settings = await api('chat/settings', upd); chatFill(); }
+async function chatInit() {
+  const st = await api('chat');
+  CH.settings = st.settings; chatFill();
+  st.transcript.forEach(chatItem);
+  chatBusy(st.busy);
+}
+$('#chatProvider').onchange = () => chatSave({ provider: $('#chatProvider').value });
+$('#chatModel').onchange = () => chatSave({ model: $('#chatModel').value });
+$('#chatUrl').onchange = () => chatSave({ base_url: $('#chatUrl').value });
+$('#chatKey').onchange = () => chatSave({ api_key: $('#chatKey').value });
+$('#chatEffort').onchange = () => chatSave({ effort: $('#chatEffort').value });
+$('#chatVision').onchange = () => chatSave({ vision: $('#chatVision').checked });
+$('#chatReset').onclick = async () => {
+  try { await api('chat/reset', {}); $('#chatLog').innerHTML = '<div class="hint">Новый разговор.</div>'; }
+  catch (e) { chatItem({ role: 'error', text: e.message }); }
+};
+$('#chatStop').onclick = () => api('chat/stop', {});
+async function chatSend() {
+  const text = $('#chatText').value.trim();
+  if (!text) return;
+  try { chatBusy(true); await api('chat', { text }); $('#chatText').value = ''; }
+  catch (e) { chatBusy(false); chatItem({ role: 'error', text: e.message }); }
+}
+$('#chatSend').onclick = chatSend;
+$('#chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } });
+chatInit().catch((e) => chatItem({ role: 'error', text: 'чат: ' + e.message }));
+
 function showTab(where, tab) {
   $$(`.tabs[data-for="${where}"] button`).forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   const parent = where === 'left' ? $('#left') : $('#bottom');
@@ -772,6 +865,7 @@ function connect() {
   ws.onmessage = async (m) => {
     const ev = JSON.parse(m.data);
     if (ev.type === 'hello') return;
+    if (ev.type === 'chat') { chatEvent(ev); return; }
     feedLine(ev);
     if (ev.type === 'updated') {
       // flash elements the change touched

@@ -51,7 +51,7 @@
 <main>
   <aside id="left">
     <nav class="tabs" data-for="left">
-      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button>
+      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button><button data-tab="mats">Материалы</button>
     </nav>
     <section data-pane="tree" class="pane on">
       <div class="hint">Клик — выбрать. Элементы вложены по тому, к чему прикреплены.</div>
@@ -64,6 +64,14 @@
       <div id="lib"></div>
     </section>
     <section data-pane="styles" class="pane"><div id="styles"></div></section>
+    <section data-pane="mats" class="pane">
+      <label class="row"><input type="checkbox" id="chkTextures" checked> Текстуры (выкл. — плоские цвета)</label>
+      <h4>Декали</h4>
+      <div id="decalKinds" class="chips"></div>
+      <h4>Текстуры материалов</h4>
+      <div class="hint">Замените текстуру любого материала модели на другую или уберите её.</div>
+      <div id="matList"></div>
+    </section>
   </aside>
 
   <section id="center">
@@ -102,8 +110,26 @@
 
 <footer id="bottom">
   <nav class="tabs" data-for="bottom">
-    <button data-tab="feed" class="on">Лента работы ИИ</button><button data-tab="check">Проверка</button><button data-tab="shots">Скриншоты</button>
+    <button data-tab="chat">💬 Чат с ИИ</button><button data-tab="feed" class="on">Лента работы ИИ</button><button data-tab="check">Проверка</button><button data-tab="shots">Скриншоты</button>
   </nav>
+  <section data-pane="chat" class="pane">
+    <div id="chatWrap">
+      <div id="chatLog"><div class="hint">Напишите, что построить или изменить. ИИ работает теми же инструментами, что и через MCP.</div></div>
+      <div id="chatCfg">
+        <select id="chatProvider" title="Какой ИИ"></select>
+        <input id="chatModel" placeholder="модель" title="Модель" spellcheck="false">
+        <input id="chatUrl" placeholder="base URL" title="Адрес OpenAI-совместимого API" spellcheck="false">
+        <input id="chatKey" type="password" placeholder="API-ключ" title="Хранится только на этом компьютере" autocomplete="off">
+        <select id="chatEffort" title="Глубина размышлений (Claude)"><option value="low">быстро</option><option value="medium">средне</option><option value="high">тщательно</option><option value="xhigh">очень тщательно</option></select>
+        <label title="Отправлять модели скриншоты (нужна модель с поддержкой изображений)"><input type="checkbox" id="chatVision"> картинки</label>
+        <button id="chatReset" title="Начать новый разговор">Новый чат</button>
+      </div>
+      <div id="chatInput">
+        <textarea id="chatText" rows="2" placeholder="Например: построй деревянную церковь с тремя куполами (Enter — отправить, Shift+Enter — новая строка)"></textarea>
+        <button id="chatSend" class="act">Отправить</button><button id="chatStop" hidden>Стоп</button>
+      </div>
+    </div>
+  </section>
   <section data-pane="feed" class="pane on"><ul id="feed"></ul></section>
   <section data-pane="check" class="pane"><div id="check"><div class="hint">Нажмите «Проверить».</div></div></section>
   <section data-pane="shots" class="pane"><div id="shots"></div></section>

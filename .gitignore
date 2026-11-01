@@ -13,3 +13,4 @@ textures/library/SOURCES.json
 scripts/__pycache__/
 dist/
 build/
+chat_settings.json

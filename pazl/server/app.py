@@ -13,6 +13,7 @@ from .. import __version__
 from ..core.materials import MATS
 from ..core.registry import ELEMENTS
 from ..core.styles import load_styles, summary as styles_summary
+from .chat import Chat
 from .project import PROJECTS, ROOT, Project
 
 HOST, PORT = "127.0.0.1", 8765
@@ -41,6 +42,7 @@ def broadcast(ev: dict):
 
 
 P = Project(broadcast)
+CHAT = Chat(broadcast)
 
 
 @app.on_event("startup")
@@ -280,6 +282,41 @@ def log(since: float = 0):
 
 
 # ------------------------------------------------------------------ live + static
+# ------------------------------------------------------------------ AI chat (any provider, same tools as MCP)
+@app.get("/api/chat")
+def chat_state():
+    return CHAT.state()
+
+
+@app.post("/api/chat")
+def chat_send(body: dict = Body(...)):
+    try:
+        CHAT.send(str(body.get("text", "")))
+    except (RuntimeError, ValueError) as ex:
+        raise HTTPException(409, str(ex))
+    return {"ok": True}
+
+
+@app.post("/api/chat/settings")
+def chat_settings(body: dict = Body(...)):
+    return CHAT.save_settings(body)
+
+
+@app.post("/api/chat/stop")
+def chat_stop():
+    CHAT.stop()
+    return {"ok": True}
+
+
+@app.post("/api/chat/reset")
+def chat_reset():
+    try:
+        CHAT.reset()
+    except RuntimeError as ex:
+        raise HTTPException(409, str(ex))
+    return {"ok": True}
+
+
 @app.websocket("/ws")
 async def ws(sock: WebSocket):
     await sock.accept()

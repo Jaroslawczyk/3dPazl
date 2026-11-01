@@ -80,3 +80,29 @@ legend { color: var(--mute); font-size: 11px; padding: 0 4px; }
 .paint-row input[type=color] { width: 34px; height: 24px; padding: 0; border: none; background: none; }
 .plan svg { width: 100%; background: #111318; border-radius: 6px; } .plan text { font-size: 0.6px; fill: #ddd; }
 #top { flex-wrap: nowrap; overflow-x: auto; } #top .grp { flex-shrink: 0; }
+
+/* materials tab */
+[data-pane="mats"] h4 { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; color: var(--mute); }
+.chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; font-size: 11px; border-radius: 10px;
+        border: 1px solid var(--line); cursor: pointer; opacity: .55; }
+.chip.on { opacity: 1; border-color: var(--acc); }
+.chip input { margin: 0; }
+#matList .row { flex-wrap: nowrap; align-items: center; justify-content: space-between; margin: 3px 0; font-size: 12px; }
+#matList select { max-width: 55%; }
+
+/* AI chat */
+#chatWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 6px; }
+#chatLog { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; padding: 4px; }
+#chatLog .msg { padding: 5px 9px; border-radius: 8px; max-width: 85%; white-space: pre-wrap; word-break: break-word; }
+#chatLog .msg.user { align-self: flex-end; background: #1f3b5b; color: #cfe4fa; }
+#chatLog .msg.assistant { align-self: flex-start; background: var(--panel2); }
+#chatLog .msg.tool { align-self: flex-start; color: var(--mute); font-size: 11px; padding: 1px 9px; font-family: ui-monospace, monospace; }
+#chatLog .msg.error { align-self: flex-start; color: var(--bad); }
+#chatLog .msg.info { align-self: center; color: var(--mute); font-size: 11px; }
+#chatCfg { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+#chatCfg input { width: 150px; } #chatCfg #chatUrl { width: 230px; }
+#chatInput { display: flex; gap: 6px; }
+#chatInput textarea { flex: 1; resize: vertical; font: inherit; color: var(--text); background: var(--panel2);
+                      border: 1px solid var(--line); border-radius: var(--radius); padding: 6px; }
+body:has([data-pane="chat"].on) { grid-template-rows: 46px 1fr 340px; } /* more room while chatting */
+[data-pane="chat"].on { overflow: hidden; }

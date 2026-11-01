@@ -480,5 +480,6 @@ class Project:
                 "errors": [{"id": e.get("id"), "error": e.get("error")} for e in res.errors],
                 "can_undo": bool(self.undo_stack), "can_redo": bool(self.redo_stack), "dir": str(self.dir),
                 "seed": self.recipe.get("seed", 1), "interiors": self.recipe.get("interiors", True),
-                "rooms": self.recipe.get("rooms", True),
+                "rooms": self.recipe.get("rooms", True), "textures": self.recipe.get("textures", True),
+                "decals_off": self.recipe.get("decals_off") or [], "tex_swap": self.recipe.get("tex_swap") or {},
                 "decals": self.recipe.get("decals", True), "colors": self.recipe.get("colors")}

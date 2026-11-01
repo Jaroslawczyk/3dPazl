@@ -22,6 +22,9 @@ def _running() -> bool:
 
 
 def main():
+    if "--mcp" in sys.argv:  # installed exe: MCP stdio server for the in-app Claude Code chat
+        from .mcp import main as mcp_main
+        return mcp_main()
     if not _running():
         threading.Thread(target=serve, daemon=True).start()
         for _ in range(100):
