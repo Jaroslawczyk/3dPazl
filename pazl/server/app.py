@@ -161,7 +161,54 @@ def element_src(eid: str):
     r = P.result().elements.get(eid)
     if r is None:
         raise HTTPException(404, eid)
-    return {"src": r.src, "error": r.error, "host": r.host, "in_recipe": any(e["id"] == eid for e in P.recipe["elements"])}
+    return {"src": r.src, "error": r.error, "host": r.host, "in_recipe": any(e["id"] == eid for e in P.recipe["elements"]),
+            "info": r.info, "params": r.params, "faces": sorted(k for k, a in r.anchors.items() if a.kind == "face")}
+
+
+@app.get("/api/floorplan")
+def floorplan(id: str | None = None):
+    return _run(P.floorplan, id)
+
+
+@app.get("/api/catalog/periods")
+def periods():
+    from ..core.styles import PERIODS, REGIONS
+    return {"periods": [{"id": a, "name_ru": b, "from": c, "to": d} for a, b, c, d in PERIODS], "regions": REGIONS}
+
+
+@app.post("/api/textures/download")
+def tex_download(body: dict = Body(default={}), x_agent: str = Header("user")):
+    """Download CC0 PBR packs (ambientCG) for the project's materials (which="project"), all, or a list. Runs in background."""
+    import threading
+    threading.Thread(target=P.download_textures, args=(body.get("which", "project"), body.get("res", "1K"), x_agent),
+                     daemon=True).start()
+    return {"started": True}
+
+
+@app.get("/api/textures/available")
+def tex_available():
+    from ..core.materials import TEX_LIB
+    out: dict[str, list] = {}
+    for f in TEX_LIB.glob("*_*.*"):
+        base, _, kind = f.stem.rpartition("_")
+        if kind in ("albedo", "normal", "roughness", "ao", "height", "metal"):
+            out.setdefault(base, []).append(kind)
+    return out
+
+
+@app.get("/tex/{name}/{kind}")
+def tex_file(name: str, kind: str):
+    """Texture map for the viewer: albedo|normal|roughness|ao|height of a material, or a decal/interior picture."""
+    from ..core.decals import ensure_all, file_for
+    f = file_for(name)
+    if f is not None:
+        ensure_all()
+        if f.exists():
+            return FileResponse(f)
+    found = MATS.texture_files(name, P.tex_dir)
+    if kind in found:
+        return FileResponse(found[kind])
+    raise HTTPException(404, "no texture")
 
 
 @app.get("/api/anchors/{eid:path}")

@@ -25,3 +25,17 @@ macros:
 - ziggurat
 tips: Mud-brick, ziggurats, buttressed walls with vertical recesses (pilasters), glazed-brick
   gates (Ishtar gate - ceramic_blue), stepped merlons.
+years:
+- -3500
+- -500
+regions:
+- middle_east
+palette:
+  wall:
+  - '#c4a27a'
+  - '#b8946c'
+  trim:
+  - '#2a5fa6'
+  - '#d8b44a'
+  roof:
+  - '#b08e66'

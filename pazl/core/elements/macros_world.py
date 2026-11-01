@@ -363,11 +363,11 @@ def dutch_house(p, ctx):
     c = []
     kinds = ["stepped", "neck", "bell", "spout", "curved"]
     for i in range(int(p["count"])):
-        w, d, n = p["w"], p["d"], int(p["floors"])
+        w, d, n = p["w"], p["d"], int(ctx.pick(p["floors"], i + 1))  # {"mix":[3,5]} -> every house differs
         x = i * w - (int(p["count"]) - 1) * w / 2
         gk = p["gable"] if i == 0 else kinds[(kinds.index(p["gable"]) + i) % len(kinds)]
         h = f"h{i}"
-        c += [E(h, "block", None, [x, 0], w=w, d=d, floors=n, floor_h=3.3, wall_t=0.4, plinth_h=0.6, material=p["material"]),
+        c += [E(h, "block", None, [x, 0], w=w + 0.06, d=d, floors=n, floor_h=3.3, wall_t=0.4, plinth_h=0.6, material=p["material"]),
               E(f"roof{i}", "roof", f"{h}:top", type="gable", ridge="y", pitch=58, overhang=0.05, material="clay_tile_dark",
                 gable_material=p["material"]),
               E(f"gable{i}", "gable_wall", f"{h}:front", ["50%", "100%"], kind=gk, h=w * 0.5 * 1.6 + 0.6, material=p["material"],
@@ -424,7 +424,7 @@ def alpine_chalet(p, ctx):
          {"w": P(30.0, ""), "floors": P(40, ""), "setbacks": P(4, ""), "material": P("limestone_trim", "")},
          macro=True, title_ru="Небоскрёб ар-деко")
 def art_deco_tower(p, ctx):
-    w, n, ns, m = p["w"], int(p["floors"]), int(p["setbacks"]), p["material"]
+    w, n, ns, m = p["w"], int(ctx.pick(p["floors"])), int(p["setbacks"]), p["material"]
     c = []
     prev = None
     per = max(2, n // (ns + 1))
@@ -451,7 +451,7 @@ def art_deco_tower(p, ctx):
          "deep window recesses, pilotis, rooftop service volumes.",
          {"w": P(40.0, ""), "d": P(16.0, ""), "floors": P(8, ""), "material": P("concrete_raw", "")}, macro=True, title_ru="Брутализм")
 def brutalist_block(p, ctx):
-    w, d, n, m = p["w"], p["d"], int(p["floors"]), p["material"]
+    w, d, n, m = p["w"], p["d"], int(ctx.pick(p["floors"])), p["material"]
     fh = 3.4
     return _part([
         E("pilotis", "colonnade", None, [-w / 2 + 2, 0], order="square", count=8, h=fh * 1.5, r=0.6, length=w - 4, pediment=False,

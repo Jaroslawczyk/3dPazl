@@ -20,3 +20,17 @@ macros:
 tips: Sanctum with a curvilinear shikhara (north) or pyramidal vimana and gopuram
   (south, stepped=true), pillared mandapa halls, jagati platforms, stupas (Buddhist)
   via stupa.
+years:
+- 500
+- 1700
+regions:
+- south_asia
+palette:
+  wall:
+  - '#d9b27a'
+  - '#c98f6a'
+  - '#e8d3a5'
+  trim:
+  - '#c9a227'
+  roof:
+  - '#c98f6a'

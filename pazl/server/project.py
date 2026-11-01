@@ -19,8 +19,21 @@ from ..core.mesh import export as export_mesh, optimize, preview_scene, to_scene
 from ..core.registry import ELEMENTS
 from ..core.render import VIEWS, render_sheet
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-PROJECTS = ROOT / "projects"
+from ..paths import PROJECTS, ROOT  # noqa: E402
+
+
+BULK_OPS = {"reroll", "facade", "paint", "paint_random", "interior_all", "interior_clear", "weather_all", "weather_clear"}
+PROGRAM_BY_MACRO = {
+    "residential": {"house", "izba", "fachwerk_house", "panel_building", "stalinka", "dutch_house", "victorian_house",
+                    "alpine_chalet", "japanese_house"},
+    "office": {"glass_tower", "art_deco_tower", "brutalist_block", "constructivist"},
+    "palace": {"palazzo", "moorish_palace"},
+    "worship": {"gothic_cathedral", "orthodox_church", "romanesque_church", "baroque_church", "lithuanian_church",
+                "byzantine_church", "caucasian_church", "ottoman_mosque", "persian_mosque", "mughal_mausoleum", "hindu_temple",
+                "chinese_temple", "greek_temple", "roman_pantheon", "egyptian_temple", "stave_church"},
+    "hall": {"castle_keep", "bunker", "ziggurat", "maya_pyramid", "pagoda"},
+    "industrial": {"factory"},
+}
 
 
 def slug(s: str) -> str:
@@ -178,6 +191,8 @@ class Project:
         if kind == "set":
             self.recipe[op["key"]] = op["value"]
             return f"{op['key']}={op['value']}"
+        if kind in BULK_OPS:
+            return getattr(self, "_op_" + kind)(op)
         eid = op["id"]
         root, _, sub = eid.partition("/")
         i, e = self._find(root)
@@ -264,6 +279,119 @@ class Project:
         if op.get("rot_delta"):
             target["rot"] = round(float(target.get("rot", 0)) + float(op["rot_delta"]), 3)
 
+    # ------------------------------------------------------------ bulk / helper ops
+    def _built(self):
+        return self.result().elements
+
+    def _op_reroll(self, op):
+        import random
+        self.recipe["seed"] = op.get("seed") or random.randint(1, 999999)
+        return f"seed={self.recipe['seed']}"
+
+    def _op_facade(self, op):
+        """Change or remove the windows on one face (or all faces) of an element."""
+        host, face = op["id"], op.get("face", "front")
+        faces = None if face == "all" else {face}
+        found = [eid for eid, r in self._built().items()
+                 if r.host == host and r.type in ("windows", "window")
+                 and (faces is None or (r.src.get("on") or "").partition(":")[2] in faces)]
+        win = op.get("windows")
+        for eid in found:
+            if win in (None, "none"):
+                self._apply({"op": "remove", "id": eid})
+            else:
+                self._apply({"op": "update", "id": eid, "params": win})
+        if not found and isinstance(win, dict):
+            for f in ([face] if faces else ["front", "back", "left", "right"]):
+                self._apply({"op": "add", "element": {"id": f"{host.replace('/', '_')}_{f}_win", "type": "windows",
+                                                       "on": f"{host}:{f}", "params": win}})
+        return f"facade {host}:{face} -> {'no windows' if win in (None, 'none') else 'windows ' + str(win)}"
+
+    def _op_paint(self, op):
+        self._apply({"op": "update", "id": op["id"], "colors": op.get("colors") or None})
+        return f"paint {op['id']}"
+
+    def _op_paint_random(self, op):
+        import random
+        from ..core.styles import get_style
+        rng = random.Random(op.get("seed") or random.random())
+        ids = op.get("ids") or [e["id"] for e in self.recipe["elements"]]
+        for eid in ids:
+            _, e = self._find(eid.partition("/")[0])
+            if e is None:
+                continue
+            st = get_style(e.get("style") or self.recipe.get("style"))
+            pal = st.get("palette") or {"wall": ["#e8e4da", "#d9c7a4", "#c9d3d6", "#e3c38a"], "trim": ["#f4f2ec"],
+                                        "roof": ["#8a4a35", "#5a5d64"]}
+            colors = {role: rng.choice(v) for role, v in pal.items() if v}
+            self._apply({"op": "update", "id": eid, "colors": colors})
+        return f"random paint x{len(ids)}"
+
+    def _host_blocks(self, types=("block",)):
+        return [eid for eid, r in self._built().items()
+                if r.type in types and "inner" in r.anchors and not r.src.get("hidden")]
+
+    def _program_for(self, eid):
+        _, e = self._find(eid.partition("/")[0])
+        mt = (e or {}).get("type", "")
+        for prog, types in PROGRAM_BY_MACRO.items():
+            if mt in types:
+                return prog
+        return "residential"
+
+    def _op_interior_all(self, op):
+        have = {(e.get("on") or "").partition(":")[0] for e in self.recipe["elements"] if e.get("type") == "interior"}
+        n = 0
+        for b in self._host_blocks():
+            if b in have:
+                continue
+            params = {"program": op.get("program") or self._program_for(b)}
+            if op.get("furniture") is not None:
+                params["furniture"] = op["furniture"]
+            self._apply({"op": "add", "element": {"id": "int_" + b.replace("/", "_"), "type": "interior", "on": f"{b}:inner",
+                                                   "params": params}})
+            n += 1
+        return f"interior for {n} volumes"
+
+    def _op_interior_clear(self, op):
+        self.recipe["elements"] = [e for e in self.recipe["elements"] if e.get("type") != "interior"]
+        return "interiors removed"
+
+    def _op_weather_all(self, op):
+        have = {(e.get("on") or "").partition(":")[0] for e in self.recipe["elements"] if e.get("type") == "weathering"}
+        n = 0
+        for b in self._host_blocks():
+            if b in have:
+                continue
+            self._apply({"op": "add", "element": {"id": "dirt_" + b.replace("/", "_"), "type": "weathering", "on": f"{b}:top",
+                                                   "params": {"amount": op.get("amount", 0.6)}}})
+            n += 1
+        return f"weathering on {n} volumes"
+
+    def _op_weather_clear(self, op):
+        self.recipe["elements"] = [e for e in self.recipe["elements"] if e.get("type") != "weathering"]
+        return "weathering removed"
+
+    def floorplan(self, eid=None):
+        out = {}
+        for k, r in self.result().elements.items():
+            if r.type == "interior" and (eid is None or k == eid or r.host == eid):
+                out[k] = {"host": r.host, "program": r.info.get("program"), "summary": r.info.get("summary"),
+                          "rooms": r.info.get("plan")}
+        return out
+
+    def download_textures(self, which="project", res="1K", agent="?"):
+        from ..core.texpacks import QUERIES, download
+        slots = list(QUERIES) if which == "all" else (which if isinstance(which, list) else self.used_materials())
+        self.event("textures", agent, f"downloading up to {len(slots)} PBR packs (ambientCG, CC0)")
+
+        def prog(i, n, slot, asset, size):
+            self.event("textures", agent, f"[{i + 1}/{n}] {slot} <- {asset} ({size // 1_000_000} MB)")
+        out = download(slots, res, progress=prog)
+        got = [k for k, v in out.items() if not str(v).startswith(("skip", "error"))]
+        self.event("textures", agent, f"done: {len(got)} new packs", downloaded=got)
+        return out
+
     # ------------------------------------------------------------ queries
     def tree(self):
         res = self.result()
@@ -313,7 +441,8 @@ class Project:
 
     def model_glb(self) -> bytes:
         with self.lock:
-            return to_scene(self.final(), self.tex_dir).export(file_type="glb")
+            res = self.result()
+            return to_scene(self.final(), self.tex_dir, textured=res.detail == "realistic", result=res).export(file_type="glb")
 
     def export(self, fmt="glb", lod_tris=None, force=False, agent="?", path=None):
         with self.lock:
@@ -323,7 +452,8 @@ class Project:
             name = slug(self.recipe.get("name", "model"))
             suffix = f"_lod{lod_tris}" if lod_tris else ""
             out = Path(path) if path else self.dir / "export" / f"{name}{suffix}.{fmt}"
-            _, ntri = export_mesh(self.final(), out, fmt, self.tex_dir, lod_tris)
+            res = self.result()
+            _, ntri = export_mesh(self.final(), out, fmt, self.tex_dir, lod_tris, textured=res.detail == "realistic", result=res)
             self.event("exported", agent, f"{out.name} ({ntri} tris)", path=str(out))
             return {"path": str(out), "triangles": ntri, "format": fmt,
                     "materials": self.used_materials()}
@@ -348,4 +478,6 @@ class Project:
         return {"name": self.recipe.get("name"), "style": self.recipe.get("style"), "detail": res.detail,
                 "version": self.version, "elements": len(self.recipe["elements"]), "built": len(res.elements),
                 "errors": [{"id": e.get("id"), "error": e.get("error")} for e in res.errors],
-                "can_undo": bool(self.undo_stack), "can_redo": bool(self.redo_stack), "dir": str(self.dir)}
+                "can_undo": bool(self.undo_stack), "can_redo": bool(self.redo_stack), "dir": str(self.dir),
+                "seed": self.recipe.get("seed", 1), "interiors": self.recipe.get("interiors", True),
+                "decals": self.recipe.get("decals", True), "colors": self.recipe.get("colors")}

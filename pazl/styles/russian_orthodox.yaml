@@ -22,3 +22,21 @@ macros:
 - orthodox_church
 tips: Cube (chetverik) + apse + refectory + bell tower, onion domes on drums, kokoshniki,
   tent roofs (shatyor). Domes gold or blue with stars (dome_blue).
+years:
+- 988
+- 1917
+regions:
+- russia
+- europe_east
+palette:
+  wall:
+  - '#f4f1ea'
+  - '#e7c96d'
+  - '#d7e5ee'
+  - '#f1d6d0'
+  trim:
+  - '#ffffff'
+  roof:
+  - '#3f7a5c'
+  - '#1f4f8c'
+  - '#c9a227'

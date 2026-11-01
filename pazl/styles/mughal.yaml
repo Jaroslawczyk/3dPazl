@@ -23,3 +23,17 @@ macros:
 - mughal_mausoleum
 tips: Symmetry on a high plinth, bulbous double domes, chhatris, iwans with ogee arches,
   minarets, red sandstone with white marble.
+years:
+- 1526
+- 1857
+regions:
+- south_asia
+palette:
+  wall:
+  - '#f4f1ea'
+  - '#b0533b'
+  trim:
+  - '#b0533b'
+  - '#f4f1ea'
+  roof:
+  - '#f4f1ea'

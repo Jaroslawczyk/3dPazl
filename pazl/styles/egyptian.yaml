@@ -28,3 +28,17 @@ macros:
 - giza_pyramid
 tips: Massive battered walls, pylons, flat roofs with cavetto cornices, papyrus columns,
   obelisks, sunk reliefs (panel kind=relief). Pyramids via step_pyramid levels=0.
+years:
+- -3000
+- -30
+regions:
+- north_africa
+palette:
+  wall:
+  - '#d9bf8c'
+  - '#cfae76'
+  trim:
+  - '#e8d3a5'
+  - '#2f6ea8'
+  roof:
+  - '#d2b783'

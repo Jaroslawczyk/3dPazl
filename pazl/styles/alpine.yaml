@@ -20,3 +20,18 @@ macros:
 - alpine_chalet
 tips: Stone ground floor, timber upper floors, wide low roofs with deep overhangs,
   long wooden balconies, flower boxes, painted shutters.
+years:
+- 1600
+- 2100
+regions:
+- europe_west
+palette:
+  wall:
+  - '#9c7048'
+  - '#b38a5d'
+  trim:
+  - '#f4f1ea'
+  - '#3f7a5c'
+  - '#8e2a24'
+  roof:
+  - '#5a4a3a'

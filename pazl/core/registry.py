@@ -53,6 +53,13 @@ class Part:
     children: list = field(default_factory=list)    # macro expansion: element dicts
     overlay: bool = False   # facade overlay: host-face cutters (windows) also cut this element
     notes: list = field(default_factory=list)
+    decals: list = field(default_factory=list)      # overlay layer quads: {"pts": 4x[x,y,z] local, "mat", "kind"}
+    info: dict = field(default_factory=dict)        # extra data for the API (e.g. floor plans)
+
+    def decal(self, pts, mat: str, kind: str = "decal", normal=(0.0, 1.0, 0.0)):
+        """Quad BL, BR, TR, TL in local coords; `normal` = the side it faces (local), used to orient triangles."""
+        self.decals.append({"pts": [list(map(float, p)) for p in pts], "mat": mat, "kind": kind, "n": list(map(float, normal))})
+        return self
 
     def add(self, m: Manifold, mat: str):
         if m is not None and not m.is_empty():
@@ -114,7 +121,10 @@ def element(name, category, desc, params, attach="any", anchors="", macro=False,
 class Ctx:
     """What a generator gets besides its params."""
 
-    def __init__(self, detail: str, anchor: Anchor | None, style: dict, materials, eid: str, recipe=None):
+    def __init__(self, detail: str, anchor: Anchor | None, style: dict, materials, eid: str, recipe=None, seed=1):
+        import random
+        self.rng = random.Random(f"{seed}:{eid}")
+        self.seed = seed
         self.detail = detail
         self.anchor = anchor
         self.style = style
@@ -132,12 +142,34 @@ class Ctx:
             return max(6, min(lo + 4, int(6 + r * 4)))
         return int(max(16, min(hi, 24 + r * 24)))
 
+    def pick(self, v, i=0):
+        """Resolve a random spec for item i: {"rand":[a,b]}, {"mix":[a,b]}, {"choice":[...]} or a plain value."""
+        return rand_value(v, self.rng if i == 0 else __import__("random").Random(f"{self.seed}:{self.eid}:{i}"))
+
     def mat(self, role_or_id: str) -> str:
         return self.materials.resolve(role_or_id, self.style)
 
     def art(self, kind: str, subject: str, color=None) -> str:
         """Register a unique material slot for artwork (mosaic, fresco, icon, stained glass)."""
         return self.materials.art_slot(self.eid, kind, subject, color)
+
+
+def rand_value(v, rng):
+    """Random parameter specs: {"rand":[a,b]} (int if both ints), {"mix":[a,b]} (same, but per instance/section),
+    {"choice":[x,y,...]}. Other values pass through."""
+    if isinstance(v, dict):
+        if "rand" in v or "mix" in v:
+            a, b = v.get("rand") or v.get("mix")
+            if isinstance(a, int) and isinstance(b, int):
+                return rng.randint(min(a, b), max(a, b))
+            return round(rng.uniform(float(a), float(b)), 3)
+        if "choice" in v:
+            return rng.choice(v["choice"])
+    return v
+
+
+def has_mix(params: dict) -> bool:
+    return any(isinstance(v, dict) and "mix" in v for v in params.values())
 
 
 def pct(v, total):

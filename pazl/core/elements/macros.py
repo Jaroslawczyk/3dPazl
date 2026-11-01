@@ -36,7 +36,7 @@ def _part(children):
          macro=True, title_ru="Дом (быстрый старт)")
 def house(p, ctx):
     w, d = p["w"], p["d"]
-    c = [E("main", "block", w=w, d=d, floors=p["floors"], floor_h=p["floor_h"]),
+    c = [E("main", "block", w=w, d=d, floors=ctx.pick(p["floors"]), floor_h=p["floor_h"]),
          E("win_f", "windows", "main:front", kind=p["window"], trim=p["trim"], shutters=p["shutters"],
            skip=[[_mid_col(w), 0]]),
          E("win_b", "windows", "main:back", kind=p["window"], trim=p["trim"], shutters=p["shutters"]),
@@ -106,7 +106,7 @@ def fachwerk_house(p, ctx):
          E("gwin", "windows", "ground:front", w=1.0, h=1.3, trim="simple", skip=[[1, 0]], frame_material="frame_brown"),
          E("door", "door", "ground:front", [w * 0.3, 0.3], kind="segmental", w=1.2, h=2.3, steps=2, trim="rustic")]
     prev = "ground"
-    for i in range(int(p["upper_floors"])):
+    for i in range(int(ctx.pick(p["upper_floors"]))):
         j = p["jetty"] * (i + 1)
         uid = f"up{i}"
         c.append(E(uid, "block", f"{prev}:top", None, w=w + 2 * j, d=d + 2 * j, floors=1, floor_h=fh, plinth_h=0,
@@ -146,7 +146,9 @@ SERIES = {
          macro=True, title_ru="Советский панельный дом (серии)")
 def panel_building(p, ctx):
     s = dict(SERIES[p["series"]])
-    floors = int(p["floors"] or s["floors"])
+    if isinstance(p["floors"], dict) and "mix" in p["floors"]:
+        return _part(_panel_sections(p, ctx, s))
+    floors = int(ctx.pick(p["floors"]) or s["floors"])
     secs = int(p["sections"] or s["sections"])
     L, D, fh = s["sec_len"] * secs, s["d"], s["floor_h"]
     ww = s["win_w"]
@@ -179,6 +181,35 @@ def panel_building(p, ctx):
     for k, e in enumerate(entr):
         c.append(E(f"roofexit{k}", "box", "roof:ridge", [e - L / 2, 0], w=2.5, d=3.0, h=2.0, material=s["mat"]))
     return _part(c)
+
+
+def _panel_sections(p, ctx, s):
+    """Mixed heights: every entrance section is its own block with a random floor count from {"mix":[a,b]}."""
+    secs = int(p["sections"] or s["sections"])
+    sl, D, fh, ww = s["sec_len"], s["d"], s["floor_h"], s["win_w"]
+    per = max(2, int(sl / 3.0))
+    c = []
+    for k in range(secs):
+        n = int(ctx.pick(p["floors"], k + 1))
+        b = f"sec{k}"
+        x = -sl * secs / 2 + sl * (k + 0.5)
+        us = [0.05 + sl * (i + 0.5) / per for i in range(per)]
+        c += [E(b, "block", None, [x, 0], w=sl + 0.1, d=D, floors=n, floor_h=fh, wall_t=0.35, plinth_h=0.9, material=s["mat"],
+                plinth_material="concrete_raw"),
+              E(f"{b}_wf", "windows", f"{b}:front", w=ww, h=s["win_h"], us=us, trim="soviet", frame_material="frame_white", mullions=[1, 0]),
+              E(f"{b}_wb", "windows", f"{b}:back", w=ww, h=s["win_h"], us=[u for u in us if abs(u - sl / 2) > 1.2], trim="soviet",
+                frame_material="frame_white", mullions=[1, 0]),
+              E(f"{b}_stair", "windows", f"{b}:back", w=1.2, h=1.0, us=["50%"], sill=0.9 + fh * 1.5, rows=max(1, n - 1), trim="soviet"),
+              E(f"{b}_door", "door", f"{b}:back", ["50%", 0.9], w=1.4, h=2.2, double=True, steps=4, canopy="slab", trim="none"),
+              E(f"{b}_balc", "balconies", f"{b}:front", kind=s["balcony"], w=2.6, us=us[1::3] or us[:1], railing=s["rail"],
+                slab_material="concrete_raw"),
+              E(f"{b}_roof", "roof", f"{b}:top", type="flat", overhang=0.0, parapet_h=0.5, material="bitumen", gable_material=s["mat"]),
+              E(f"{b}_exit", "box", f"{b}_roof:ridge", [0, 0], w=2.5, d=3.0, h=2.0, material=s["mat"])]
+        if s["panel"]:
+            c += [E(f"{b}_seams_{f}", "panel_grid", f"{b}:{f}", panel_w=3.0) for f in ("front", "back", "left", "right")]
+        for f in (("left",) if k == 0 else ()) + (("right",) if k == secs - 1 else ()):
+            c.append(E(f"{b}_w{f}", "windows", f"{b}:{f}", w=1.0, h=s["win_h"], cols=2, trim="soviet"))
+    return c
 
 
 @element("gothic_cathedral", "macros", "Gothic cathedral: nave with clerestory, lower aisles, transept, apse, flying buttresses, "
@@ -363,7 +394,7 @@ def castle_keep(p, ctx):
           "crown": P(True, "")},
          macro=True, title_ru="Стеклянный небоскрёб")
 def glass_tower(p, ctx):
-    w, d, n, fh = p["w"], p["d"], int(p["floors"]), p["floor_h"]
+    w, d, n, fh = p["w"], p["d"], int(ctx.pick(p["floors"])), p["floor_h"]
     pf = int(p["podium_floors"])
     c = [E("podium", "block", w=w + 16, d=d + 12, floors=pf, floor_h=4.5, plinth_h=0, material="granite"),
          E("pod_glass", "curtain_wall", "podium:front", spacing=3.0, glass_material="glass"),
@@ -410,7 +441,7 @@ def lithuanian_church(p, ctx):
          {"w": P(36.0, ""), "d": P(30.0, ""), "floors": P(3, ""), "floor_h": P(5.0, ""), "courtyard": P(True, "")},
          macro=True, title_ru="Ренессансное палаццо")
 def palazzo(p, ctx):
-    w, d, n, fh = p["w"], p["d"], int(p["floors"]), p["floor_h"]
+    w, d, n, fh = p["w"], p["d"], int(ctx.pick(p["floors"])), p["floor_h"]
     c = [E("body", "block", w=w, d=d, floors=n, floor_h=fh, wall_t=0.9, plinth_h=0.8, material="plaster_ochre", plinth_material="rustication"),
          E("rust", "block", w=w + 0.12, d=d + 0.12, floors=1, floor_h=fh, plinth_h=0.8, material="rustication", hollow=False, _offset=[0, 0, 0]),
          E("win_g", "windows", "rust:front", kind="arch", w=1.2, h=2.0, sill=2.8, rows=1, trim="rustic", skip=[[_mid_col(w, 2.0, 1.6), 0]], margin=2.0, _cut=["body"]),
@@ -439,7 +470,7 @@ def _mid_col(w, margin=1.0, wi=1.2):
          {"w": P(60.0, ""), "d": P(16.0, ""), "floors": P(7, ""), "floor_h": P(3.4, ""), "tower": P(False, "central spire tower (высотка)")},
          macro=True, title_ru="Сталинка / сталинский ампир")
 def stalinka(p, ctx):
-    w, d, n, fh = p["w"], p["d"], int(p["floors"]), p["floor_h"]
+    w, d, n, fh = p["w"], p["d"], int(ctx.pick(p["floors"])), p["floor_h"]
     rw = w * 0.22
     c = [E("body", "block", w=w, d=d, floors=n, floor_h=fh, plinth_h=1.2, material="plaster_ochre", plinth_material="granite"),
          E("risalit", "block", None, [0, -0.6], w=rw, d=d + 1.2, floors=n + 1, floor_h=fh, plinth_h=1.2, material="plaster_ochre",
@@ -526,7 +557,7 @@ def baroque_church(p, ctx):
          {"w": P(40.0, ""), "d": P(14.0, ""), "floors": P(4, "")},
          macro=True, title_ru="Конструктивизм")
 def constructivist(p, ctx):
-    w, d, n = p["w"], p["d"], int(p["floors"])
+    w, d, n = p["w"], p["d"], int(ctx.pick(p["floors"]))
     fh = 3.4
     return _part([
         E("a", "block", w=w, d=d, floors=n, floor_h=fh, plinth_h=0.3, material="plaster_grey"),

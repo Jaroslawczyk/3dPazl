@@ -53,6 +53,32 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
   mughal_mausoleum, hindu_temple, chinese_temple, pagoda, japanese_house, stave_church, dutch_house, victorian_house,
   alpine_chalet, art_deco_tower, brutalist_block, factory, bunker.
 
+## Random sizes, mixes, styles
+- Any numeric param can be random: `{"rand":[3,7]}` (one value), `{"mix":[5,9]}` (a different value for every
+  copy/section/house — panel_building sections, dutch_house rows, `repeat` copies), `{"choice":[...]}`.
+  Stable per recipe `seed`; `set_options(reroll=true)` re-rolls.
+- Style mix: recipe or element `"style": "gothic+russian_orthodox"` — the first style rules materials/proportions,
+  the second fills the rest. Any element (and its macro children) can carry its own `style`.
+- Styles have `years`, `regions`, `palette` (see `list_styles`) — the library filters by epoch and territory.
+
+## Facades, paint, decals, interiors
+- `set_facade(id, face, windows)` — swap window style on one side or remove windows (`"none"`).
+- `paint(id, colors)` / `paint(random=true)` — element `colors` {role: "#hex"} inherited by macro children.
+  Low-poly shows flat colours; realistic tints PBR textures.
+- `decal` element on a face (graffiti, dirt, soot, moss, rust, water_stain, crack, peeling, poster, scuff) and
+  `weathering` on `<block>:top` (or `weather()` for everything). Decals and the fake room pictures behind windows
+  are an OVERLAY layer: separate quads, each at its own depth (no z-fighting), never welded into the watertight shell.
+  Toggle with `set_options(interiors=..., decals=...)`.
+- `generate_interior()` — rooms/corridors/doors/stairs/elevators/furniture inside every block (`<block>:inner`),
+  era-aware (spiral stairs before 1500, elevators from 1880 for tall buildings). Own plans via `plan`.
+  Check with `floorplan()` and the `plan` view (horizontal cut) of `render_views`.
+- Textures: realistic mode uses PBR maps from `textures/library` (`download_textures()` fetches CC0 packs from ambientCG).
+
+## Checks
+`validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
+degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 4 eye-level from the ground, top,
+below, section, plan.
+
 ## Editing macro children
 Children ids look like `b/roof`. `patch([{op:"update", id:"b/roof", params:{pitch:50}}])` stores an override in the
 macro. `{op:"remove", id:"b/chimney"}` hides a child. `{op:"explode", id:"b"}` turns the macro into plain elements.

@@ -18,3 +18,16 @@ macros:
 - dugout
 tips: Pit 1-1.5 m deep, low log walls, steep turf roof to the ground, earth berm,
   trench entrance with steps.
+years:
+- -3000
+- 1950
+regions:
+- europe_east
+- russia
+palette:
+  wall:
+  - '#6d5440'
+  trim:
+  - '#5a4634'
+  roof:
+  - '#5d6f3f'

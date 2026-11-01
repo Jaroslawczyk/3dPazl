@@ -12,3 +12,18 @@ defaults: {}
 macros:
 - house
 tips: Neutral defaults. Pick a concrete style for real buildings.
+years:
+- -4000
+- 2100
+regions:
+- global
+palette:
+  wall:
+  - '#e8e4da'
+  - '#d9c7a4'
+  - '#c9d3d6'
+  trim:
+  - '#f4f2ec'
+  roof:
+  - '#8a4a35'
+  - '#5a5d64'

@@ -23,14 +23,24 @@
   </div>
   <div class="grp">
     <label>Стиль <select id="selStyle"></select></label>
-    <div class="seg" id="segDetail" title="Детализация модели">
+    <label title="Смешать со вторым стилем (первый главный: материалы и пропорции, второй дополняет)">+ <select id="selStyle2"><option value="">—</option></select></label>
+    <div class="seg" id="segDetail" title="Реализм — с PBR-текстурами; Low-poly — без текстур, плоские цвета">
       <button data-v="realistic">Реализм</button><button data-v="lowpoly">Low-poly</button>
     </div>
+  </div>
+  <div class="grp">
+    <button id="btnPaint" title="Случайно покрасить фасады по палитре стиля">🎲 Покрасить</button>
+    <button id="btnReroll" title="Перебросить случайности (этажи-диапазоны, миксы, декали)">🎲 Сид</button>
+    <button id="btnInterior" title="Сгенерировать интерьер: комнаты, лестницы, лифты, мебель">🏠 Интерьер</button>
+    <button id="btnWeather" title="Состарить: грязь, подтёки, мох, граффити">🧱 Состарить</button>
   </div>
   <div class="grp right">
     <button id="btnValidate" class="act" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
     <button id="btnRender" class="act" title="Скриншоты со всех 12 сторон одним листом">📷 Со всех сторон</button>
-    <button id="btnTextures" title="Промпты и файлы текстур для другой ИИ">🎨 Текстуры</button>
+    <select id="selTextures" title="Текстуры">
+      <option value="">🎨 Текстуры…</option><option value="dl_project">Скачать PBR для проекта (CC0)</option>
+      <option value="dl_all">Скачать все паки (~70 × 8 МБ)</option><option value="prompts">Промпты для ИИ-генерации</option>
+    </select>
     <select id="selExport" title="Экспорт цельной модели">
       <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
       <option value="obj">OBJ</option><option value="stl">STL (цельный меш)</option><option value="lod">GLB LOD (меньше треугольников)</option>
@@ -48,6 +58,8 @@
       <ul id="tree"></ul>
     </section>
     <section data-pane="lib" class="pane">
+      <div id="periodChips" class="chips" title="Эпохи"></div>
+      <select id="regionSel" title="Территория"><option value="">Все территории</option></select>
       <input id="libSearch" placeholder="Поиск: окно, купол, колонна…">
       <div id="lib"></div>
     </section>
@@ -69,6 +81,11 @@
       <label title="Показывать сварную (итоговую) модель вместо разборной"><input type="checkbox" id="chkWelded"> Цельная</label>
       <label><input type="checkbox" id="chkWire"> Каркас</label>
       <label title="Камера повторяет ракурсы, с которых ИИ проверяет модель"><input type="checkbox" id="chkFollow" checked> Камера ИИ</label>
+      <span class="sep"></span>
+      <label title="Картинки комнат за окнами (как в Cities: Skylines 2)"><input type="checkbox" id="chkInteriors" checked> Интерьеры за окнами</label>
+      <label title="3D-иллюзия глубины комнат (interior mapping) вместо плоской картинки"><input type="checkbox" id="chkParallax" checked> 3D-иллюзия</label>
+      <label><input type="checkbox" id="chkDecals" checked> Декали</label>
+      <label title="Срез по высоте, чтобы заглянуть внутрь">Срез <input type="range" id="rngClip" min="0" max="100" value="100"></label>
     </div>
     <div id="status"></div>
     <div id="busy" hidden>сборка…</div>

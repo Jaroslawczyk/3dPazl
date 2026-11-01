@@ -27,3 +27,16 @@ macros:
 - greek_temple
 tips: Proportions follow the order - doric column h ~ 5.5 diameters, ionic ~9, corinthian
   ~10. Pediment pitch 12-15 deg.
+years:
+- -700
+- -30
+regions:
+- mediterranean
+palette:
+  wall:
+  - '#efe9dd'
+  - '#e6dccb'
+  trim:
+  - '#f6f1e7'
+  roof:
+  - '#a85a3a'

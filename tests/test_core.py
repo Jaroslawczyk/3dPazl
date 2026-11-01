@@ -69,3 +69,49 @@ def test_overrides_and_export(tmp_path):
     out, ntri = export(res.final(), tmp_path / "m.glb", "glb")
     scene = trimesh.load(out)
     assert len(scene.geometry) > 3 and ntri > 1000
+
+
+def test_random_floors_and_mix():
+    r = {"seed": 5, "elements": [{"id": "b", "type": "panel_building", "params": {"floors": {"mix": [5, 9]}, "sections": 4}}]}
+    res = build(r)
+    floors = [v.params["floors"] for k, v in res.elements.items() if v.type == "block"]
+    assert len(floors) == 4 and all(5 <= f <= 9 for f in floors) and len(set(floors)) > 1
+    assert floors == [v.params["floors"] for k, v in build(r).elements.items() if v.type == "block"]  # stable per seed
+    one = build({"elements": [{"id": "h", "type": "block", "params": {"floors": {"rand": [2, 4]}}}]})
+    assert 2 <= one.elements["h"].params["floors"] <= 4
+    assert validate(res)["ok"]
+
+
+def test_style_mix_and_paint():
+    from pazl.core.styles import get_style
+    st = get_style("gothic+russian_orthodox")
+    assert st["materials"]["wall"] == "stone_ashlar" and st["materials"]["cross"] == "gold"
+    res = build({"style": "gothic", "elements": [{"id": "h", "type": "house", "colors": {"wall": "#aa3322"}}]})
+    from pazl.core.mesh import manifold_to_arrays, tri_materials
+    mats, _ = tri_materials(manifold_to_arrays(res.final())[2])
+    assert any(m.endswith("#aa3322") for m in mats)
+
+
+def test_interior_and_overlay_clean():
+    r = {"style": "soviet_panel", "elements": [
+        {"id": "b", "type": "block", "params": {"w": 30, "d": 12, "floors": 6, "floor_h": 2.8}},
+        {"id": "w", "type": "windows", "on": "b:front"},
+        {"id": "i", "type": "interior", "on": "b:inner", "params": {"program": "residential"}},
+        {"id": "dirt", "type": "weathering", "on": "b:top"},
+        {"id": "g", "type": "decal", "on": "b:front", "at": [5, 0.3]}]}
+    res = build(r)
+    rep = validate(res)
+    assert rep["ok"], rep["errors"][:3]
+    info = res.elements["i"].info
+    assert info["summary"]["elevator"] and info["summary"]["stairs"] == "u" and info["summary"]["rooms"] > 20
+    kinds = {d["kind"] for _, d in res.overlay()}
+    assert kinds == {"interior", "decal"}
+    assert rep["surfaces"]["zfight"] == 0 and rep["surfaces"]["decal_zfight"] == 0
+
+
+def test_textured_export_has_overlay(tmp_path):
+    res = build({"style": "russian_wooden", "elements": [{"id": "b", "type": "izba"}, {"id": "w", "type": "weathering", "on": "b/crib:top"}]})
+    out, _ = export(res.final(), tmp_path / "t.glb", "glb", textured=True, result=res)
+    scene = trimesh.load(out)
+    assert any(k.startswith("overlay|interior_") for k in scene.geometry)
+    assert any(k.startswith("overlay|decal_") for k in scene.geometry)

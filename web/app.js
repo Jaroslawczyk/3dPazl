@@ -80,17 +80,27 @@ async function reloadModel(fit = false) {
     const gltf = await loader.parseAsync(buf, '');
     root.clear();
     S.meshesById.clear();
+    const realistic = (S.state?.detail || 'realistic') === 'realistic';
+    if (realistic && !S.texAvail) S.texAvail = await api('textures/available').catch(() => ({}));
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
+      const name = o.name || o.parent?.name || '';
+      if (name.startsWith('overlay|')) { setupOverlay(o, name.slice(8)); return; }
       o.castShadow = o.receiveShadow = true;
-      const id = welded ? null : (o.name || o.parent?.name || '').split('|')[0].replaceAll('~', '/');
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      const id = welded ? null : name.split('|')[0].replaceAll('~', '/');
       o.userData.eid = id;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
-      mats.forEach((m) => { m.flatShading = true; m.side = THREE.FrontSide; m.wireframe = $('#chkWire').checked; m.needsUpdate = true; });
+      mats.forEach((m) => {
+        m.flatShading = !realistic; m.side = THREE.FrontSide; m.wireframe = $('#chkWire').checked;
+        if (realistic && !welded) applyTextures(m);
+        m.needsUpdate = true;
+      });
       if (id) { if (!S.meshesById.has(id)) S.meshesById.set(id, []); S.meshesById.get(id).push(o); }
     });
     root.add(gltf.scene);
     applyHighlights();
+    applyClip();
     const box = new THREE.Box3().setFromObject(root);
     if (fit || !S.lastCenter) fitView(box, 'iso');
     S.lastCenter = box.getCenter(new THREE.Vector3());
@@ -100,6 +110,96 @@ async function reloadModel(fit = false) {
   loading = false; $('#busy').hidden = true;
   if (pendingReload) { pendingReload = false; reloadModel(); }
 }
+// ---------------------------------------------------------------- textures, overlays, interior illusion
+const texLoader = new THREE.TextureLoader();
+const texCache = new Map();
+function tex(name, kind, srgb) {
+  const key = name + '/' + kind;
+  if (!texCache.has(key)) {
+    const t = texLoader.load(`/tex/${encodeURIComponent(name)}/${kind}`);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    texCache.set(key, t);
+  }
+  return texCache.get(key);
+}
+function applyTextures(m) {
+  // material name: "brick_red" or painted "brick_red#aa3322" (tint = paint colour)
+  const [base, hex] = (m.name || '').split('#');
+  const have = S.texAvail?.[base];
+  if (!have || !have.includes('albedo')) return;
+  m.map = tex(base, 'albedo', true);
+  m.color.set(hex ? '#' + hex : '#ffffff');
+  if (have.includes('normal')) m.normalMap = tex(base, 'normal');
+  if (have.includes('roughness')) { m.roughnessMap = tex(base, 'roughness'); m.roughness = 1; }
+  if (have.includes('ao')) { m.aoMap = tex(base, 'ao'); m.aoMapIntensity = 0.8; }
+}
+const INTERIOR_VS = `#include <clipping_planes_pars_vertex>
+varying vec2 vUv; varying vec3 vPos; varying vec3 vN;
+void main(){ vUv = uv; vec4 wp = modelMatrix * vec4(position, 1.0); vPos = wp.xyz;
+  vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = viewMatrix * wp;
+  gl_Position = projectionMatrix * mvPosition;
+  #include <clipping_planes_vertex>
+}`;
+const INTERIOR_FS = `#include <clipping_planes_pars_fragment>
+uniform sampler2D map; uniform float depth; varying vec2 vUv; varying vec3 vPos; varying vec3 vN;
+void main(){
+  #include <clipping_planes_fragment>
+  vec3 N = normalize(vN); vec3 up = vec3(0.0, 1.0, 0.0);
+  vec3 T = normalize(cross(up, N)); vec3 B = normalize(cross(N, T));
+  vec3 V = normalize(vPos - cameraPosition);
+  vec3 d = vec3(dot(V, T), dot(V, B), dot(V, N));       // ray into the room, tangent space
+  vec3 o = vec3(vUv, 0.0);
+  float tx = d.x > 0.0 ? (1.0 - o.x) / d.x : -o.x / min(d.x, -1e-4);
+  float ty = d.y > 0.0 ? (1.0 - o.y) / d.y : -o.y / min(d.y, -1e-4);
+  float tz = -depth / min(d.z, -1e-4);
+  float t = min(min(tx, ty), tz);
+  vec3 h = o + d * t;                                   // hit point on wall/floor/ceiling/back
+  float k = clamp(-h.z / depth, 0.0, 1.0);
+  float s = 1.0 / (1.0 + 1.27 * k);                     // one-point perspective of the room picture
+  vec2 puv = vec2(0.5) + (h.xy - vec2(0.5)) * s;
+  vec3 c = texture2D(map, puv).rgb * (1.0 - 0.25 * k);
+  gl_FragColor = vec4(c, 1.0);
+  #include <colorspace_fragment>
+}`;
+function setupOverlay(o, mat) {
+  const isDecal = mat.startsWith('decal_');
+  o.userData.overlay = isDecal ? 'decal' : 'interior';
+  o.castShadow = false; o.receiveShadow = !isDecal ? false : true;
+  const map = tex(mat, 'albedo', true);
+  map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
+  if (isDecal) {
+    o.material = new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, roughness: 0.95,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    o.visible = $('#chkDecals').checked;
+  } else {
+    o.geometry.computeVertexNormals();
+    o.material = $('#chkParallax').checked
+      ? new THREE.ShaderMaterial({ uniforms: { map: { value: map }, depth: { value: 1.0 } }, vertexShader: INTERIOR_VS,
+        fragmentShader: INTERIOR_FS, clipping: true })
+      : new THREE.MeshBasicMaterial({ map });
+    o.visible = $('#chkInteriors').checked;
+  }
+  o.renderOrder = isDecal ? 2 : 0;
+}
+function setOverlayVisibility() {
+  root.traverse((o) => {
+    if (o.userData.overlay === 'decal') o.visible = $('#chkDecals').checked;
+    if (o.userData.overlay === 'interior') o.visible = $('#chkInteriors').checked;
+  });
+}
+// height cut to look inside
+renderer.localClippingEnabled = true;
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
+function applyClip() {
+  const v = Number($('#rngClip').value);
+  const box = new THREE.Box3().setFromObject(root);
+  const cut = box.isEmpty() ? Infinity : box.min.y + (box.max.y - box.min.y) * v / 100;
+  renderer.clippingPlanes = v >= 100 || box.isEmpty() ? [] : [clipPlane];
+  clipPlane.constant = cut;
+}
+
 function countTris() { let n = 0; root.traverse((o) => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n; }
 
 function fitView(box, kind) {
@@ -200,7 +300,9 @@ async function commitGizmo() {
 async function refreshAll(fit = false) {
   [S.state, S.recipe, S.tree] = await Promise.all([api('state'), api('recipe'), api('tree')]);
   $('#projName').value = S.state.name || '';
-  $('#selStyle').value = S.state.style;
+  const [st1, st2] = String(S.state.style || 'generic').split('+');
+  $('#selStyle').value = st1; $('#selStyle2').value = st2 || '';
+  $('#chkInteriors').checked = S.state.interiors !== false; $('#chkDecals').checked = S.state.decals !== false;
   $$('#segDetail button').forEach((b) => b.classList.toggle('on', b.dataset.v === S.state.detail));
   $('#btnUndo').disabled = !S.state.can_undo; $('#btnRedo').disabled = !S.state.can_redo;
   renderTree();
@@ -238,10 +340,20 @@ function renderTree() {
 
 // ---------------------------------------------------------------- properties panel
 const catalogByType = () => Object.fromEntries(S.catalog.map((c) => [c.type, c]));
+const RANDOM_KEYS = new Set(['floors', 'upper_floors', 'sections', 'count', 'levels', 'tiers', 'storeys']);
 function fieldHtml(key, spec, val) {
   const v = val === undefined ? spec.default : val;
   const desc = spec.desc ? `<div class="desc">${esc(spec.desc)}</div>` : '';
   let inp;
+  if (RANDOM_KEYS.has(key) && (typeof spec.default === 'number' || spec.default === null || (v && typeof v === 'object' && !Array.isArray(v)))) {
+    // число / диапазон (случайно одно значение) / микс (своё значение для каждой секции/копии)
+    const mode = v && typeof v === 'object' ? (v.mix ? 'mix' : 'rand') : 'num';
+    const a = mode === 'num' ? (v ?? '') : (v.mix || v.rand)[0], b = mode === 'num' ? '' : (v.mix || v.rand)[1];
+    inp = `<div class="floors-ctl" data-k="${key}" data-rnd="1"><select><option value="num" ${mode === 'num' ? 'selected' : ''}>число</option>`
+      + `<option value="rand" ${mode === 'rand' ? 'selected' : ''}>диапазон</option><option value="mix" ${mode === 'mix' ? 'selected' : ''}>микс</option></select>`
+      + `<input type="number" step="any" value="${a}" placeholder="авто"><input type="number" step="any" value="${b}" ${mode === 'num' ? 'hidden' : ''} placeholder="до"></div>`;
+    return `<div class="prop"><label title="${esc(key)}">${esc(key)}</label>${inp}${desc}</div>`;
+  }
   if (spec.choices) inp = `<select data-k="${key}">${spec.choices.map((c) => `<option ${c === v ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`;
   else if (typeof spec.default === 'boolean') inp = `<input type="checkbox" data-k="${key}" ${v ? 'checked' : ''}>`;
   else if (typeof spec.default === 'number' && (typeof v === 'number' || v === null)) inp = `<input type="number" step="any" data-k="${key}" value="${v ?? ''}">`;
@@ -255,6 +367,15 @@ function readFields(container, specs) {
   container.querySelectorAll('[data-k]').forEach((el) => {
     const k = el.dataset.k, spec = specs[k] || {};
     let v;
+    if (el.dataset.rnd) {
+      const [sel, a, b] = el.querySelectorAll('select, input');
+      const na = a.value === '' ? null : Number(a.value), nb = b.value === '' ? na : Number(b.value);
+      const intish = Number.isInteger(na) && Number.isInteger(nb);
+      v = sel.value === 'num' || na === null ? na : { [sel.value]: [intish ? na : na, intish ? nb : nb] };
+      const def = spec.default;
+      if (JSON.stringify(v) !== JSON.stringify(def)) out[k] = v;
+      return;
+    }
     if (el.type === 'checkbox') v = el.checked;
     else if (el.type === 'number') v = el.value === '' ? null : Number(el.value);
     else if (el.dataset.json) {
@@ -285,11 +406,14 @@ async function showProps(id) {
     + fieldHtml('offset', { default: null, desc: 'доп. смещение [x,y,z] в системе якоря' }, src.offset)
     + fieldHtml('rot', { default: 0, desc: 'поворот вокруг вертикали, °' }, src.rot ?? 0)
     + fieldHtml('repeat', { default: null, desc: '{"count":3,"step":[4,0,0]}' }, src.repeat)
+    + fieldHtml('style', { default: null, desc: 'свой стиль элемента, можно микс: "gothic+baroque"' }, src.style)
     + `</fieldset><fieldset id="pf"><legend>Параметры</legend>${Object.entries(schema).map(([k, s]) => fieldHtml(k, s, params[k])).join('')}</fieldset>`
+    + facadeHtml(info) + paintHtml(src) + planHtml(info)
     + `<div class="row"><button id="pApply" class="on">Применить</button><button id="pDup">Дублировать</button>`
     + `${isGroup && info.in_recipe ? '<button id="pExplode" title="Разобрать макрос на обычные элементы">Разобрать</button>' : ''}`
     + `<button id="pDel">Удалить</button><button id="pAnch">Якоря</button></div><div id="anchList"></div>`;
-  const posSpecs = { on: { default: null }, at: { default: null }, offset: { default: null }, rot: { default: 0 }, repeat: { default: null } };
+  const posSpecs = { on: { default: null }, at: { default: null }, offset: { default: null }, rot: { default: 0 }, repeat: { default: null }, style: { default: null } };
+  wireExtras(id, info);
   $('#pApply').onclick = async () => {
     const pos = {}; const fs = box.querySelector('fieldset');
     fs.querySelectorAll('[data-k]').forEach((el) => { const r = readFields({ querySelectorAll: () => [el] }, posSpecs); const k = el.dataset.k; pos[k] = k in r ? r[k] : null; });
@@ -313,6 +437,70 @@ async function showProps(id) {
     $('#anchList').innerHTML = '<div class="hint">Якоря (к ним можно крепить элементы):</div>' + Object.entries(a).map(([k, v]) =>
       `<div class="hint">• <b>${esc(id)}:${esc(k)}</b> — ${v.kind}${v.kind === 'face' ? ` ${v.w}×${v.h} м` : ''}</div>`).join('');
   };
+}
+
+// facade tool, paint, floor plan
+const WIN_KINDS = ['rect', 'arch', 'segmental', 'lancet', 'round', 'horseshoe', 'ogee', 'ribbon', 'slit'];
+const TRIMS = ['simple', 'none', 'classic', 'pediment', 'baroque', 'gothic_hood', 'nalichnik', 'archivolt', 'rustic', 'soviet'];
+function facadeHtml(info) {
+  if (!info.faces?.length) return '';
+  return `<fieldset id="fac"><legend>Фасад: окна на стороне</legend>`
+    + `<div class="prop"><label>сторона</label><select id="facFace">${['all', ...info.faces.filter((f) => !/^face\d/.test(f) || info.faces.length < 5)].map((f) => `<option value="${f}">${f === 'all' ? 'все стороны' : f}</option>`).join('')}</select></div>`
+    + `<div class="prop"><label>окна</label><select id="facKind"><option value="none">без окон</option>${WIN_KINDS.map((k) => `<option>${k}</option>`).join('')}</select></div>`
+    + `<div class="prop"><label>наличник</label><select id="facTrim">${TRIMS.map((k) => `<option>${k}</option>`).join('')}</select></div>`
+    + `<div class="prop"><label>ширина × высота</label><div class="floors-ctl"><input id="facW" type="number" step="0.1" value="1.2"><input id="facH" type="number" step="0.1" value="1.5"></div></div>`
+    + `<div class="row"><button id="facApply">Заменить окна</button></div></fieldset>`;
+}
+const PAINT_ROLES = ['wall', 'roof', 'trim', 'frame', 'door', 'plinth'];
+const ROLE_RU = { wall: 'стены', roof: 'крыша', trim: 'декор', frame: 'рамы', door: 'двери', plinth: 'цоколь' };
+function paintHtml(src) {
+  const c = src.colors || {};
+  return `<fieldset id="pnt"><legend>Покраска (low-poly — цвет, реализм — тон текстуры)</legend><div class="paint-row">`
+    + PAINT_ROLES.map((r) => `<label>${ROLE_RU[r]}<input type="color" data-role="${r}" value="${c[r] || '#d8d4cc'}" data-set="${c[r] ? 1 : ''}"></label>`).join('')
+    + `</div><div class="row"><button id="pntApply">Покрасить</button><button id="pntRand">🎲 Случайно</button><button id="pntClear">Сбросить</button></div></fieldset>`;
+}
+const ROOM_COL = { living: '#c98f6a', bedroom: '#7d9ac9', kitchen: '#c9b46a', bath: '#6ac9c2', wc: '#6ac9c2', corridor: '#555',
+  stairs: '#999', elevator: '#bbb', office: '#7dc98f', meeting: '#c97db8', classroom: '#9ac97d', nave: '#b89a6a', hall: '#b89a6a' };
+function planHtml(info) {
+  const plan = info.info?.plan;
+  if (!plan?.length) return '';
+  const floors = [...new Set(plan.map((r) => r.floor))];
+  const s = info.info.summary || {};
+  return `<fieldset class="plan"><legend>План этажей (${esc(info.info.program)})</legend><div class="hint">комнат ${s.rooms} · лестница ${s.stairs} · лифт ${s.elevator ? 'да' : 'нет'}</div>`
+    + `<select id="planFloor">${floors.map((f) => `<option value="${f}">этаж ${f + 1}</option>`).join('')}</select><div id="planSvg"></div></fieldset>`;
+}
+function drawPlan(plan, f) {
+  const rooms = plan.filter((r) => r.floor === f);
+  const W = Math.max(...rooms.map((r) => r.rect[2])), H = Math.max(...rooms.map((r) => r.rect[3]));
+  $('#planSvg').innerHTML = `<svg viewBox="-0.5 -0.5 ${W + 1} ${H + 1}">` + rooms.map((r) => {
+    const [x0, y0, x1, y1] = r.rect;
+    return `<rect x="${x0}" y="${H - y1}" width="${x1 - x0}" height="${y1 - y0}" fill="${ROOM_COL[r.name] || '#888'}" fill-opacity="0.75" stroke="#111" stroke-width="0.12"/>`
+      + `<text x="${(x0 + x1) / 2}" y="${H - (y0 + y1) / 2}" text-anchor="middle">${esc(r.name_ru || r.name)}</text>`;
+  }).join('') + '</svg>';
+}
+function wireExtras(id, info) {
+  $$('.floors-ctl[data-rnd] select').forEach((sel) => sel.onchange = () => {
+    sel.parentElement.querySelectorAll('input')[1].hidden = sel.value === 'num';
+  });
+  if ($('#facApply')) $('#facApply').onclick = () => {
+    const kind = $('#facKind').value;
+    const win = kind === 'none' ? 'none' : { kind, trim: $('#facTrim').value, w: Number($('#facW').value), h: Number($('#facH').value) };
+    patch([{ op: 'facade', id, face: $('#facFace').value, windows: win }], `фасад ${id}:${$('#facFace').value}`);
+  };
+  if ($('#pntApply')) {
+    $$('#pnt input[type=color]').forEach((i) => i.oninput = () => { i.dataset.set = '1'; });
+    $('#pntApply').onclick = () => {
+      const colors = {}; $$('#pnt input[type=color]').forEach((i) => { if (i.dataset.set) colors[i.dataset.role] = i.value; });
+      patch([{ op: 'paint', id, colors }], 'покраска ' + id);
+    };
+    $('#pntRand').onclick = () => patch([{ op: 'paint_random', ids: [id] }], 'случайная покраска ' + id);
+    $('#pntClear').onclick = () => patch([{ op: 'paint', id, colors: null }], 'покраска сброшена');
+  }
+  if ($('#planFloor')) {
+    const plan = info.info.plan;
+    $('#planFloor').onchange = (e) => drawPlan(plan, Number(e.target.value));
+    drawPlan(plan, plan[0].floor);
+  }
 }
 
 // add new element from the library
@@ -348,23 +536,50 @@ async function showAdd(type) {
 // ---------------------------------------------------------------- library & styles
 const CAT_RU = { macros: 'Готовые здания (макросы)', structure: 'Конструкции', openings: 'Окна и двери', roofs: 'Крыши, купола, шпили',
   columns: 'Колонны и портики', decor: 'Декор и фасад', primitive: 'Примитивы (любые формы)' };
+// library filters: epoch chips (multi) + territory
+S.periodSel = new Set();
+function stylesFiltered() {
+  const reg = $('#regionSel').value;
+  return S.styles.filter((s) => (!S.periodSel.size || (s.periods || []).some((p) => S.periodSel.has(p)))
+    && (!reg || (s.regions || []).includes(reg) || (s.regions || []).includes('global')));
+}
+function renderFilters() {
+  $('#periodChips').innerHTML = S.periods.periods.map((p) => `<button data-p="${p.id}" class="${S.periodSel.has(p.id) ? 'on' : ''}" title="${p.from}…${p.to}">${esc(p.name_ru)}</button>`).join('');
+  $$('#periodChips button').forEach((b) => b.onclick = () => {
+    S.periodSel.has(b.dataset.p) ? S.periodSel.delete(b.dataset.p) : S.periodSel.add(b.dataset.p);
+    renderFilters(); renderLib(); renderStyles(false);
+  });
+}
 function renderLib() {
   const q = $('#libSearch').value.toLowerCase();
   const groups = {};
+  const filtering = S.periodSel.size || $('#regionSel').value;
+  const allowed = new Set(stylesFiltered().flatMap((s) => s.macros || []));
   S.catalog.forEach((c) => {
     const text = (c.type + ' ' + (c.title_ru || '') + ' ' + c.desc).toLowerCase();
     if (q && !text.includes(q)) return;
+    if (filtering && c.macro && !allowed.has(c.type)) return;
     (groups[c.category] ||= []).push(c);
   });
   $('#lib').innerHTML = Object.keys(CAT_RU).filter((k) => groups[k]).map((k) => `<div class="cat">${CAT_RU[k]}</div>`
     + groups[k].map((c) => `<div class="lib-item" data-t="${c.type}"><b>${esc(c.title_ru || c.type)}</b> <span class="t">${c.type}</span><small>${esc(c.desc.slice(0, 110))}</small></div>`).join('')).join('');
   $$('#lib .lib-item').forEach((d) => d.onclick = () => showAdd(d.dataset.t));
 }
-function renderStyles() {
-  $('#selStyle').innerHTML = S.styles.map((s) => `<option value="${s.id}">${esc(s.name_ru || s.name)}</option>`).join('');
-  $('#styles').innerHTML = S.styles.map((s) => `<div class="style-card"><h4>${esc(s.name_ru || s.name)}</h4><small>${esc(s.era || '')} · ${esc(s.region || '')}</small>`
+function renderStyles(selects = true) {
+  if (selects) {
+    const opts = S.styles.map((s) => `<option value="${s.id}">${esc(s.name_ru || s.name)}</option>`).join('');
+    $('#selStyle').innerHTML = opts;
+    $('#selStyle2').innerHTML = '<option value="">—</option>' + opts;
+  }
+  const yrs = (s) => s.years ? `${s.years[0] < 0 ? -s.years[0] + ' до н.э.' : s.years[0]}–${s.years[1] > 2025 ? 'н.в.' : s.years[1]}` : '';
+  $('#styles').innerHTML = (S.periodSel.size || $('#regionSel').value ? '<div class="hint">Фильтр: эпоха / территория (вкладка «Библиотека»)</div>' : '')
+    + stylesFiltered().map((s) => `<div class="style-card"><h4>${esc(s.name_ru || s.name)}</h4><small>${esc(yrs(s))} · ${esc(s.region || '')}</small>`
     + `<div class="hint">${esc(s.tips || '')}</div><div class="row">${(s.macros || []).map((m) => `<button data-m="${m}" data-s="${s.id}">+ ${m}</button>`).join('')}`
-    + `<button data-apply="${s.id}">Применить стиль</button></div></div>`).join('');
+    + `<button data-apply="${s.id}">Применить стиль</button><button data-mixin="${s.id}" title="Добавить к текущему стилю как второй">+ к миксу</button></div></div>`).join('');
+  $$('#styles [data-mixin]').forEach((b) => b.onclick = () => {
+    const cur = String(S.state.style || 'generic').split('+')[0];
+    patch([{ op: 'set', key: 'style', value: cur === b.dataset.mixin ? cur : cur + '+' + b.dataset.mixin }], 'микс стилей');
+  });
   $$('#styles [data-m]').forEach((b) => b.onclick = () => patch([{ op: 'set', key: 'style', value: b.dataset.s },
     { op: 'add', element: { id: b.dataset.m, type: b.dataset.m } }], 'добавлен макрос ' + b.dataset.m));
   $$('#styles [data-apply]').forEach((b) => b.onclick = () => patch([{ op: 'set', key: 'style', value: b.dataset.apply }], 'стиль ' + b.dataset.apply));
@@ -386,15 +601,36 @@ $('#selProjects').onfocus = async () => {
 };
 $('#selProjects').onchange = async (e) => { if (e.target.value) { await api('load', { name: e.target.value }); select(null); refreshAll(true); } e.target.value = ''; };
 $('#projName').onchange = (e) => patch([{ op: 'set', key: 'name', value: e.target.value }], 'переименован');
-$('#selStyle').onchange = (e) => patch([{ op: 'set', key: 'style', value: e.target.value }], 'стиль ' + e.target.value);
+const styleValue = () => $('#selStyle').value + ($('#selStyle2').value && $('#selStyle2').value !== $('#selStyle').value ? '+' + $('#selStyle2').value : '');
+$('#selStyle').onchange = () => patch([{ op: 'set', key: 'style', value: styleValue() }], 'стиль ' + styleValue());
+$('#selStyle2').onchange = () => patch([{ op: 'set', key: 'style', value: styleValue() }], 'микс стилей ' + styleValue());
+$('#btnPaint').onclick = () => patch([{ op: 'paint_random' }], 'случайная покраска фасадов');
+$('#btnReroll').onclick = () => patch([{ op: 'reroll' }], 'новый сид случайностей');
+$('#btnInterior').onclick = async () => {
+  await patch([{ op: 'interior_all' }], 'интерьер для всех объёмов');
+  $('#rngClip').value = 40; applyClip();
+  feedLine({ type: 'note', agent: 'ui', note: 'Интерьер создан. Ползунок «Срез» показывает этажи изнутри; план — в свойствах элемента interior.' });
+};
+$('#btnWeather').onclick = () => patch([{ op: 'weather_all', amount: 0.6 }], 'состаривание');
+$('#chkInteriors').onchange = () => { setOverlayVisibility(); patch([{ op: 'set', key: 'interiors', value: $('#chkInteriors').checked }], 'интерьеры за окнами'); };
+$('#chkDecals').onchange = () => { setOverlayVisibility(); patch([{ op: 'set', key: 'decals', value: $('#chkDecals').checked }], 'декали'); };
+$('#chkParallax').onchange = () => reloadModel();
+$('#rngClip').oninput = applyClip;
+$('#regionSel').onchange = () => { renderLib(); renderStyles(false); };
+$('#selTextures').onchange = async (e) => {
+  const v = e.target.value; e.target.value = '';
+  if (v === 'prompts') {
+    const m = await api('textures/manifest', {});
+    feedLine({ type: 'textures', agent: 'ui', note: `${m.materials.length} материалов. Промпты: ${m.prompts_md}. Положите PNG в указанные папки.` });
+  } else if (v) {
+    await api('textures/download', { which: v === 'dl_all' ? 'all' : 'project' });
+    S.texAvail = null;
+  }
+  showTab('bottom', 'feed');
+};
 $$('#segDetail button').forEach((b) => b.onclick = () => patch([{ op: 'set', key: 'detail', value: b.dataset.v }], 'детализация ' + b.dataset.v));
 $('#btnValidate').onclick = () => api('validate', {}).then(showCheck);
 $('#btnRender').onclick = async () => { $('#busy').hidden = false; try { await api('render', {}); } finally { $('#busy').hidden = true; } };
-$('#btnTextures').onclick = async () => {
-  const m = await api('textures/manifest', {});
-  feedLine({ type: 'textures', agent: 'ui', note: `${m.materials.length} материалов. Промпты: ${m.prompts_md}. Положите PNG в указанные папки и нажмите «Цельная».` });
-  showTab('bottom', 'feed');
-};
 $('#selExport').onchange = async (e) => {
   const v = e.target.value; e.target.value = ''; if (!v) return;
   let body = { format: v };
@@ -470,6 +706,7 @@ function connect() {
       if (ids.length) { S.highlight = new Set(ids); applyHighlights(); setTimeout(() => { S.highlight.clear(); applyHighlights(); }, 1500); }
     } else if (ev.type === 'render') { addShot(ev.url); if (ev.agent !== 'user') playCameras(ev.cameras, ev.center); }
     else if (ev.type === 'validated') { S.highlight = new Set(ev.highlight || []); applyHighlights(); }
+    else if (ev.type === 'textures' && ev.downloaded) { S.texAvail = null; texCache.clear(); reloadModel(); }
     else if (ev.type === 'camera' && $('#chkFollow').checked) {
       const c = ev.camera, box = new THREE.Box3().setFromObject(root), ctr = c.target ? toThree(c.target) : box.getCenter(new THREE.Vector3());
       const r = box.getSize(new THREE.Vector3()).length() / 2, d = c.dist || r / Math.sin(THREE.MathUtils.degToRad(22)) * 1.1;
@@ -483,7 +720,9 @@ function connect() {
 // ---------------------------------------------------------------- start
 (async () => {
   loop();
-  [S.catalog, S.styles] = await Promise.all([api('catalog/elements'), api('catalog/styles')]);
+  [S.catalog, S.styles, S.periods] = await Promise.all([api('catalog/elements'), api('catalog/styles'), api('catalog/periods')]);
+  $('#regionSel').innerHTML = '<option value="">Все территории</option>' + Object.entries(S.periods.regions).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+  renderFilters();
   renderLib(); renderStyles();
   await refreshAll(true);
   connect();

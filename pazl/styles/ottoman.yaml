@@ -24,3 +24,19 @@ macros:
 - ottoman_mosque
 tips: Cascading domes and semi-domes over a square hall, lead roofs, pencil minarets
   with balconies, domed porticoes, Iznik tile panels inside.
+years:
+- 1300
+- 1922
+regions:
+- middle_east
+- europe_east
+- mediterranean
+palette:
+  wall:
+  - '#e7e0d0'
+  - '#d8cdb6'
+  trim:
+  - '#2f6e9e'
+  - '#f4efe4'
+  roof:
+  - '#7a8188'

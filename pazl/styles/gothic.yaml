@@ -29,3 +29,19 @@ macros:
 - gothic_cathedral
 tips: Verticality - pointed arches, steep roofs 50-60 deg, buttresses, flying buttresses,
   rose windows, spires. For brick gothic set materials wall=brick_gothic.
+years:
+- 1140
+- 1520
+regions:
+- europe_west
+- europe_north
+palette:
+  wall:
+  - '#c9c0ad'
+  - '#a8553f'
+  - '#bdb6a7'
+  trim:
+  - '#e2dccd'
+  roof:
+  - '#6b7076'
+  - '#4d5258'

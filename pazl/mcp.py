@@ -155,7 +155,8 @@ def validate() -> str:
 
 @mcp.tool()
 def render_views(views: list | None = None, tile_w: int = 384) -> list:
-    """Render ONE contact sheet (default 12 views: front/right/back/left, 4 isometric, top, below, 2 sections).
+    """Render ONE contact sheet (default 16 views: 4 sides, 4 isometric, 4 eye-level from the ground, top, below,
+    section, floor plan cut).
     Red parts = floating/problem elements. Use views=['iso_fl','front'] + tile_w=640 for a closer look."""
     info = _call("POST", "/api/render", {"views": views, "tile": [tile_w, int(tile_w * 0.75)]})
     if "error" in info:
@@ -191,6 +192,72 @@ def export(format: str = "glb", lod_tris: int | None = None, force: bool = False
 def texture_manifest() -> str:
     """Write textures/manifest.json + PROMPTS.md (prompts for a texture AI, file names, folders)."""
     return _j(_call("POST", "/api/textures/manifest"))
+
+
+@mcp.tool()
+def set_facade(element_id: str, face: str = "front", windows: dict | str = "none") -> str:
+    """Replace the windows on one side ('front','back','left','right','faceN' or 'all') of a block/tower:
+    windows='none' removes them, or a dict of window params e.g. {"kind":"arch","trim":"classic","w":1.2,"h":2}."""
+    return _j(_call("POST", "/api/patch", {"ops": [{"op": "facade", "id": element_id, "face": face, "windows": windows}]}))
+
+
+@mcp.tool()
+def paint(element_id: str = "", colors: dict | None = None, random: bool = False) -> str:
+    """Paint facades. colors = {"wall":"#e3c38a","roof":"#5d6066","trim":"#ffffff","frame":..,"door":..,"plinth":..}.
+    random=true picks colours from the style palette (element_id empty = all elements). Low-poly shows the colour,
+    realistic tints the texture."""
+    if random:
+        op = {"op": "paint_random", **({"ids": [element_id]} if element_id else {})}
+    else:
+        op = {"op": "paint", "id": element_id, "colors": colors}
+    return _j(_call("POST", "/api/patch", {"ops": [op]}))
+
+
+@mcp.tool()
+def generate_interior(element_id: str = "", program: str = "", plan: list | None = None, furniture: bool = True) -> str:
+    """Interior: rooms, corridors, doors, stairs, elevators (era-aware), furniture. element_id empty = every block of the
+    building (program guessed from the macro: residential/office/palace/worship/hall/industrial). For one block give its
+    id and optionally your own plan: [{"floor":0,"rooms":[{"name":"kitchen","rect":[x0,y0,x1,y1]}]}]."""
+    if not element_id:
+        ops = [{"op": "interior_all", **({"program": program} if program else {}), "furniture": furniture}]
+    else:
+        params = {"furniture": furniture, **({"program": program} if program else {}), **({"plan": plan} if plan else {})}
+        ops = [{"op": "add", "element": {"id": "int_" + element_id.replace("/", "_"), "type": "interior",
+                                          "on": f"{element_id}:inner", "params": params}}]
+    out = _call("POST", "/api/patch", {"ops": ops})
+    return _j({"patch": out, "floorplan_summary": {k: v["summary"] for k, v in _call("GET", "/api/floorplan").items()}})
+
+
+@mcp.tool()
+def floorplan(element_id: str = "") -> str:
+    """Rooms per floor (name, rect in meters from the inner corner, area) of generated interiors."""
+    return _j(_call("GET", "/api/floorplan" + (f"?id={element_id}" if element_id else "")))
+
+
+@mcp.tool()
+def weather(amount: float = 0.6, clear: bool = False) -> str:
+    """Add (or clear) weathering decals on all walls: dirt, soot, rust, cracks, moss (old styles), graffiti (20th c.)."""
+    op = {"op": "weather_clear"} if clear else {"op": "weather_all", "amount": amount}
+    return _j(_call("POST", "/api/patch", {"ops": [op]}))
+
+
+@mcp.tool()
+def set_options(interiors: bool | None = None, decals: bool | None = None, detail: str | None = None,
+                style: str | None = None, reroll: bool = False) -> str:
+    """Project switches: fake interiors behind windows, decals, detail (realistic = PBR textures | lowpoly = flat colours),
+    style (mix with '+', e.g. 'gothic+russian_orthodox'), reroll = new random seed for ranges/mixes/decals."""
+    ops = [{"op": "set", "key": k, "value": v} for k, v in (("interiors", interiors), ("decals", decals), ("detail", detail),
+                                                              ("style", style)) if v is not None]
+    if reroll:
+        ops.append({"op": "reroll"})
+    return _j(_call("POST", "/api/patch", {"ops": ops}))
+
+
+@mcp.tool()
+def download_textures(which: str = "project") -> str:
+    """Download free CC0 PBR texture packs (ambientCG: albedo, normal, roughness, AO, height) for the project's
+    materials ('project') or for the whole library ('all'). Runs in the background; progress goes to the live log."""
+    return _j(_call("POST", "/api/textures/download", {"which": which}))
 
 
 def main():

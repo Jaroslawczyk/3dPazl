@@ -24,3 +24,19 @@ macros:
 - fachwerk_house
 tips: Stone ground floor, jettied upper floors (each projects 0.3-0.5 m), steep roofs
   with dormers, dark oak timber patterns (Mann, St Andrew cross).
+years:
+- 1400
+- 1800
+regions:
+- europe_west
+palette:
+  wall:
+  - '#f4efe4'
+  - '#efe1c0'
+  - '#e9d3c8'
+  trim:
+  - '#3a2a20'
+  - '#6b2e22'
+  roof:
+  - '#9c4a32'
+  - '#5b4a44'

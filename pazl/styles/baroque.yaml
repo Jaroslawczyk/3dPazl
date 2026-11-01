@@ -23,3 +23,23 @@ macros:
 - baroque_church
 tips: Curves, broken pediments, bell-shaped tower helmets with lanterns, rich pilasters,
   white trim on colored plaster.
+years:
+- 1600
+- 1750
+regions:
+- europe_west
+- europe_east
+- russia
+palette:
+  wall:
+  - '#e9b9a9'
+  - '#a8c8dd'
+  - '#efd27c'
+  - '#b6d4b4'
+  - '#f0e2c8'
+  trim:
+  - '#ffffff'
+  - '#f6f0e2'
+  roof:
+  - '#5f9d82'
+  - '#6a6f75'

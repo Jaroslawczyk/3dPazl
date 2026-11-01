@@ -21,3 +21,20 @@ macros:
 - moorish_palace
 tips: Horseshoe and multifoil arches, arcaded courtyards, zellij tiles, flat roofs
   with stepped merlons, square minaret towers.
+years:
+- 711
+- 1492
+regions:
+- mediterranean
+- north_africa
+palette:
+  wall:
+  - '#ead8b4'
+  - '#f4efe4'
+  - '#d6a978'
+  trim:
+  - '#2f6e9e'
+  - '#3f8a5c'
+  roof:
+  - '#a65f3d'
+  - '#3f8a5c'

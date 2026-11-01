@@ -30,10 +30,15 @@ VIEWS = {  # name: (azimuth deg from +X counter-clockwise, elevation deg)
     "front": (-90, 8), "right": (0, 8), "back": (90, 8), "left": (180, 8),
     "iso_fl": (-135, 32), "iso_fr": (-45, 32), "iso_br": (45, 32), "iso_bl": (135, 32),
     "top": (-90, 89), "below": (-60, -35), "section_x": (0, 15), "section_y": (-90, 15),
+    "eye_fl": (-120, 2), "eye_fr": (-60, 2), "eye_br": (60, 2), "eye_bl": (120, 2), "plan": (-90, 89),
 }
+DEFAULT_VIEWS = ["front", "right", "back", "left", "iso_fl", "iso_fr", "iso_br", "iso_bl",
+                 "eye_fl", "eye_fr", "eye_br", "eye_bl", "top", "below", "section_x", "plan"]
 VIEW_RU = {"front": "спереди", "right": "справа", "back": "сзади", "left": "слева", "iso_fl": "3/4 перед-лево",
            "iso_fr": "3/4 перед-право", "iso_br": "3/4 зад-право", "iso_bl": "3/4 зад-лево", "top": "сверху",
-           "below": "снизу", "section_x": "разрез X", "section_y": "разрез Y"}
+           "below": "снизу", "section_x": "разрез X", "section_y": "разрез Y", "eye_fl": "с земли перед-лево",
+           "eye_fr": "с земли перед-право", "eye_br": "с земли зад-право", "eye_bl": "с земли зад-лево",
+           "plan": "план (горизонтальный разрез)"}
 
 
 def look_at(eye, target, up=(0, 0, 1)):
@@ -88,7 +93,11 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
     images = []
     for v in views:
         tm = base_tm
-        if v.startswith("section"):
+        if v == "plan":  # horizontal cut through the first floor, looked at from above
+            zc = float(mn[2] + min(2.4, (mx[2] - mn[2]) * 0.35))
+            cut = final.trim_by_plane([0, 0, -1], -zc)
+            tm = _tm_from_manifold(cut, highlight) if not cut.is_empty() else base_tm
+        elif v.startswith("section"):
             axis = [1, 0, 0] if v == "section_x" else [0, -1, 0]
             n = [-axis[0], -axis[1], 0]
             cut = final.trim_by_plane(n, float(np.dot(center, n)))
@@ -100,6 +109,12 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
         if custom and v == "custom":
             pose, eye = camera_for(None, np.asarray(custom.get("target", center)), radius, custom.get("fov", 40),
                                    custom.get("az", -45), custom.get("el", 25), custom.get("dist"))
+        elif v.startswith("eye_"):  # standing on the ground ~1.7 m high, a bit further away
+            a = math.radians(VIEWS[v][0])
+            dd = radius / math.sin(math.radians(20)) * 1.15
+            eye = center + np.array([dd * math.cos(a), dd * math.sin(a), 0.0])
+            eye[2] = mn[2] + 1.7
+            pose = look_at(eye, [center[0], center[1], mn[2] + (mx[2] - mn[2]) * 0.4])
         else:
             pose, eye = camera_for(v, center, radius)
         sc.add(pyrender.PerspectiveCamera(yfov=math.radians(40), aspectRatio=size[0] / size[1], znear=0.05, zfar=radius * 20), pose=pose)
@@ -128,5 +143,5 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
 
 
 def render_sheet(final, out_path, views=None, tile=(384, 288), highlight=(), title="", custom=None):
-    views = views or list(VIEWS)
+    views = views or DEFAULT_VIEWS
     return _EXEC.submit(_render_job, final, views, tile, tuple(highlight), out_path, title, custom).result()

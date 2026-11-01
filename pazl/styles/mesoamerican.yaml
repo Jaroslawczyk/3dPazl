@@ -21,3 +21,18 @@ macros:
 - maya_pyramid
 tips: Steep stepped pyramids with staircases, temples with roof combs, corbel arches
   (windows kind=triangle), stucco friezes (panel kind=relief).
+years:
+- -1000
+- 1521
+regions:
+- americas
+palette:
+  wall:
+  - '#cfc6ad'
+  - '#b8452f'
+  - '#d8cfb8'
+  trim:
+  - '#2f8a7a'
+  - '#c9a227'
+  roof:
+  - '#c8bfa6'

@@ -8,3 +8,6 @@ textures/library/*.png
 textures/library/*.jpg
 graphify-out/
 .env
+textures/library/*/
+textures/library/SOURCES.json
+scripts/__pycache__/

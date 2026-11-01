@@ -20,3 +20,20 @@ macros:
 - art_deco_tower
 tips: Setbacks, vertical piers and pilaster strips, stepped crowns, spires, geometric
   ornament, metal accents.
+years:
+- 1920
+- 1940
+regions:
+- americas
+- europe_west
+- global
+palette:
+  wall:
+  - '#e3d9c4'
+  - '#d7c7a4'
+  - '#c9c3b8'
+  trim:
+  - '#c9a227'
+  - '#3a3a3a'
+  roof:
+  - '#3a3a3a'

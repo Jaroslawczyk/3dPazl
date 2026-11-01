@@ -17,3 +17,19 @@ macros:
 - stave_church
 tips: Stave churches with stacked steep shingle roofs and dragon heads, turf-roof
   log houses (roof material=turf), red painted farmhouses (wall=red_paint).
+years:
+- 1100
+- 1900
+regions:
+- europe_north
+palette:
+  wall:
+  - '#3a2a20'
+  - '#8e2a24'
+  - '#d9c79c'
+  - '#f2ede2'
+  trim:
+  - '#f4f1ea'
+  roof:
+  - '#5d6f3f'
+  - '#4f4440'

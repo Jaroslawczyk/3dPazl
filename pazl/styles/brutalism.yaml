@@ -20,3 +20,18 @@ macros:
 - brutalist_block
 tips: Raw board-formed concrete, cantilevers, pilotis, deep window recesses and fins,
   monumental mosaics (panel kind=mosaic).
+years:
+- 1950
+- 1985
+regions:
+- global
+- russia
+palette:
+  wall:
+  - '#a3a29c'
+  - '#b4b2aa'
+  - '#8f8e88'
+  trim:
+  - '#6f6e69'
+  roof:
+  - '#3c3c3c'

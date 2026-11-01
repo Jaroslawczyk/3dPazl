@@ -23,3 +23,20 @@ macros:
 - house
 tips: Board-clad wooden churches with front bell towers and baroque helmets, homesteads
   with steep (often half_hip) roofs, wayside crosses.
+years:
+- 1600
+- 1950
+regions:
+- europe_east
+- europe_north
+palette:
+  wall:
+  - '#7f9b74'
+  - '#b88a5b'
+  - '#6d7f95'
+  - '#a64f3e'
+  trim:
+  - '#ffffff'
+  roof:
+  - '#6b5a48'
+  - '#4f5258'

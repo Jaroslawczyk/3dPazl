@@ -20,3 +20,17 @@ macros:
 - castle_keep
 tips: Thick chamfered concrete casemates, embrasures (windows kind=slit), earth berms
   (mound), trenches; for older forts use medieval_castle.
+years:
+- 1900
+- 2100
+regions:
+- global
+palette:
+  wall:
+  - '#9a9a8e'
+  - '#7d8270'
+  - '#a39e8c'
+  trim:
+  - '#5f6356'
+  roof:
+  - '#6d7a4f'

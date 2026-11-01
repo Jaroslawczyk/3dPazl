@@ -21,3 +21,18 @@ macros:
 - glass_tower
 tips: Curtain walls, podium plus tower, minimal trim. Brutalism - concrete_raw everywhere
   with deep window recesses.
+years:
+- 1970
+- 2100
+regions:
+- global
+palette:
+  wall:
+  - '#c7cdd2'
+  - '#e7e5df'
+  - '#6c7a86'
+  - '#2f3b45'
+  trim:
+  - '#a9b0b6'
+  roof:
+  - '#3a3c40'

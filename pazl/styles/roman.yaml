@@ -25,3 +25,17 @@ macros:
 - greek_temple
 tips: Arches, vaults, domes, concrete and brick cores faced with marble. Corinthian
   and composite orders.
+years:
+- -500
+- 500
+regions:
+- mediterranean
+- europe_west
+palette:
+  wall:
+  - '#e2d6c2'
+  - '#d8b98f'
+  trim:
+  - '#f3eee4'
+  roof:
+  - '#a35a3a'

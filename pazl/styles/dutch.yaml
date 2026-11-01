@@ -25,3 +25,20 @@ macros:
 - dutch_house
 tips: Narrow tall brick houses, decorative street gables (stepped, neck, bell), big
   sash windows, hoist beams. Build a canal row with count>1.
+years:
+- 1500
+- 1800
+regions:
+- europe_west
+- europe_north
+palette:
+  wall:
+  - '#8e3b2b'
+  - '#a85a3f'
+  - '#6e2f24'
+  - '#c98f6a'
+  trim:
+  - '#ffffff'
+  roof:
+  - '#4a3a36'
+  - '#6b3f30'

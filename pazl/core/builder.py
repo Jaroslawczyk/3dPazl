@@ -23,7 +23,9 @@ import numpy as np
 
 from . import geo as g
 from .materials import MATS
-from .registry import ELEMENTS, Anchor, Ctx, Part, pct
+import random
+
+from .registry import ELEMENTS, Anchor, Ctx, Part, has_mix, pct, rand_value
 from .styles import get_style
 
 _CACHE: dict[str, Part] = {}
@@ -41,6 +43,9 @@ class ElemResult:
     error: str | None = None
     notes: list = field(default_factory=list)
     src: dict = field(default_factory=dict)        # the (expanded) recipe element
+    decals: list = field(default_factory=list)      # overlay quads in world coords {"pts","mat","kind"}
+    info: dict = field(default_factory=dict)
+    params: dict = field(default_factory=dict)      # resolved params (first instance)
 
 
 @dataclass
@@ -49,7 +54,12 @@ class BuildResult:
     order: list
     errors: list
     detail: str
+    recipe: dict = field(default_factory=dict)
     _final: object = None
+
+    def overlay(self, kinds=None):
+        """Overlay layer quads (decals, fake interiors) - NOT part of the watertight shell."""
+        return [(eid, d) for eid, r in self.elements.items() for d in r.decals if kinds is None or d["kind"] in kinds]
 
     def final(self):
         if self._final is None:
@@ -58,12 +68,20 @@ class BuildResult:
         return self._final
 
 
-def resolve_params(etype, given: dict, style: dict) -> dict:
+def resolve_params(etype, given: dict, style: dict, rng=None, keep_mix=False) -> dict:
     spec = ELEMENTS[etype].params
     out = {k: copy.deepcopy(v.default) for k, v in spec.items()}
     out.update(copy.deepcopy(style.get("defaults", {}).get(etype, {})))
     out.update(copy.deepcopy(given or {}))
+    if rng is not None:
+        for k, v in list(out.items()):
+            if isinstance(v, dict) and ("rand" in v or "choice" in v or ("mix" in v and not keep_mix)):
+                out[k] = rand_value(v, rng)
     return out
+
+
+_DECAL_COUNTER: list = []
+INHERIT = ("style", "colors")  # keys a macro hands down to its children
 
 
 def _apply_overrides(children: list, overrides: dict) -> list:
@@ -92,9 +110,10 @@ def _apply_overrides(children: list, overrides: dict) -> list:
     return out
 
 
-def expand(elements: list, style: dict, detail: str, prefix="", parent=None, depth=0) -> list:
+def expand(elements: list, style: dict, detail: str, prefix="", parent=None, depth=0, seed=1, inherit=None) -> list:
     """Recursively expand macro elements into plain elements."""
     out = []
+    inherit = inherit or {}
     ids = {e.get("id") for e in elements}
     for e in elements:
         e = copy.deepcopy(e)
@@ -109,20 +128,28 @@ def expand(elements: list, style: dict, detail: str, prefix="", parent=None, dep
                 e["on"] = f"{parent}:origin"
             e["cut"] = [prefix + c if c in ids else c for c in e.get("cut", [])]
         e["id"] = eid
+        for k, v in inherit.items():
+            if k == "colors":
+                e["colors"] = {**v, **(e.get("colors") or {})}
+            else:
+                e.setdefault(k, v)
         et = ELEMENTS.get(e.get("type"))
         if et and et.macro and depth < 6:
-            params = resolve_params(e["type"], e.get("params"), style)
-            ctx = Ctx(detail, None, style, MATS, eid)
+            st = get_style(e["style"]) if e.get("style") else style
+            params = resolve_params(e["type"], e.get("params"), st, random.Random(f"{seed}:{eid}"), keep_mix=True)
+            ctx = Ctx(detail, None, st, MATS, eid, seed=seed)
             try:
                 part = et.gen(params, ctx)
             except Exception as ex:
                 out.append({**e, "type": "_group", "macro_type": e["type"], "error": f"{type(ex).__name__}: {ex}"})
                 continue
-            shell = {k: v for k, v in e.items() if k in ("id", "on", "at", "offset", "rot", "repeat", "hidden", "note")}
+            shell = {k: v for k, v in e.items() if k in ("id", "on", "at", "offset", "rot", "repeat", "hidden", "note", "style", "colors")}
             shell["type"] = "_group"
             shell["macro_type"] = e["type"]
             out.append(shell)
-            out += expand(_apply_overrides(part.children, e.get("overrides") or {}), style, detail, eid + "/", eid, depth + 1)
+            sub_inherit = {k: e[k] for k in INHERIT if e.get(k)}
+            out += expand(_apply_overrides(part.children, e.get("overrides") or {}), style, detail, eid + "/", eid, depth + 1,
+                          seed, sub_inherit)
         else:
             out.append(e)
     return out
@@ -174,16 +201,19 @@ def _register_unknown(m, mat, eid):
             g.REGISTRY[rid] = (mat, eid)
 
 
-def generate(etype, params, detail, anchor, style, eid) -> Part:
-    key = json.dumps([etype, params, detail, _anchor_key(anchor), style.get("id"), eid], sort_keys=True, default=str)
+def generate(etype, params, detail, anchor, style, eid, seed=1) -> Part:
+    key = json.dumps([etype, params, detail, _anchor_key(anchor), style.get("id"), eid, seed], sort_keys=True, default=str)
     part = _CACHE.get(key)
     if part is not None:
+        MATS.art.update(part.info.get("_art", {}))
         return part
     g.set_current_element(eid)
-    ctx = Ctx(detail, anchor, style, MATS, eid)
+    art_before = set(MATS.art)
+    ctx = Ctx(detail, anchor, style, MATS, eid, seed=seed)
     part = ELEMENTS[etype].gen(params, ctx)
     for m, mat in part.solids:
         _register_unknown(m, mat, eid)
+    part.info["_art"] = {k: v for k, v in MATS.art.items() if k not in art_before}
     if len(_CACHE) > _CACHE_MAX:
         _CACHE.clear()
     _CACHE[key] = part
@@ -193,8 +223,12 @@ def generate(etype, params, detail, anchor, style, eid) -> Part:
 def build(recipe: dict, detail: str | None = None) -> BuildResult:
     style = get_style(recipe.get("style", "generic"))
     detail = detail or recipe.get("detail") or style.get("detail", "realistic")
+    seed = recipe.get("seed", 1)
     MATS.art.clear()
-    flat = expand(recipe.get("elements", []), style, detail)
+    g.PAINT.clear()
+    _DECAL_COUNTER.clear()
+    top_inherit = {"colors": recipe["colors"]} if recipe.get("colors") else {}
+    flat = expand(recipe.get("elements", []), style, detail, seed=seed, inherit=top_inherit)
     by_id = {e["id"]: e for e in flat}
     errors = []
     # topological order by `on`
@@ -265,15 +299,27 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
             r.error = f"unknown element type '{e.get('type')}'"
             errors.append({"id": eid, "error": r.error})
             continue
+        est = get_style(e["style"]) if e.get("style") else style
         try:
-            params = resolve_params(e["type"], e.get("params"), style)
+            raw = dict(e.get("params") or {})
             if e.get("material"):
-                params["material"] = e["material"]
-            part = generate(e["type"], params, detail, anchor, style, eid)
+                raw["material"] = e["material"]
+            params = resolve_params(e["type"], raw, est, random.Random(f"{seed}:{eid}"), keep_mix=True)
+            if has_mix(params):  # {"mix":[a,b]}: every instance gets its own random value
+                parts = [generate(e["type"], resolve_params(e["type"], raw, est, random.Random(f"{seed}:{eid}:{i}")),
+                                  detail, anchor, est, eid, seed) for i in range(len(r.world))]
+            else:
+                parts = [generate(e["type"], params, detail, anchor, est, eid, seed)] * len(r.world)
+            part = parts[0]
+            r.params = params
         except Exception as ex:  # keep building the rest
             r.error = f"{type(ex).__name__}: {ex}"
             errors.append({"id": eid, "error": r.error, "trace": traceback.format_exc(limit=3)})
             continue
+        r.info = {k: v for k, v in part.info.items() if not k.startswith("_")}
+        for key, hexc in (e.get("colors") or {}).items():
+            base = MATS.resolve(key, est)
+            g.PAINT[(eid, base)] = f"{base}#{str(hexc).lstrip('#').lower()}"
         r.notes = part.notes
         W0 = r.world[0]
         r.anchors = {k: Anchor(W0 @ a.m, a.kind, a.w, a.h, a.depth, a.footprint, a.height, a.floors, a.floor_h, a.base, a.extra)
@@ -282,13 +328,22 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
         if e.get("hidden"):
             continue
         targets = [t for t in ([host_id] if host_id else []) + list(e.get("cut", [])) if t]
-        for W in r.world:
+        for W, part in zip(r.world, parts):
             if e.get("subtract"):
                 for t in targets:
                     cut_jobs.append((t, [g.xf(m, W) for m, _ in part.solids], "@host", anchor_name))
                 continue
             for m, mat in part.solids:
                 r.solids.append((g.xf(m, W), mat))
+            for d in part.decals:
+                pts = (np.c_[np.asarray(d["pts"]), np.ones(len(d["pts"]))] @ W.T)[:, :3]
+                mat = d["mat"] if d["mat"].startswith(("decal_", "interior_")) else MATS.resolve(d["mat"], est)
+                n = W[:3, :3] @ np.asarray(d.get("n", [0, 1, 0]), float)
+                n = n / (np.linalg.norm(n) or 1.0)
+                if d["kind"] == "decal":  # every decal at its own depth (0.7 mm steps) -> overlapping decals never z-fight
+                    pts = pts + n * (len(_DECAL_COUNTER) % 14) * 0.0007
+                    _DECAL_COUNTER.append(1)
+                r.decals.append({"pts": pts.tolist(), "n": n.tolist(), "mat": g.PAINT.get((eid, mat), mat), "kind": d["kind"]})
             if part.cutters:
                 for t in targets:
                     for m, mat in part.cutters:
@@ -328,4 +383,4 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
                 m = m - big
             new.append((m, mat))
         r.solids = new
-    return BuildResult(res, order, errors, detail)
+    return BuildResult(res, order, errors, detail, recipe)

@@ -24,3 +24,20 @@ macros:
 - greek_temple
 tips: Strict symmetry, central portico with pediment, yellow-and-white palette (Russian
   empire), low roofs, belvedere.
+years:
+- 1750
+- 1850
+regions:
+- europe_west
+- russia
+palette:
+  wall:
+  - '#efd27c'
+  - '#e7c8a0'
+  - '#d7dde0'
+  - '#efe1c4'
+  trim:
+  - '#ffffff'
+  roof:
+  - '#4f7f68'
+  - '#7c8288'

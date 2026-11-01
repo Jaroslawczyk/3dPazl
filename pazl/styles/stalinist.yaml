@@ -21,3 +21,20 @@ macros:
 - stalinka
 tips: Monumental symmetry, granite base, rustication, central risalit with columns,
   balusters, heavy cornices, spires with stars on high-rises (stalinka tower=true).
+years:
+- 1933
+- 1955
+regions:
+- russia
+- europe_east
+palette:
+  wall:
+  - '#e3c38a'
+  - '#d9b48f'
+  - '#e8d6b0'
+  - '#c98f6a'
+  trim:
+  - '#f4efe4'
+  roof:
+  - '#8c3b30'
+  - '#5d6066'

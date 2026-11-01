@@ -23,3 +23,19 @@ macros:
 - factory
 tips: Brick halls with sawtooth roofs and big multi-pane windows, chimney stacks (minaret
   with cap=none), water towers, gantries (beam), hangars (roof type=barrel), warehouses.
+years:
+- 1800
+- 2100
+regions:
+- global
+palette:
+  wall:
+  - '#8e3b2b'
+  - '#a85a3f'
+  - '#9aa0a2'
+  trim:
+  - '#d9b27a'
+  - '#3a3a3a'
+  roof:
+  - '#3c3c3c'
+  - '#6b7074'

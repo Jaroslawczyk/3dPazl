@@ -21,3 +21,22 @@ macros:
 - victorian_house
 tips: Asymmetry, turrets with conical roofs, bay windows, wraparound porches with
   turned posts, steep cross gables, decorative trim. For brick terraces use wall=brick_red.
+years:
+- 1837
+- 1910
+regions:
+- europe_west
+- americas
+palette:
+  wall:
+  - '#d9c79c'
+  - '#9bb5c4'
+  - '#c98f8a'
+  - '#a4b98a'
+  - '#e8dcc4'
+  trim:
+  - '#ffffff'
+  - '#5d2a3a'
+  roof:
+  - '#4f5459'
+  - '#6b3f30'

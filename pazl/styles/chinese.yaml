@@ -22,3 +22,20 @@ macros:
 - pagoda
 tips: Raised stone terraces, red columns, bracket sets, double-eave curved roofs with
   upturned corners (glazed yellow for imperial, grey for common), pagodas.
+years:
+- -200
+- 1912
+regions:
+- east_asia
+palette:
+  wall:
+  - '#a6312a'
+  - '#8e2a24'
+  - '#e7ddc8'
+  trim:
+  - '#2f7a6a'
+  - '#c9a227'
+  roof:
+  - '#d8a428'
+  - '#4f5a5e'
+  - '#2f7a52'

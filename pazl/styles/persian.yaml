@@ -25,3 +25,20 @@ macros:
 - persian_mosque
 tips: Courtyards with four iwans, monumental pishtaq portals (iwan element), ribbed
   turquoise domes on high drums, cylindrical tiled minarets.
+years:
+- 1000
+- 1800
+regions:
+- middle_east
+- central_asia
+palette:
+  wall:
+  - '#d8b27a'
+  - '#c99e66'
+  trim:
+  - '#1f6fa8'
+  - '#38a3b8'
+  - '#f2e6c8'
+  roof:
+  - '#2a74b8'
+  - '#3aa6b9'

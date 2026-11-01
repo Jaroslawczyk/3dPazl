@@ -7,9 +7,9 @@ from pathlib import Path
 
 import yaml
 
+from ..paths import ROOT, TEX_LIB
+
 HERE = Path(__file__).parent
-ROOT = HERE.parent.parent
-TEX_LIB = ROOT / "textures" / "library"
 
 # role -> fallback material when a style does not define it
 ROLE_DEFAULTS = {
@@ -30,6 +30,9 @@ class Materials:
     def resolve(self, name: str, style: dict | None) -> str:
         if not name:
             name = "wall"
+        if "#" in name:  # painted variant "base#rrggbb" or plain "#rrggbb"
+            base, _, hexc = name.partition("#")
+            return (self.resolve(base, style) if base else "default") + "#" + hexc.lower()
         seen = 0
         while seen < 5:
             seen += 1
@@ -57,12 +60,22 @@ class Materials:
         return slot
 
     def get(self, name: str) -> dict:
+        if "#" in name:
+            base, _, hexc = name.partition("#")
+            info = dict(self.get(base or "default"))
+            try:
+                info["color"] = [int(hexc[i:i + 2], 16) for i in (0, 2, 4)]
+                info["tint"] = True
+            except ValueError:
+                pass
+            return info
         return self.art.get(name) or self.lib.get(name) or self.lib["default"]
 
     def texture_files(self, name: str, tex_dir: Path) -> dict:
         """Find texture files for a slot: <dir>/<slot>_albedo.png etc. Project dir wins over library."""
         found = {}
-        for kind in ("albedo", "normal", "roughness"):
+        name = name.partition("#")[0]  # painted variants use the base material's maps (tinted)
+        for kind in ("albedo", "normal", "roughness", "ao", "height", "metal"):
             for d in (tex_dir, TEX_LIB):
                 for ext in ("png", "jpg", "jpeg", "webp"):
                     f = d / f"{name}_{kind}.{ext}"

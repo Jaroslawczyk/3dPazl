@@ -24,3 +24,17 @@ macros:
 - caucasian_church
 tips: Compact cross plans of finely cut stone, tall polygonal drums with conical roofs,
   blind arcades and deep triangular niches, carved khachkar crosses.
+years:
+- 300
+- 1700
+regions:
+- caucasus
+palette:
+  wall:
+  - '#c98e78'
+  - '#d9b49a'
+  - '#b9a48c'
+  trim:
+  - '#e3cdb8'
+  roof:
+  - '#b98c74'

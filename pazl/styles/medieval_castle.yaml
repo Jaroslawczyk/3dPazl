@@ -19,3 +19,20 @@ macros:
 tips: Keeps, curtain walls with towers, battlements, machicolations, arrow slits (windows
   kind=slit), conical slate roofs on turrets. Mix stone ground floor with timber_frame
   upper floors for mixed stone and wood town houses.
+years:
+- 1000
+- 1500
+regions:
+- europe_west
+- europe_north
+- europe_east
+palette:
+  wall:
+  - '#9e978c'
+  - '#8a8378'
+  - '#b1a896'
+  trim:
+  - '#c9c1b2'
+  roof:
+  - '#4f5459'
+  - '#7a4a36'

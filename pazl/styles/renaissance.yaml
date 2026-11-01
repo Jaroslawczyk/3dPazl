@@ -24,3 +24,19 @@ macros:
 - palazzo
 tips: Symmetry, rusticated ground floor, piano nobile, strong crowning cornice, low
   hip roofs, domes on drums with lanterns.
+years:
+- 1400
+- 1600
+regions:
+- europe_west
+- mediterranean
+palette:
+  wall:
+  - '#e3c38a'
+  - '#d9a679'
+  - '#e9d9b8'
+  - '#c98f6a'
+  trim:
+  - '#f2ead8'
+  roof:
+  - '#a65f3d'

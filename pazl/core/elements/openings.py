@@ -61,6 +61,8 @@ def _window(p, ctx, w, h, depth, kind, part: Part, u, v):
             part.add(g.xf(g.prism_xz(g.offset2(inner, 0.02), -recess - fd, -recess) ^ g.union(bars), T), frame_mat)
         if p.get("glazed", True):
             part.add(g.xf(g.prism_xz(g.offset2(inner, 0.02), -recess - fd * 0.55, -recess - fd * 0.45), T), glass_mat)
+            if not p.get("stained") and p.get("interior", True):
+                _fake_interior(part, ctx, w, h, depth, recess + fd, T)
     elif p.get("glazed", True) and not p.get("frame", True):
         part.add(g.xf(g.prism_xz(g.offset2(shape, 0.02), -recess - 0.03, -recess), T), glass_mat)
     # sill ledge
@@ -72,6 +74,16 @@ def _window(p, ctx, w, h, depth, kind, part: Part, u, v):
         for sx in (-1, 1):
             x0 = sx * (w / 2 + 0.05)
             part.add(g.xf(g.box(min(x0, x0 + sx * w / 2), 0.0, 0.0, max(x0, x0 + sx * w / 2), 0.04, h * 0.98), T), sh_mat)
+
+
+def _fake_interior(part, ctx, w, h, depth, behind, T):
+    """Picture of a room just behind the glass (overlay layer, not welded): parallax-free '2D that looks 3D'."""
+    from ..decals import interior_kind_for
+    kind = ctx.style.get("_interior") or interior_kind_for(ctx.style)
+    mat = f"interior_{kind}_{ctx.rng.randrange(4)}"
+    y = -min(max(depth - 0.02, behind + 0.01), behind + 0.04)
+    pts = [[-w / 2, y, 0.0], [w / 2, y, 0.0], [w / 2, y, h], [-w / 2, y, h]]
+    part.decal([(T @ [*q, 1.0])[:3] for q in pts], mat, "interior")
 
 
 def _trim(p, ctx, w, h, kind, shape, part, T, mat):

@@ -26,3 +26,19 @@ macros:
 - byzantine_church
 tips: Cross-in-square plan, central dome on a windowed drum, barrel roofs on the arms,
   apses, brick with stone bands, gold mosaics inside (panel kind=mosaic).
+years:
+- 330
+- 1453
+regions:
+- mediterranean
+- europe_east
+palette:
+  wall:
+  - '#a8553f'
+  - '#b8664c'
+  - '#d9c7a4'
+  trim:
+  - '#e3d9c4'
+  roof:
+  - '#7a7f86'
+  - '#a65f3d'

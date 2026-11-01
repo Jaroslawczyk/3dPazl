@@ -26,3 +26,20 @@ macros:
 - orthodox_church
 tips: Log cribs (srub) in obla or lapa, carved nalichniki, porches (kryltso), shingle
   (lemekh) domes for wooden churches - use orthodox_church wooden=true.
+years:
+- 900
+- 1950
+regions:
+- russia
+palette:
+  wall:
+  - '#9c7048'
+  - '#7d5a3c'
+  - '#b38a5d'
+  trim:
+  - '#f2ece0'
+  - '#5c86a8'
+  - '#3f7a5c'
+  roof:
+  - '#6f5a46'
+  - '#4a6d58'

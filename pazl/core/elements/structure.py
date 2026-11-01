@@ -59,6 +59,11 @@ def block(p, ctx):
     part.anchors["base"] = top_anchor(fp, 0.0, 0.0, floors, fh)
     for i in range(floors + 1):
         part.anchors[f"floor{i}"] = top_anchor(fp, ph + i * fh, ph + i * fh, floors, fh)
+    inner_cs = g.offset2(cs, -t)
+    if p["hollow"] and not inner_cs.is_empty():  # for interior generation
+        ipoly = max(inner_cs.to_polygons(), key=len)
+        part.anchors["inner"] = top_anchor([(float(x), float(y)) for x, y in ipoly], 0.0, H, floors, fh,
+                                           plinth_h=ph, slab_t=float(p["slab_t"]), wall_t=t)
     return part
 
 

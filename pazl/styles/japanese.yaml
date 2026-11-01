@@ -23,3 +23,17 @@ macros:
 - pagoda
 tips: Irimoya hip-and-gable roofs with deep eaves, dark timber posts, shoji screens
   (paper_shoji), engawa verandas, five-storey pagodas with sorin spire.
+years:
+- 600
+- 1900
+regions:
+- east_asia
+palette:
+  wall:
+  - '#f2ede2'
+  - '#4a3527'
+  trim:
+  - '#3a2a20'
+  roof:
+  - '#3e4247'
+  - '#5a4a3a'

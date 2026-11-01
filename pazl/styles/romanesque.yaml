@@ -31,3 +31,18 @@ macros:
 - romanesque_church
 tips: Thick walls, small round-arched windows, lombard bands under eaves, apse, square
   bell tower with pyramid roof.
+years:
+- 1000
+- 1200
+regions:
+- europe_west
+palette:
+  wall:
+  - '#d8c39c'
+  - '#cdbb98'
+  - '#bba98a'
+  trim:
+  - '#e3d5b8'
+  roof:
+  - '#9a5638'
+  - '#5f5e60'

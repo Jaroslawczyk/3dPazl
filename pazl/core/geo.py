@@ -17,6 +17,8 @@ CS = CrossSection
 
 # original_id -> (material, element_id)
 REGISTRY: dict[int, tuple[str, str]] = {}
+# (element_id, material) -> painted material name "material#rrggbb" (set per build from recipe "colors")
+PAINT: dict[tuple[str, str], str] = {}
 _current_elem = ["?"]
 
 
@@ -32,7 +34,8 @@ def tag(m: Manifold, mat: str) -> Manifold:
 
 
 def info(orig_id: int) -> tuple[str, str]:
-    return REGISTRY.get(orig_id, ("default", "?"))
+    mat, eid = REGISTRY.get(orig_id, ("default", "?"))
+    return PAINT.get((eid, mat), mat), eid
 
 
 # ---------------------------------------------------------------- matrices

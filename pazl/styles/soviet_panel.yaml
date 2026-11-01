@@ -30,3 +30,22 @@ macros:
 tips: Series 1-464 and 1-447 (5 floors, khrushchyovka), 121 (9 floors), P-44 (17 floors),
   II-18 (12-floor point tower). Floor height 2.8 m, panel joints, entrances with slab
   canopies on the yard side.
+years:
+- 1956
+- 1991
+regions:
+- russia
+- europe_east
+- central_asia
+palette:
+  wall:
+  - '#c9c6bd'
+  - '#d8cfb9'
+  - '#b9c4c9'
+  - '#d9b8a2'
+  - '#e3e0d4'
+  trim:
+  - '#9aa0a2'
+  - '#7d8a96'
+  roof:
+  - '#404245'
