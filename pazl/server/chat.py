@@ -374,7 +374,7 @@ class Chat:
         flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
         err = tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace")
         self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err, cwd=str(cwd),
-                                     text=True, encoding="utf-8", errors="replace", creationflags=flags)
+                                     text=True, encoding="utf-8", errors="replace", creationflags=flags, env=_cli_env())
         st = {"failed": False, "buf": ""}
         for line in self.proc.stdout:
             try:
@@ -450,7 +450,8 @@ class Chat:
         if exe and c["status"]:
             try:
                 r = subprocess.run([exe, *c["status"]], capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                   timeout=20, stdin=subprocess.DEVNULL, creationflags=0x08000000 if os.name == "nt" else 0)
+                                   timeout=20, stdin=subprocess.DEVNULL, creationflags=0x08000000 if os.name == "nt" else 0,
+                                   env=_cli_env())
                 out["status"] = (r.stdout + r.stderr).strip()[-300:]
                 try:  # claude auth status prints JSON {"loggedIn": ...}
                     out["logged_in"] = bool(json.loads(r.stdout)["loggedIn"])
@@ -470,10 +471,17 @@ class Chat:
                 raise RuntimeError("сначала установите программу")
             cmd = [exe, *c["login"]]
         if os.name == "nt":
-            subprocess.Popen(["cmd", "/c", "start", "3dPazl", "cmd", "/k", *cmd])
+            subprocess.Popen(["cmd", "/c", "start", "3dPazl", "cmd", "/k", *cmd], env=_cli_env())
         else:
-            subprocess.Popen(cmd)
+            subprocess.Popen(cmd, env=_cli_env())
         return {"ok": True}
+
+
+def _cli_env() -> dict:
+    """Environment for the AI apps: without the variables of an AI session that may have started 3dPazl
+    (CLAUDECODE, CLAUDE_CODE_*, ANTHROPIC_BASE_URL, ...). With them `claude` acts as a nested session and ignores
+    the user's own sign-in; an ANTHROPIC_API_KEY would also override the subscription."""
+    return {k: v for k, v in os.environ.items() if not k.upper().startswith(("CLAUDE", "ANTHROPIC_"))}
 
 
 CLIS = {  # account-based AI apps: executable, npm package, sign-in and status commands
