@@ -211,14 +211,16 @@ def timber_frame(p, ctx):
         for k in range(n):
             ua, ub = us[k], us[k + 1]
             pat = p["pattern"]
-            yy = (y0 + y1) / 2
+            # braces sit 1 cm behind the posts' face: a rotated beam never lands exactly in that plane, and a
+            # sub-millimetre offset would leave two flickering faces (z-fighting)
+            yy, bd = (y0 + y1 - 0.01) / 2, y1 - 0.01 - y0
             if pat == "cross" or (pat == "mann" and k in (0, n - 1)):
-                part.add(g.beam([ua, yy, zb + bw], [ub, yy, zt - bw], bw * 0.8, y1 - y0), m) if pat == "cross" or k == 0 else None
-                part.add(g.beam([ub, yy, zb + bw], [ua, yy, zt - bw], bw * 0.8, y1 - y0), m) if pat == "cross" or k == n - 1 else None
+                part.add(g.beam([ua, yy, zb + bw], [ub, yy, zt - bw], bw * 0.8, bd), m) if pat == "cross" or k == 0 else None
+                part.add(g.beam([ub, yy, zb + bw], [ua, yy, zt - bw], bw * 0.8, bd), m) if pat == "cross" or k == n - 1 else None
             elif pat == "diagonal" and k % 2 == 0:
-                part.add(g.beam([ua, yy, zb + bw], [ub, yy, zt - bw], bw * 0.8, y1 - y0), m)
+                part.add(g.beam([ua, yy, zb + bw], [ub, yy, zt - bw], bw * 0.8, bd), m)
             elif pat == "k" and k % 3 == 0:
-                part.add(g.beam([ua, yy, mid], [ub, yy, zt - bw], bw * 0.8, y1 - y0), m)
+                part.add(g.beam([ua, yy, mid], [ub, yy, zt - bw], bw * 0.8, bd), m)
     return part
 
 
