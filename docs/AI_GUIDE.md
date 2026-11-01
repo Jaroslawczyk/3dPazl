@@ -74,6 +74,17 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
   Check with `floorplan()` and the `plan` view (horizontal cut) of `render_views`.
 - Textures: realistic mode uses PBR maps from `textures/library` (`download_textures()` fetches CC0 packs from ambientCG).
 
+## Shapes and window patterns
+- `block` footprints are not only boxes: `shape` = rect, round, oval, rounded, L, U, T, octagon, hexagon, trapezoid,
+  wedge (flatiron), bow (curved front), cut_corner, cross; `shape_k` = size of the notch / radius / taper (0.1-0.8),
+  `flip: true` mirrors it (asymmetric). Faces `front/right/back/left` exist on every shape (the longest edge facing
+  that way); round/oval walls get tangent faces `face0..N`. Use cone/dome roofs on round/oval; gable/hip roofs are
+  trimmed to the footprint automatically. Bulk: patch `{"op":"shapes","shape":"random"|"round"|...}`.
+- `windows` grids: `fill` = all | random (`fill_share`) | checker | alternate | symmetric | formula (`fill_formula`,
+  an expression of c, r, cols, rows, n, e.g. `"(c + r) % 2 == 0"`); the other slots get `fill_other` = mix | blind
+  (bricked up) | shutters | boarded | none. Bulk: `{"op":"windows_fill","fill":"random"}`.
+- A window grid never puts a window where a door / single window / bay already is on the same face.
+
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
 degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,

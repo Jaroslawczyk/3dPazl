@@ -22,7 +22,10 @@ from ..core.render import VIEWS, render_sheet
 from ..paths import PROJECTS, ROOT  # noqa: E402
 
 
-BULK_OPS = {"reroll", "facade", "paint", "paint_random", "interior_all", "interior_clear", "weather_all", "weather_clear"}
+BULK_OPS = {"reroll", "facade", "paint", "paint_random", "interior_all", "interior_clear", "weather_all", "weather_clear",
+            "shapes", "windows_fill"}
+SHAPE_POOL = ["rect", "rounded", "L", "U", "T", "octagon", "hexagon", "trapezoid", "wedge", "bow", "cut_corner", "round",
+              "oval", "cross"]
 PROGRAM_BY_MACRO = {
     "residential": {"house", "izba", "fachwerk_house", "panel_building", "stalinka", "dutch_house", "victorian_house",
                     "alpine_chalet", "japanese_house"},
@@ -393,6 +396,50 @@ class Project:
             n += 1
         return f"interior for {n} volumes"
 
+    def _op_shapes(self, op):
+        """Building shapes: shape='random' gives every free-standing volume its own (often asymmetric) footprint,
+        a named shape applies it everywhere, 'rect' resets. Stacked volumes (jettied floors) follow the one below;
+        round towers get a cone roof."""
+        import random as _r
+        res = self.result()
+        rng = _r.Random(f"{self.recipe.get('seed', 1)}:shapes:{self.version}")
+        want, chosen, n = op.get("shape", "random"), {}, 0
+        for eid in res.order:
+            r = res.elements[eid]
+            if r.type != "block" or (r.params or {}).get("poly"):
+                continue
+            host = res.elements.get(r.host) if r.host else None
+            if host is not None and host.type == "block" and r.host in chosen:
+                pr = chosen[r.host]
+            elif want == "random":
+                pr = {"shape": rng.choice(SHAPE_POOL), "flip": rng.random() < 0.5, "shape_k": round(rng.uniform(0.3, 0.55), 2)}
+            else:
+                pr = {"shape": want, "flip": False, "shape_k": 0.4}
+            chosen[eid] = pr
+            self._apply({"op": "update", "id": eid, "params": pr})
+            n += 1
+        for eid in res.order:  # roofs on round / oval volumes: cone / dome (a gable roof cannot cover a circle)
+            r = res.elements[eid]
+            if r.type == "roof" and r.host in chosen and chosen[r.host]["shape"] in ("round", "oval"):
+                if (r.params or {}).get("type") not in ("cone", "dome", "onion", "flat"):
+                    self._apply({"op": "update", "id": eid, "params": {"type": "cone" if chosen[r.host]["shape"] == "round" else "dome"}})
+        return f"shapes {want} for {n} volumes"
+
+    def _op_windows_fill(self, op):
+        """Every window grid: which slots are real windows (fill=all/random/checker/alternate/symmetric/formula) and
+        what the others get (fill_other=mix/blind/shutters/boarded/none)."""
+        res = self.result()
+        pr = {k: op[k] for k in ("fill", "fill_share", "fill_formula", "fill_other") if k in op}
+        if pr.get("fill") == "formula":
+            from ..core.elements.openings import _formula
+            _formula(pr.get("fill_formula") or "True")  # reject a bad formula before touching anything
+        ids = [eid for eid in res.order if res.elements[eid].type == "windows" and (not op.get("ids") or eid in op["ids"])]
+        for eid in ids:
+            self._apply({"op": "update", "id": eid, "params": pr})
+        if op.get("reroll"):
+            self.recipe["seed"] = int(self.recipe.get("seed", 1)) + 1
+        return f"windows fill={pr.get('fill')} on {len(ids)} grids"
+
     def _op_interior_clear(self, op):
         self.recipe["elements"] = [e for e in self.recipe["elements"] if e.get("type") != "interior"]
         return "interiors removed"
@@ -438,7 +485,7 @@ class Project:
         out = []
         for eid in res.order:
             r = res.elements[eid]
-            out.append({"id": eid, "type": r.type, "host": r.host, "error": r.error,
+            out.append({"id": eid, "type": r.type, "host": r.host, "on": r.src.get("on"), "error": r.error,
                         "anchors": sorted(r.anchors.keys()) if len(r.anchors) < 40 else sorted(r.anchors.keys())[:40]})
         return out
 

@@ -2,11 +2,82 @@
 local X along the face, Y outward, Z up, origin on the outer wall surface."""
 from __future__ import annotations
 
+import ast
 import math
 
 from .. import geo as g
 from ..registry import P, Part, element
 from .common import grid_positions, opening_shape
+
+FILLS = ["all", "random", "checker", "alternate", "symmetric", "formula"]
+_FORMULA_NODES = (ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare, ast.Name, ast.Load, ast.Constant,
+                  ast.Tuple, ast.List, ast.And, ast.Or, ast.Not, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
+                  ast.Mod, ast.USub, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.In, ast.NotIn, ast.IfExp)
+
+
+def _formula(expr: str):
+    """Safe arithmetic/boolean expression of c, r, cols, rows, n -> callable (no names or calls besides those)."""
+    tree = ast.parse(str(expr), mode="eval")
+    for node in ast.walk(tree):
+        if not isinstance(node, _FORMULA_NODES) or (isinstance(node, ast.Name) and node.id not in ("c", "r", "cols", "rows", "n")):
+            raise ValueError(f"fill_formula: only numbers, c, r, cols, rows, n and operators are allowed: {expr!r}")
+    code = compile(tree, "<fill_formula>", "eval")
+    return lambda **v: bool(eval(code, {"__builtins__": {}}, v))
+
+
+def fill_plan(p, ctx, pos) -> list:
+    """For each grid position: True = real window, False = something else (bricked up / shutters / boards)."""
+    mode = p.get("fill") or "all"
+    if mode == "all":
+        return [True] * len(pos)
+    cols = max((c for _, _, c, _ in pos), default=0) + 1
+    rows = max((r for _, _, _, r in pos), default=0) + 1
+    share = float(p.get("fill_share", 0.7))
+    rng = ctx.rng
+    sym = {}
+    out = []
+    fn = _formula(p.get("fill_formula") or "True") if mode == "formula" else None
+    for n, (_, _, c, r) in enumerate(pos):
+        if mode == "random":
+            out.append(rng.random() < share)
+        elif mode == "checker":
+            out.append((c + r) % 2 == 0)
+        elif mode == "alternate":
+            out.append(c % 2 == 0)
+        elif mode == "symmetric":
+            key = (min(c, cols - 1 - c), r)
+            if key not in sym:
+                sym[key] = rng.random() < share
+            out.append(sym[key])
+        else:
+            out.append(fn(c=c, r=r, cols=cols, rows=rows, n=n))
+    if not any(out) and out:  # never a completely blind facade by accident
+        out[len(out) // 2] = True
+    return out
+
+
+def _blank(p, ctx, w, h, kind, part: Part, u, v, how):
+    """A slot without a window: blind (bricked-up niche), closed shutters or boarded up - the wall stays closed."""
+    if how == "none":
+        return
+    seg = ctx.seg(w / 2, 8, 40)
+    shape = opening_shape(kind, w, h, seg)
+    T = g.mat_t(u, 0, v)
+    if how == "blind":  # shallow niche in the wall's own material + the usual surround
+        part.cut(g.xf(g.prism_xz(shape, -0.06, 0.05), T))
+    elif how == "shutters":
+        sh = ctx.mat(p.get("shutter_material", "shutter"))
+        part.add(g.xf(g.prism_xz(g.offset2(shape, 0.02), -0.02, 0.04), T), sh)
+        part.add(g.xf(g.box(-0.015, 0.03, 0, 0.015, 0.06, h * 0.98), T), sh)  # the gap between the two leaves
+    else:  # boarded up: dark hole behind planks
+        part.cut(g.xf(g.prism_xz(shape, -0.1, 0.05), T))
+        wood = ctx.mat("wood")
+        boards = [g.box(-w / 2 - 0.08, -0.02, z, w / 2 + 0.08, 0.03, z + 0.16) for z in [h * k / 5 for k in range(5)]]
+        part.add(g.xf(g.union(boards) ^ g.prism_xz(g.offset2(shape, 0.08), -0.05, 0.1), T), wood)
+    if p.get("sill_ledge", True) and kind not in ("round", "rose", "slit"):
+        part.add(g.xf(g.box(-w / 2 - 0.06, -0.02, -0.06, w / 2 + 0.06, 0.07, 0.0), T), ctx.mat(p.get("trim_material", "trim")))
+    _trim(p, ctx, w, h, kind, shape, part, T, ctx.mat(p.get("trim_material", "trim")))
+
 
 SHAPES = ["rect", "arch", "segmental", "lancet", "round", "rose", "horseshoe", "ogee", "slit", "ribbon", "triangle"]
 TRIMS = ["none", "simple", "classic", "pediment", "segment_pediment", "baroque", "gothic_hood", "nalichnik",
@@ -138,6 +209,12 @@ WIN_PARAMS = {
     "mullions": P([1, 1], "[vertical bars, horizontal bars]"), "glazed": P(True, "glass (false = open arcade)"),
     "recess": P(0.12, "how deep the frame sits in the wall"), "sill_ledge": P(True, ""),
     "trim": P("simple", "surround style", TRIMS), "trim_w": P(0.12, ""), "trim_out": P(0.04, ""),
+    "fill": P("all", "which grid slots get a window: all, random (share), checker, alternate (every other column), "
+                     "symmetric (random but mirrored), formula", FILLS),
+    "fill_share": P(0.7, "share of real windows for random/symmetric (0..1)"),
+    "fill_formula": P(None, "for fill=formula: expression of c (column), r (row), cols, rows, n (index); true = window. "
+                            "E.g. '(c + r) % 2 == 0', 'c in (0, cols - 1)', 'r > 0 and c % 3 != 1'"),
+    "fill_other": P("mix", "what the other slots get", ["mix", "blind", "shutters", "boarded", "none"]),
     "shutters": P(False, ""), "stained": P(False, "stained glass (unique art texture slot)"),
     "subject": P(None, "stained glass subject for the texture prompt"),
     "frame_material": P("frame", ""), "glass_material": P("glass", ""), "trim_material": P("trim", ""),
@@ -152,8 +229,13 @@ def windows(p, ctx):
     part = Part()
     depth = ctx.anchor.depth if ctx.anchor else 0.5
     w, h = float(p["w"]), float(p["h"])
-    for u, v, c, r in grid_positions(p, ctx.anchor, w):
-        _window(p, ctx, w, h, depth, p["kind"], part, u, v)
+    pos = grid_positions(p, ctx.anchor, w)
+    other = p.get("fill_other") or "mix"
+    for (u, v, c, r), real in zip(pos, fill_plan(p, ctx, pos)):
+        if real:
+            _window(p, ctx, w, h, depth, p["kind"], part, u, v)
+        else:
+            _blank(p, ctx, w, h, p["kind"], part, u, v, ctx.rng.choice(["blind", "blind", "shutters", "boarded"]) if other == "mix" else other)
     return part
 
 

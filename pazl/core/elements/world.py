@@ -378,7 +378,8 @@ def iwan(p, ctx):
          "neck, bell, curved or plain triangle. Put on a face at [\"50%\", face height]. Exposes `face` for windows.",
          {"kind": P("stepped", "", ["stepped", "neck", "bell", "curved", "triangle", "spout"]), "w": P(None, "width (default face width)"),
           "h": P(5.0, "height above the anchor point"), "steps": P(5, "for stepped"), "t": P(None, "thickness (default wall)"),
-          "finial": P("ball", "", ["ball", "spike", "none"]), "material": P("wall", ""), "trim_material": P("trim", "")},
+          "finial": P("ball", "", ["ball", "spike", "none"]), "material": P("wall", ""), "trim_material": P("trim", ""),
+          "proud": P(0.12, "how far it stands in front of the face: covers the roof's edge and overhang")},
          attach="face", title_ru="Фигурный щипец (голландский, ступенчатый)", anchors="face")
 def gable_wall(p, ctx):
     from .roofs import _cross
@@ -401,13 +402,14 @@ def gable_wall(p, ctx):
         shp = g.union_cs([opening_shape("triangle", W, H * 0.9, 4), g.rect2(W * 0.25, H)])
     else:
         shp = opening_shape("triangle", W, H, 4)
+    pr = float(p["proud"])
     part = Part()
-    part.add(g.prism_xz(shp, -t, 0.02), ctx.mat(p["material"]))
-    part.add(g.prism_xz(g.offset2(shp, 0.08) - g.offset2(shp, -0.12), -0.02, 0.1) - g.box(-W, -1, -1, W, 1, 0.05),
+    part.add(g.prism_xz(shp, -t, pr), ctx.mat(p["material"]))
+    part.add(g.prism_xz(g.offset2(shp, 0.08) - g.offset2(shp, -0.12), pr - 0.04, pr + 0.08) - g.box(-W, -1, -1, W, 1, 0.05),
              ctx.mat(p["trim_material"]))
     if p["finial"] != "none":
         _cross(p["finial"], H - 0.05, 0.8, part, ctx)
-    part.anchors["face"] = Anchor(g.mat_t(-W / 2, 0, 0), "face", w=W, h=H, depth=t, floors=1, floor_h=H)
+    part.anchors["face"] = Anchor(g.mat_t(-W / 2, pr, 0), "face", w=W, h=H, depth=t + pr, floors=1, floor_h=H)
     return part
 
 

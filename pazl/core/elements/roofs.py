@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import geo as g
 from ..registry import Anchor, P, Part, element
-from .common import top_anchor
+from .common import clip_to, top_anchor
 
 ROOF_TYPES = ["gable", "hip", "pyramid", "tent", "shed", "mansard", "gambrel", "flat", "cone", "dome", "onion",
               "helmet", "bell", "barrel", "cross_gable", "half_hip", "pagoda", "chinese", "irimoya", "sawtooth"]
@@ -98,6 +98,14 @@ def _revolve_roof(kind, r, h, seg, base_z=0.0):
           "break_h": P(0.6, "mansard/gambrel break height (fraction)"), "tiers": P(3, "pagoda tiers")},
          attach="top", title_ru="Крыша", anchors="ridge (point), top (apex top-anchor)")
 def roof(p, ctx):
+    part = _roof_body(p, ctx)
+    a_ = ctx.anchor
+    if a_ and a_.footprint and p["type"] not in ("flat", "dome", "onion", "helmet", "bell", "cone") and not a_.extra.get("round"):
+        clip_to(part, a_.footprint, float(p["overhang"]) + 0.02)  # L / U / round / wedge footprints: no roof over empty air
+    return part
+
+
+def _roof_body(p, ctx):
     a_ = ctx.anchor
     fp = a_.footprint if (a_ and a_.footprint) else [(-5, -4), (5, -4), (5, 4), (-5, 4)]
     x0, x1, y0, y1 = _bbox(fp)

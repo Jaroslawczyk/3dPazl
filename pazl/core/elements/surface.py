@@ -7,6 +7,7 @@ import math
 from .. import geo as g
 from ..decals import DECAL_KINDS
 from ..registry import P, Part, element, pct
+from .common import clip_to, is_rect
 
 # ------------------------------------------------------------------ decals
 DECAL_OFFSET = 0.006  # distance from the wall; each decal gets a unique extra offset -> no z-fighting
@@ -191,6 +192,31 @@ def _spiral(part, cx, cy, r, z0, fh, mat, seg):
         part.add(g.hull(pts), mat)
 
 
+def _fit_core(fp, core, elev, X0, X1, Y0, Y1):
+    """Slide the stair core (and the lift next to it) over the bounding box until both lie fully inside the footprint;
+    no stairs if nothing fits."""
+    shape = g.poly(fp)
+
+    def inside(q):
+        return q is None or (shape ^ g.poly([(q[0], q[1]), (q[2], q[1]), (q[2], q[3]), (q[0], q[3])])).area() >=             0.98 * (q[2] - q[0]) * (q[3] - q[1])
+    if inside(core) and inside(elev):
+        return core, elev
+    cands = []
+    x, step = X0 - core[0], 0.5
+    while core[2] + x <= X1 + 1e-6:
+        y = Y0 - core[1]
+        while core[3] + y <= Y1 + 1e-6:
+            cands.append((abs(x) + abs(y), x, y))
+            y += step
+        x += step
+    for _, dx, dy in sorted(cands):
+        c = (core[0] + dx, core[1] + dy, core[2] + dx, core[3] + dy)
+        e = elev and (elev[0] + dx, elev[1] + dy, elev[2] + dx, elev[3] + dy)
+        if inside(c) and inside(e):
+            return c, e
+    return None, None
+
+
 @element("interior", "structure", "Interior of a block (attach to `<block>:inner`): rooms by program and era (corridor + rooms, "
          "enfilade for palaces, open halls for churches/factories), partition walls with doors, stairs (U or spiral), "
          "elevators (from ~1880 when tall), slab openings, simple furniture. `plan` lets you give your own rooms per floor: "
@@ -248,6 +274,8 @@ def interior(p, ctx):
             elev = (core[2], Y1 - 2.2, core[2] + 2.2, Y1)
         else:
             elev = (X1 - 2.2, core[3], X1, core[3] + 2.2)
+    if core and not is_rect(fp):  # L / round / wedge footprints: move stairs (+ lift) to a spot fully inside
+        core, elev = _fit_core(fp, core, elev, X0, X1, Y0, Y1)
     for f in range(floors):
         z0 = ph + f * fh + (st if (f > 0 or ph < st) else 0.0)
         z1 = ph + (f + 1) * fh - st
@@ -379,6 +407,7 @@ def interior(p, ctx):
                 part.add(g.box(ex0 + 0.3, ey0 + 0.3, z0 - 0.02, ex1 - 0.3, ey1 - 0.3, z0 + 2.3), ctx.mat("steel"))
             plan_out.append({"floor": f, "name": "elevator", "name_ru": "лифт",
                              "rect": [round(ex0 - X0, 2), round(ey0 - Y0, 2), round(ex1 - X0, 2), round(ey1 - Y0, 2)]})
+    clip_to(part, fp)  # rooms of L / U / round footprints stay inside the walls
     part.info["plan"] = plan_out
     part.info["program"] = prog
     part.info["summary"] = {"floors": floors, "rooms": len([r_ for r_ in plan_out if r_["name"] not in ("corridor", "stairs", "elevator")]),

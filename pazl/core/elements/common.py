@@ -9,12 +9,85 @@ from .. import geo as g
 from ..registry import Anchor, pct
 
 
+FP_SHAPES = ["rect", "round", "oval", "rounded", "L", "U", "T", "octagon", "hexagon", "trapezoid", "wedge", "bow",
+             "cut_corner", "cross"]
+
+
+def _arc(cx, cy, rx, ry, a0, a1, n):
+    return [(cx + rx * math.cos(a0 + (a1 - a0) * i / n), cy + ry * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+
+
+def shape_points(shape: str, w: float, d: float, k: float = 0.4) -> list[tuple[float, float]]:
+    """Footprint of a named shape, CCW, starting at the front-left so face0 is the front (-Y) where there is one.
+    k = proportion of the shape's feature: notch of L/U/T, corner radius, taper of trapezoid/wedge, bulge of bow."""
+    X, Y = w / 2, d / 2
+    k = min(max(float(k), 0.1), 0.8)
+    if shape in ("round", "oval"):
+        rx, ry = (min(X, Y), min(X, Y)) if shape == "round" else (X, Y)
+        return _arc(0, 0, rx, ry, -math.pi / 2, 1.5 * math.pi, 48)[:-1]
+    if shape == "rounded":
+        r = min(X, Y) * k
+        pts = []
+        for cx, cy, a0 in ((X - r, -Y + r, -math.pi / 2), (X - r, Y - r, 0), (-X + r, Y - r, math.pi / 2), (-X + r, -Y + r, math.pi)):
+            pts += _arc(cx, cy, r, r, a0, a0 + math.pi / 2, 6)
+        return pts[-1:] + pts[:-1]  # start after the front-left corner arc -> face0 = straight front
+    if shape == "L":
+        return [(-X, -Y), (X, -Y), (X, -Y + d * (1 - k)), (-X + w * (1 - k), -Y + d * (1 - k)), (-X + w * (1 - k), Y), (-X, Y)]
+    if shape == "U":
+        a, b = w * k / 2, d * k
+        return [(-X, -Y), (X, -Y), (X, Y), (a, Y), (a, Y - b), (-a, Y - b), (-a, Y), (-X, Y)]
+    if shape == "T":
+        a = w * (1 - k) / 2
+        return [(-X, -Y), (X, -Y), (X, -Y + d * 0.45), (a, -Y + d * 0.45), (a, Y), (-a, Y), (-a, -Y + d * 0.45), (-X, -Y + d * 0.45)]
+    if shape == "cross":
+        a, b = w * (1 - k) / 2, d * (1 - k) / 2
+        return [(-a, -Y), (a, -Y), (a, -b), (X, -b), (X, b), (a, b), (a, Y), (-a, Y), (-a, b), (-X, b), (-X, -b), (-a, -b)]
+    if shape in ("octagon", "hexagon"):
+        if shape == "hexagon":
+            return [(-X * 0.5, -Y), (X * 0.5, -Y), (X, 0), (X * 0.5, Y), (-X * 0.5, Y), (-X, 0)]
+        c = min(X, Y) * 0.6
+        return [(-X + c, -Y), (X - c, -Y), (X, -Y + c), (X, Y - c), (X - c, Y), (-X + c, Y), (-X, Y - c), (-X, -Y + c)]
+    if shape in ("trapezoid", "wedge"):
+        b = X * (1 - k) if shape == "trapezoid" else X * 0.12
+        return [(-X, -Y), (X, -Y), (b, Y), (-b, Y)]
+    if shape == "bow":  # convex curved front
+        yc = -Y + d * k * 0.5
+        return [(-X, yc)] + _arc(0, yc, X, d * k * 0.5, math.pi, 2 * math.pi, 16)[1:-1] + [(X, yc), (X, Y), (-X, Y)]
+    if shape == "cut_corner":  # one chamfered front corner (corner house on a crossroads)
+        c = min(X, Y) * k
+        return [(-X, -Y), (X - c, -Y), (X, -Y + c), (X, Y), (-X, Y)]
+    return [(-X, -Y), (X, -Y), (X, Y), (-X, Y)]
+
+
 def footprint(p) -> list[tuple[float, float]]:
-    """Footprint from params: `poly` list of points or rect `w` x `d` centred at origin."""
+    """Footprint from params: `poly` list of points, or `shape` (rect, round, L, ...) of `w` x `d` centred at origin.
+    `flip` mirrors it left-right (asymmetric shapes)."""
     if p.get("poly"):
         return g.ccw(p["poly"])
     w, d = float(p["w"]), float(p["d"])
-    return [(-w / 2, -d / 2), (w / 2, -d / 2), (w / 2, d / 2), (-w / 2, d / 2)]
+    pts = shape_points(p.get("shape") or "rect", w, d, p.get("shape_k") or 0.4)
+    if p.get("flip"):
+        pts = [(-x, y) for x, y in pts][::-1]
+        pts = pts[-2:] + pts[:-2]  # keep the front edge first
+    return pts
+
+
+def is_rect(fp) -> bool:
+    if len(fp) != 4:
+        return False
+    xs, ys = [p[0] for p in fp], [p[1] for p in fp]
+    return all(min(abs(x - min(xs)), abs(x - max(xs))) < 1e-6 for x in xs) and all(min(abs(y - min(ys)), abs(y - max(ys))) < 1e-6 for y in ys)
+
+
+def clip_to(part, fp, grow=0.0):
+    """Clip a part's solids to the vertical prism over footprint fp (+grow): nothing hangs over empty space
+    (gable roofs and room partitions on L / round / U footprints)."""
+    if is_rect(fp):
+        return part
+    prism = g.extrude(g.offset2(g.poly(fp), grow) if grow else g.poly(fp), 400.0, -100.0)
+    part.solids = [(m ^ prism, mat) for m, mat in part.solids]
+    part.solids = [(m, mat) for m, mat in part.solids if not m.is_empty()]
+    return part
 
 
 def face_anchors(fp, height, depth, floors=1, floor_h=3.0, base=0.0, z0=0.0, names=True) -> dict:
@@ -36,7 +109,23 @@ def face_anchors(fp, height, depth, floors=1, floor_h=3.0, base=0.0, z0=0.0, nam
         for i, nm in enumerate(("front", "right", "back", "left")):
             if f"face{i}" in out:
                 out[nm] = out[f"face{i}"]
+    elif names:  # any polygon: front/right/back/left = the longest edge facing that way (macros attach to them)
+        for nm, dvec in (("front", (0, -1)), ("right", (1, 0)), ("back", (0, 1)), ("left", (-1, 0))):
+            best = max(((a.m[0, 1] * dvec[0] + a.m[1, 1] * dvec[1]) * a.w, k) for k, a in out.items() if k.startswith("face"))
+            if best[0] > 0.3:
+                out[nm] = out[best[1]]
     return out
+
+
+def round_face_anchors(rx, ry, height, depth, floors=1, floor_h=3.0, base=0.0, k=None) -> dict:
+    """Face anchors on tangent planes of a round / oval wall (a circumscribed k-gon): windows, doors and
+    facades on curved walls."""
+    per = math.pi * (rx + ry)
+    k = k or max(8, int(round(per / 3.2 / 2)) * 2)
+    sc = 1 / math.cos(math.pi / k)
+    pts = [(rx * sc * math.cos(-math.pi / 2 - math.pi / k + 2 * math.pi * i / k), ry * sc * math.sin(-math.pi / 2 - math.pi / k + 2 * math.pi * i / k))
+           for i in range(k)]
+    return face_anchors(pts, height, depth, floors, floor_h, base)
 
 
 def top_anchor(fp, z, height, floors=1, floor_h=3.0, **extra) -> Anchor:
@@ -78,12 +167,18 @@ def grid_positions(p, anchor: Anchor, w_item: float, default_rows="floors"):
         step = p.get("row_step") or fh
         vs = [sill + r * float(step) for r in range(int(rows))]
     skip = {tuple(s) for s in (p.get("skip") or [])}
+    avoid = p.get("_avoid") or []  # [u0,u1,v0,v1] of doors etc. on the same face (set by the builder)
+    h_item = float(p.get("h") or 1.5)
+    gap = 0.25
     only_rows = p.get("only_rows")
     only_cols = p.get("only_cols")
     out = []
     for r, v in enumerate(vs):
         for c, u in enumerate(us):
             if (c, r) in skip or (only_rows and r not in only_rows) or (only_cols and c not in only_cols):
+                continue
+            if any(u - w_item / 2 - gap < a[1] and u + w_item / 2 + gap > a[0] and v - gap < a[3] and v + h_item + gap > a[2]
+                   for a in avoid):
                 continue
             out.append((u, v, c, r))
     return out

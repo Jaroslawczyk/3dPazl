@@ -7,12 +7,16 @@ import numpy as np
 
 from .. import geo as g
 from ..registry import Anchor, P, Part, element
-from .common import face_anchors, footprint, top_anchor
+from .common import FP_SHAPES, face_anchors, footprint, round_face_anchors, top_anchor
 
 FP_PARAMS = {
     "w": P(10.0, "width along local X (m)", min=0.5),
     "d": P(8.0, "depth along local Y (m)", min=0.5),
-    "poly": P(None, "optional footprint polygon [[x,y],...] instead of w/d"),
+    "shape": P("rect", "footprint shape (w x d box): round/oval towers, rounded corners, L/U/T wings, wedge "
+                       "(flatiron), bow (curved front), cut_corner (corner house) ...", FP_SHAPES),
+    "shape_k": P(0.4, "proportion of the shape feature: L/U/T notch, corner radius, taper, bulge (0.1-0.8)"),
+    "flip": P(False, "mirror the shape left-right (asymmetric buildings)"),
+    "poly": P(None, "optional footprint polygon [[x,y],...] instead of w/d/shape"),
 }
 
 
@@ -60,8 +64,14 @@ def block(p, ctx):
         if p["hollow"] and not inner.is_empty():
             plinth = g.subtract(plinth, [g.extrude(inner, ph + 1.0, -0.5)])
         part.add(plinth, ctx.mat(p["plinth_material"]))
-    part.anchors.update(face_anchors(fp, H, t, floors, fh, ph))
-    part.anchors["top"] = top_anchor(fp, H, H, floors, fh)
+    rnd = p.get("shape") in ("round", "oval") and not p.get("poly")
+    if rnd:  # curved wall: face anchors on tangent planes, round roofs (domes/cones) fit the top
+        rx, ry = (min(float(p["w"]), float(p["d"])) / 2,) * 2 if p["shape"] == "round" else (float(p["w"]) / 2, float(p["d"]) / 2)
+        part.anchors.update(round_face_anchors(rx, ry, H, t, floors, fh, ph))
+        part.anchors["top"] = top_anchor(fp, H, H, floors, fh, round=p["shape"] == "round", r=rx)
+    else:
+        part.anchors.update(face_anchors(fp, H, t, floors, fh, ph))
+        part.anchors["top"] = top_anchor(fp, H, H, floors, fh)
     part.anchors["base"] = top_anchor(fp, 0.0, 0.0, floors, fh)
     for i in range(floors + 1):
         part.anchors[f"floor{i}"] = top_anchor(fp, ph + i * fh, ph + i * fh, floors, fh)

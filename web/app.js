@@ -308,8 +308,10 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const r = renderer.domElement.getBoundingClientRect();
   mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(mouse, camera);
-  const hit = ray.intersectObjects(root.children, true).find((h) => h.object.userData.eid);
+  const hit = ray.intersectObjects(root.children, true)
+    .find((h) => h.object.userData.eid && h.object.visible && (!renderer.clippingPlanes.length || clipPlane.distanceToPoint(h.point) >= 0));
   select(hit ? hit.object.userData.eid : null);
+  pickFace(hit);
 });
 
 function applyHighlights() {
@@ -766,6 +768,105 @@ $('#matList').onchange = (e) => {
   patch([{ op: 'set', key: 'tex_swap', value: swap }], `текстура ${e.target.dataset.m} → ${e.target.value || 'своя'}`);
 };
 
+// ---------------------------------------------------------------- faces: click picks the plane of a wall / roof top
+const faceMat = new THREE.MeshBasicMaterial({ color: 0xe0a84a, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
+const faceMesh = new THREE.Mesh(new THREE.BufferGeometry(), faceMat);
+faceMesh.renderOrder = 5; faceMesh.visible = false;
+scene.add(faceMesh);
+const v3 = (a) => new THREE.Vector3(...a);
+async function faceOf(eid, p, n) {  // p, n in Z-up coords -> best face anchor of eid, or null
+  let an;
+  try { an = await api('anchors/' + encodeURI(eid)); } catch { return null; }
+  let best = null;
+  for (const [name, a] of Object.entries(an)) {
+    if (a.kind === 'top' && n.z > 0.8 && name === 'top') best = best || { name, a, score: 9 };
+    if (a.kind !== 'face' || /^face\d+$/.test(name) === false && !['front', 'back', 'left', 'right', 'face'].includes(name)) continue;
+    const N = v3(a.normal), up = new THREE.Vector3(0, 0, 1), X = up.clone().cross(N).normalize();
+    if (n.dot(N) < 0.85) continue;
+    const d = p.clone().sub(v3(a.origin)), u = d.dot(X), v = d.dot(up), off = d.dot(N);
+    if (off < -a.depth - 0.6 || off > 0.7 || u < -0.4 || u > a.w + 0.4 || v < -1 || v > a.h + 1) continue;
+    const score = Math.abs(off) + (/^face\d+$/.test(name) ? 0.001 : 0);  // prefer front/back/... names
+    if (!best || score < best.score) best = { name, a, u, v, X, N, score };
+  }
+  return best;
+}
+async function pickFace(hit) {
+  S.face = null; faceMesh.visible = false; $('#faceBox').hidden = true;
+  if (!hit) return invalidate();
+  const eid = hit.object.userData.eid;
+  const n3 = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+  const p = v3(toCore(hit.point)), n = new THREE.Vector3(n3.x, -n3.z, n3.y);
+  let f = await faceOf(eid, p, n), owner = eid;
+  if (!f) {  // a window / door / decor piece: the face it sits on
+    const on = S.tree.find((t) => t.id === eid)?.on;
+    if (on && on.includes(':')) { owner = on.split(':')[0]; f = await faceOf(owner, p, n); }
+  }
+  if (!f || S.selected !== eid) return invalidate();
+  S.face = { eid: owner, name: f.name, a: f.a, u: f.u, v: f.v, point: hit.point.clone() };
+  if (f.a.kind === 'face') {
+    const o = v3(f.a.origin).add(f.N.clone().multiplyScalar(0.04));
+    const c = [[0, 0], [f.a.w, 0], [f.a.w, f.a.h], [0, f.a.h]].map(([u, v]) => { const q = o.clone().add(f.X.clone().multiplyScalar(u)); q.z += v; return toThree([q.x, q.y, q.z]); });
+    faceMesh.geometry.dispose();
+    faceMesh.geometry = new THREE.BufferGeometry().setFromPoints([c[0], c[1], c[2], c[0], c[2], c[3]]);
+    faceMesh.visible = true;
+  }
+  renderFace(); invalidate();
+}
+function faceElems(f) { return S.tree.filter((t) => t.on === `${f.eid}:${f.name}`); }
+function renderFace() {
+  const f = S.face, box = $('#faceBox');
+  if (!f) { box.hidden = true; return; }
+  const size = f.a.kind === 'face' ? `${f.a.w.toFixed(1)} × ${f.a.h.toFixed(1)} м` : 'верх (крыша / площадка)';
+  const here = faceElems(f);
+  const faceTypes = S.catalog.filter((c) => c.attach === 'face' || (f.a.kind === 'top' && c.attach === 'top'));
+  box.innerHTML = `<h3>Грань</h3><div class="face-head"><b>${esc(f.eid)}</b> · ${esc(f.name)} <span class="hint">${size}</span></div>
+    ${here.length ? `<div class="hint">На грани: ${here.map((t) => esc(t.id.split('/').pop()) + ' <i>' + esc(t.type) + '</i>').join(', ')}</div>` : ''}
+    ${f.a.kind === 'face' ? `<label class="row">Окна <select id="faceWin"><option value="">—</option><option value="none">убрать окна</option>
+      <option value="all">все окна</option><option value="random">случайно (часть заложена)</option><option value="symmetric">случайно, симметрично</option>
+      <option value="checker">шахматка</option><option value="alternate">через одно</option><option value="formula">по формуле…</option></select></label>` : ''}
+    <div class="row"><select id="faceAddType">${faceTypes.map((c) => `<option value="${c.type}">${esc(c.title_ru || c.type)}</option>`).join('')}</select>
+      <button id="faceAdd" title="Добавить на эту грань в место клика">+ сюда</button></div>
+    <div class="row"><button id="faceAsk" class="act" title="Пометка на этой грани: ИИ поменяет только её">💬 ИИ: изменить эту грань</button>
+      <button id="faceClose" title="Снять выделение грани">✕</button></div>`;
+  box.hidden = false;
+  $('#faceClose').onclick = () => { S.face = null; faceMesh.visible = false; box.hidden = true; invalidate(); };
+  $('#faceAdd').onclick = () => {
+    const type = $('#faceAddType').value, at = f.a.kind === 'face' ? [+f.u.toFixed(2), +Math.max(0, f.v).toFixed(2)] : undefined;
+    const el = { id: type, type, on: `${f.eid}:${f.name}` };
+    if (at && !['windows', 'timber_frame', 'weathering', 'panel_grid'].includes(type)) el.at = type === 'window' || type === 'door' ? at : at;
+    patch([{ op: 'add', element: el }], `+${type} на ${f.eid}:${f.name}`);
+  };
+  $('#faceAsk').onclick = () => {
+    S.marks.push({ kind: 'point', pts: [f.point], eids: [f.eid, ...faceElems(f).map((t) => t.id)], note: '', face: `${f.eid}:${f.name}` });
+    renderMarks(); invalidate();
+    setTimeout(() => $(`#markList input[data-i="${S.marks.length - 1}"]`)?.focus(), 0);
+  };
+  const fw = $('#faceWin');
+  if (fw) fw.onchange = () => {
+    const mode = fw.value; if (!mode) return;
+    const grids = faceElems(f).filter((t) => t.type === 'windows');
+    let formula;
+    if (mode === 'formula') { formula = prompt('Формула: c — столбец, r — ряд (с 0), cols, rows. Истина = окно. Например: (c + r) % 2 == 0', '(c + r) % 2 == 0'); if (!formula) return; }
+    const pr = { fill: mode, ...(formula ? { fill_formula: formula } : {}) };
+    const ops = mode === 'none' ? [{ op: 'facade', id: f.eid, face: f.name, windows: 'none' }]
+      : grids.length ? grids.map((t) => ({ op: 'update', id: t.id, params: pr })) : [{ op: 'facade', id: f.eid, face: f.name, windows: pr }];
+    patch(ops, `окна на ${f.eid}:${f.name}: ${mode}`);
+  };
+}
+
+// ---------------------------------------------------------------- whole-project buttons: window fill, building shapes
+$('#selWinFill').onchange = async (e) => {
+  const mode = e.target.value; e.target.value = '';
+  if (!mode) return;
+  let formula;
+  if (mode === 'formula') { formula = prompt('Формула для всех сеток окон. c — столбец, r — ряд (с 0), cols, rows, n. Истина = окно.\nПримеры: (c + r) % 2 == 0 · c in (0, cols - 1) · r > 0 and c % 3 != 1', 'c % 3 != 1'); if (!formula) return; }
+  await patch([{ op: 'windows_fill', fill: mode, ...(formula ? { fill_formula: formula } : {}) }], 'окна: ' + mode);
+};
+$('#selShapes').onchange = async (e) => {
+  const shape = e.target.value; e.target.value = '';
+  if (shape) await patch([{ op: 'shapes', shape }], 'формы зданий: ' + shape);
+};
+
 // ---------------------------------------------------------------- marks for the AI: points and drawings on the model
 // The AI then changes only the marked elements (the server locks everything else for the run).
 S.marks = []; S.marking = false;
@@ -869,6 +970,7 @@ $('#markRun').onclick = async () => {
   const lines = S.marks.map((m, i) => {
     const where = m.kind === 'stroke'
       ? `рисунок по ${m.eids.length ? 'элементам ' + m.eids.map((id) => `\`${id}\` (${typeOf(id)})`).join(', ') : 'пустому месту'}, от ${JSON.stringify(toCore(m.pts[0]))} до ${JSON.stringify(toCore(m.pts.at(-1)))}`
+      : m.face ? `грань \`${m.face}\` (точка ${JSON.stringify(toCore(m.pts[0]))}; на ней: ${m.eids.slice(1).map((id) => '`' + id + '`').join(', ') || 'ничего'})`
       : `точка на ${m.eids.length ? `элементе \`${m.eids[0]}\` (${typeOf(m.eids[0])})` : 'пустом месте'} в ${JSON.stringify(toCore(m.pts[0]))}`;
     return `${i + 1}. ${where}: «${m.note || task || 'переделать'}»`;
   });

@@ -1,5 +1,5 @@
 ; Inno Setup script: wraps dist/3dPazl into a normal Windows installer -> dist/3dPazl-Setup-<ver>.exe
-#define AppVer "0.8.1"
+#define AppVer "0.9.0"
 
 [Setup]
 AppId={{5A678BF8-6D47-4817-B0B8-3C20944C5A2A}

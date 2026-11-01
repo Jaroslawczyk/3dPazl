@@ -33,6 +33,18 @@
     <button id="btnReroll" title="Перебросить случайности (этажи-диапазоны, миксы, декали)">🎲 Сид</button>
     <button id="btnInterior" title="Сгенерировать интерьер: комнаты, лестницы, лифты, мебель">🏠 Интерьер</button>
     <button id="btnWeather" title="Состарить: грязь, подтёки, мох, граффити">🧱 Состарить</button>
+    <select id="selWinFill" title="Какие места в сетках окон — окна, а какие заложены кладкой, закрыты ставнями или досками">
+      <option value="">🪟 Окна…</option><option value="all">Все окна</option><option value="random">Случайно: часть заложена</option>
+      <option value="symmetric">Случайно, но симметрично</option><option value="checker">Шахматка</option>
+      <option value="alternate">Через одно</option><option value="formula">По формуле…</option>
+    </select>
+    <select id="selShapes" title="Формы зданий: не только прямоугольники">
+      <option value="">🏛 Формы…</option><option value="random">🎲 Разные (случайно)</option><option value="rect">Прямоугольные</option>
+      <option value="round">Круглые</option><option value="oval">Овальные</option><option value="rounded">Закруглённые углы</option>
+      <option value="L">Г-образные</option><option value="U">П-образные</option><option value="T">Т-образные</option>
+      <option value="octagon">Восьмиугольные</option><option value="trapezoid">Трапеция</option><option value="wedge">Клин (утюг)</option>
+      <option value="bow">Выпуклый фасад</option><option value="cut_corner">Срезанный угол</option><option value="cross">Крест</option>
+    </select>
   </div>
   <div class="grp right">
     <button id="btnValidate" class="act" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
@@ -105,6 +117,7 @@
   </section>
 
   <aside id="right">
+    <div id="faceBox" hidden></div>
     <h3>Свойства</h3>
     <div id="props"><div class="hint">Выберите элемент в сцене или в дереве.</div></div>
   </aside>

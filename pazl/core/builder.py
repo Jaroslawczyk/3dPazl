@@ -160,6 +160,27 @@ FACE_LAYOUT_TYPES = {"windows", "niche", "buttresses", "balconies", "pilasters",
                      "curtain_wall", "colonnade"}
 
 
+OPENING_SIZE = {"door": (1.2, 2.3), "window": (1.0, 1.5), "bay_window": (3.2, 3.0), "panel": (2.0, 2.0), "niche": (1.0, 2.0)}
+
+
+def _openings_on(on: str, eid: str, anchor: Anchor, flat: list, style: dict) -> list:
+    """[u0, u1, v0, v1] of doors / single windows / bays placed on the same face: a window grid leaves those
+    places free (a grid never puts a window into a door)."""
+    out = []
+    for s in flat:
+        if s["id"] == eid or s.get("on") != on or s.get("type") not in OPENING_SIZE or s.get("hidden"):
+            continue
+        try:
+            sp = resolve_params(s["type"], dict(s.get("params") or {}), style)
+            w, h = (float(sp.get(k, d)) for k, d in zip(("w", "h"), OPENING_SIZE[s["type"]]))
+        except (TypeError, ValueError):
+            w, h = OPENING_SIZE[s["type"]]
+        L = _local_matrix(s, anchor)
+        u, v = float(L[0, 3]), float(L[2, 3])
+        out.append([u - w / 2, u + w / 2, v, v + h])
+    return out
+
+
 def _local_matrix(e: dict, anchor: Anchor | None, u_override=None) -> np.ndarray:
     at = list(e.get("at") or [])
     if anchor is not None and anchor.kind == "face":
@@ -305,11 +326,12 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
             if e.get("material"):
                 raw["material"] = e["material"]
             params = resolve_params(e["type"], raw, est, random.Random(f"{seed}:{eid}"), keep_mix=True)
+            extra = {"_avoid": _openings_on(on, eid, anchor, flat, est)} if e["type"] == "windows" and anchor is not None else {}
             if has_mix(params):  # {"mix":[a,b]}: every instance gets its own random value
-                parts = [generate(e["type"], resolve_params(e["type"], raw, est, random.Random(f"{seed}:{eid}:{i}")),
+                parts = [generate(e["type"], {**resolve_params(e["type"], raw, est, random.Random(f"{seed}:{eid}:{i}")), **extra},
                                   detail, anchor, est, eid, seed) for i in range(len(r.world))]
             else:
-                parts = [generate(e["type"], params, detail, anchor, est, eid, seed)] * len(r.world)
+                parts = [generate(e["type"], {**params, **extra}, detail, anchor, est, eid, seed)] * len(r.world)
             part = parts[0]
             r.params = params
         except Exception as ex:  # keep building the rest
@@ -328,6 +350,9 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
         if e.get("hidden") or (e.get("type") == "interior" and recipe.get("rooms") is False):  # rooms switched off
             continue
         targets = [t for t in ([host_id] if host_id else []) + list(e.get("cut", [])) if t]
+        if host_id and res[host_id].type == "gable_wall" and res[host_id].host:
+            targets += [x["id"] for x in flat if x.get("type") == "roof"
+                        and str(x.get("on", "")).partition(":")[0] == res[host_id].host and x["id"] not in targets]
         for W, part in zip(r.world, parts):
             if e.get("subtract"):
                 for t in targets:
