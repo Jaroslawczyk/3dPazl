@@ -1,0 +1,28 @@
+id: byzantine
+name: Byzantine
+name_ru: Византия
+era: 330-1453
+region: Eastern Mediterranean, Balkans
+materials:
+  wall: brick_red
+  plinth: stone_ashlar
+  roof: clay_tile
+  trim: stone_ashlar
+  dome: lead_roof
+  cross: gold
+defaults:
+  windows:
+    kind: arch
+    trim: archivolt
+    mullions:
+    - 0
+    - 0
+  dome:
+    profile: dome
+    cross: orthodox
+  roof:
+    type: barrel
+macros:
+- byzantine_church
+tips: Cross-in-square plan, central dome on a windowed drum, barrel roofs on the arms,
+  apses, brick with stone bands, gold mosaics inside (panel kind=mosaic).

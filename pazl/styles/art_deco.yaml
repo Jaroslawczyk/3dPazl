@@ -1,0 +1,22 @@
+id: art_deco
+name: Art Deco
+name_ru: Ар-деко
+era: 1920-1940
+region: USA, Europe, worldwide
+materials:
+  wall: limestone_trim
+  plinth: granite
+  roof: bitumen
+  trim: steel
+  frame: steel
+  accent: gold
+defaults:
+  windows:
+    trim: none
+    frame_material: steel
+  pilasters:
+    capital: false
+macros:
+- art_deco_tower
+tips: Setbacks, vertical piers and pilaster strips, stepped crowns, spires, geometric
+  ornament, metal accents.

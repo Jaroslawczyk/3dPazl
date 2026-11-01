@@ -1,1 +1,1 @@
-from . import structure, openings, roofs, columns, decor, macros  # noqa: F401  (register element types)
+from . import structure, openings, roofs, columns, decor, world, macros, macros_world  # noqa: F401  (register element types)

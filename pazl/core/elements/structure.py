@@ -44,7 +44,7 @@ def block(p, ctx):
         if not inner.is_empty():
             st = float(p["slab_t"])
             for i in range(floors):
-                z0 = ph + i * fh + (st if i > 0 else 0.0)
+                z0 = ph + i * fh + (st if (i > 0 or ph < st) else 0.0)  # always keep a floor slab
                 z1 = ph + (i + 1) * fh
                 if i == floors - 1:
                     z1 = H - st if p["top_slab"] else H + 1.0
@@ -107,7 +107,9 @@ def tower(p, ctx):
     solid = g.tag(g.extrude(cs, H), mat)
     floors = int(p["floors"])
     fh = H / floors
-    cav = [g.tag(g.extrude(g.offset2(cs, -t), fh - 0.3, i * fh + 0.3), ctx.mat("interior")) for i in range(floors)]
+    # cavities leave a floor slab and a closed top (domes/roofs placed on top always have something to sit on)
+    cav = [g.tag(g.extrude(g.offset2(cs, -t), fh - 0.3 - (0.3 if i == floors - 1 else 0), i * fh + 0.3), ctx.mat("interior"))
+           for i in range(floors)]
     part = Part().add(g.subtract(solid, cav), mat)
     if float(p["batter"]) > 0:
         b, bh = float(p["batter"]), float(p["batter_h"])

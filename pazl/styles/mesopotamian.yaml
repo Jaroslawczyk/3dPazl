@@ -1,0 +1,27 @@
+id: mesopotamian
+name: Mesopotamian
+name_ru: Месопотамия (Шумер, Вавилон, Ассирия)
+era: 3500-500 BC
+region: Iraq, Iran
+materials:
+  wall: adobe
+  plinth: adobe
+  roof: adobe
+  trim: brick_yellow
+  stone: brick_yellow
+  accent: ceramic_blue
+defaults:
+  roof:
+    type: flat
+    parapet_h: 0.6
+  battlements:
+    merlon_w: 0.6
+    crenel_w: 0.5
+    style: square
+  windows:
+    kind: arch
+    trim: none
+macros:
+- ziggurat
+tips: Mud-brick, ziggurats, buttressed walls with vertical recesses (pilasters), glazed-brick
+  gates (Ishtar gate - ceramic_blue), stepped merlons.

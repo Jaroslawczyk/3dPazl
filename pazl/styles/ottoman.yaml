@@ -1,0 +1,26 @@
+id: ottoman
+name: Ottoman
+name_ru: Османская
+era: 1300-1922
+region: Turkey, Balkans
+materials:
+  wall: stone_ashlar
+  plinth: stone_ashlar
+  roof: lead_roof
+  dome: lead_roof
+  trim: marble
+  accent: gold
+defaults:
+  windows:
+    kind: arch
+    trim: simple
+  dome:
+    profile: dome
+    cross: crescent
+  minaret:
+    cap: pencil
+    balconies: 2
+macros:
+- ottoman_mosque
+tips: Cascading domes and semi-domes over a square hall, lead roofs, pencil minarets
+  with balconies, domed porticoes, Iznik tile panels inside.

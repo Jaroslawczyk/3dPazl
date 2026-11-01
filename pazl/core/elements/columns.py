@@ -115,7 +115,7 @@ def colonnade(p, ctx):
         part.add(g.box(x0 - out, yb0, i * sh, x1 + out, yb1 + out, (i + 1) * sh), ctx.mat("stairs"))
     ze = zc + h
     # architrave + frieze + cornice
-    part.add(g.box(x0, yb0, ze - 0.06, x1, yb1, ze + eh * 0.75), tmat)
+    part.add(g.box(x0, yb0, ze - 0.15, x1, yb1, ze + eh * 0.75), tmat)
     part.add(g.box(x0 - 0.15, yb0, ze + eh * 0.75, x1 + 0.15, yb1 + 0.15, ze + eh), tmat)
     if not ctx.low:  # triglyph/dentil hint line
         part.add(g.box(x0, yb1 - 0.01, ze + eh * 0.35, x1, yb1 + 0.04, ze + eh * 0.4), tmat)

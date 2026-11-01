@@ -1,0 +1,23 @@
+id: victorian
+name: Victorian / Queen Anne
+name_ru: Викторианская
+era: 1837-1910
+region: UK, USA, Australia
+materials:
+  wall: clapboard
+  plinth: brick_red
+  roof: slate
+  trim: wood_painted_white
+  frame: frame_white
+defaults:
+  roof:
+    type: cross_gable
+    pitch: 50
+  bay_window:
+    kind: canted
+  windows:
+    trim: classic
+macros:
+- victorian_house
+tips: Asymmetry, turrets with conical roofs, bay windows, wraparound porches with
+  turned posts, steep cross gables, decorative trim. For brick terraces use wall=brick_red.

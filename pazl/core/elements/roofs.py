@@ -10,7 +10,7 @@ from ..registry import Anchor, P, Part, element
 from .common import top_anchor
 
 ROOF_TYPES = ["gable", "hip", "pyramid", "tent", "shed", "mansard", "gambrel", "flat", "cone", "dome", "onion",
-              "helmet", "bell", "barrel", "cross_gable", "half_hip", "pagoda"]
+              "helmet", "bell", "barrel", "cross_gable", "half_hip", "pagoda", "chinese", "irimoya", "sawtooth"]
 
 
 def _bbox(fp):
@@ -116,6 +116,11 @@ def roof(p, ctx):
     seg = ctx.seg(max(a, b), 10, 64)
     place = g.mat_t(cx, cy, 0) @ g.mat_rz(rot)
 
+    if kind in ("chinese", "irimoya", "sawtooth"):
+        from .world import eastern_roof, sawtooth_roof
+        fn = sawtooth_roof if kind == "sawtooth" else eastern_roof
+        return fn(kind, a, b, o, t, pitch, p, place, mat, gmat, fp, cx, cy, rot, ctx)
+
     if kind == "flat":
         cs = g.poly(fp)
         part.add(g.extrude(g.offset2(cs, o), t, -0.02), mat)
@@ -145,7 +150,9 @@ def roof(p, ctx):
         inner = g.prism_yz(g.circle2(b + o - t, seg), -A - 1, A + 1)
         shell = vault - inner
         part.add(g.xf(shell, place), mat)
-        part.add(g.xf(g.prism_yz(g.circle2(b, seg), -a, a).trim_by_plane([0, 0, 1], 0), place), gmat)
+        # gable/vault fill: reaches into the shell and 5 cm down into the walls, clipped to the footprint
+        fill = g.prism_yz(g.circle2(b + o - t + 0.04, seg), -a, a).trim_by_plane([0, 0, 1], -0.05) ^ g.box(-a, -b, -0.05, a, b, b + o + 1)
+        part.add(g.xf(fill, place), gmat)
         part.anchors["ridge"] = Anchor(g.mat_t(cx, cy, b + o))
         return part
 
@@ -215,7 +222,8 @@ def roof(p, ctx):
           "drum_r": P(None, "drum radius (default r*0.95)"), "drum_windows": P(0, "number of windows in the drum"),
           "neck_h": P(0.0, "thin neck between drum and onion"), "kokoshniki": P(0, "ring of decorative arched gables"),
           "lantern": P(False, "small lantern on top"), "cross": P("none", "", ["none", "orthodox", "latin", "crescent", "spike", "ball"]),
-          "material": P("dome", ""), "drum_material": P("wall", ""), "ribs": P(0, "dome ribs count")},
+          "material": P("dome", ""), "drum_material": P("wall", ""), "ribs": P(0, "dome ribs count"),
+          "half": P(False, "semi-dome (keeps the -Y half; rotate to face away from the main volume)")},
          attach="any", title_ru="Купол / глава", anchors="top (apex)")
 def dome(p, ctx):
     r = float(p["r"])
@@ -276,6 +284,9 @@ def dome(p, ctx):
         part.add(_revolve_roof("dome", lr * 1.1, lr * 1.2, ctx.seg(lr), top + lr * 2.2 - 0.25), mat)
         top += lr * 2.2 - 0.25 + lr * 1.2 - 0.08  # just below the lantern apex
     _cross(p["cross"], top, max(0.6, r * 0.45), part, ctx)
+    if p["half"]:
+        part.solids = [(m.trim_by_plane([0, -1, 0], -0.02), mt) for m, mt in part.solids]
+        part.solids = [(m, mt) for m, mt in part.solids if not m.is_empty()]
     part.anchors["top"] = top_anchor([(-.2, -.2), (.2, -.2), (.2, .2), (-.2, .2)], top, top)
     return part
 
@@ -299,7 +310,7 @@ def _cross(kind, z, size, part, ctx):
     elif kind == "crescent":
         c = g.circle2(size * 0.3, 24) - g.circle2(size * 0.26, 24, size * 0.1, 0.0)
         part.add(g.prism_xz(c, -t, t).translate([0, 0, z + size * 0.5]), m)
-        part.add(g.cyl(t, size * 0.25, 8, z - 0.1), m)
+        part.add(g.cyl(t, size * 0.55, 8, z - 0.1), m)
 
 
 @element("cross", "roofs", "Cross / finial on top of a dome, spire or gable (orthodox, latin, ball, spike, crescent).",

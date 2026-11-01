@@ -1,0 +1,22 @@
+id: military
+name: Military fortification
+name_ru: Военная (ДОТы, бункеры, укрепления)
+era: 1900-now
+region: worldwide
+materials:
+  wall: concrete_raw
+  plinth: concrete_raw
+  roof: concrete_raw
+  trim: concrete_raw
+  ground: turf
+defaults:
+  windows:
+    kind: slit
+    trim: none
+    glazed: false
+    frame: false
+macros:
+- bunker
+- castle_keep
+tips: Thick chamfered concrete casemates, embrasures (windows kind=slit), earth berms
+  (mound), trenches; for older forts use medieval_castle.

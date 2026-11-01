@@ -1,0 +1,22 @@
+id: brutalism
+name: Brutalism / Soviet modernism
+name_ru: Брутализм / советский модернизм
+era: 1950-1985
+region: worldwide, USSR
+materials:
+  wall: concrete_raw
+  plinth: concrete_raw
+  roof: bitumen
+  trim: concrete_raw
+  frame: aluminium
+defaults:
+  windows:
+    trim: none
+    recess: 0.5
+  roof:
+    type: flat
+    parapet_h: 1.0
+macros:
+- brutalist_block
+tips: Raw board-formed concrete, cantilevers, pilotis, deep window recesses and fins,
+  monumental mosaics (panel kind=mosaic).

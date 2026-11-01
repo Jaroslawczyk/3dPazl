@@ -1,0 +1,25 @@
+id: industrial
+name: Industrial
+name_ru: Промышленная
+era: 1800-now
+region: worldwide
+materials:
+  wall: brick_red
+  plinth: concrete_raw
+  roof: bitumen
+  trim: brick_yellow
+  frame: iron
+  metal: steel
+defaults:
+  roof:
+    type: sawtooth
+  windows:
+    kind: segmental
+    mullions:
+    - 3
+    - 4
+    frame_material: iron
+macros:
+- factory
+tips: Brick halls with sawtooth roofs and big multi-pane windows, chimney stacks (minaret
+  with cap=none), water towers, gantries (beam), hangars (roof type=barrel), warehouses.

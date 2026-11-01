@@ -1,0 +1,19 @@
+id: scandinavian
+name: Scandinavian wooden
+name_ru: Скандинавская деревянная
+era: 1100-1900
+region: Norway, Sweden, Iceland
+materials:
+  wall: wood_tar
+  plinth: stone_rubble
+  roof: shingles_wood
+  trim: wood_carved
+  gable: wood_tar
+defaults:
+  roof:
+    type: gable
+    pitch: 55
+macros:
+- stave_church
+tips: Stave churches with stacked steep shingle roofs and dragon heads, turf-roof
+  log houses (roof material=turf), red painted farmhouses (wall=red_paint).

@@ -1,0 +1,26 @@
+id: caucasian
+name: Armenian and Georgian
+name_ru: Армянская и грузинская
+era: 4th-17th c.
+region: Armenia, Georgia
+materials:
+  wall: tufa
+  plinth: tufa
+  roof: tufa
+  trim: tufa
+  stone: tufa
+  gable: tufa
+defaults:
+  windows:
+    kind: arch
+    trim: archivolt
+    mullions:
+    - 0
+    - 0
+  roof:
+    type: gable
+    pitch: 30
+macros:
+- caucasian_church
+tips: Compact cross plans of finely cut stone, tall polygonal drums with conical roofs,
+  blind arcades and deep triangular niches, carved khachkar crosses.

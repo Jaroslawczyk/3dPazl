@@ -1,0 +1,27 @@
+id: persian
+name: Persian and Central Asian (Safavid, Timurid)
+name_ru: Персидская и среднеазиатская
+era: 1000-1800
+region: Iran, Uzbekistan, Afghanistan
+materials:
+  wall: brick_yellow
+  plinth: brick_yellow
+  roof: brick_yellow
+  trim: ceramic_blue
+  dome: dome_blue
+  accent: ceramic_blue
+defaults:
+  windows:
+    kind: lancet
+    trim: simple
+  dome:
+    profile: onion
+    ribs: 24
+  minaret:
+    cap: lantern
+    base_h: 0
+    taper: 0.8
+macros:
+- persian_mosque
+tips: Courtyards with four iwans, monumental pishtaq portals (iwan element), ribbed
+  turquoise domes on high drums, cylindrical tiled minarets.

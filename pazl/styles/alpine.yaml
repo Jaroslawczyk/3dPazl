@@ -1,0 +1,22 @@
+id: alpine
+name: Alpine chalet
+name_ru: Альпийская (шале)
+era: 1600-now
+region: Switzerland, Austria, Bavaria
+materials:
+  wall: wood_boards
+  plinth: stone_rubble
+  roof: shingles_wood
+  trim: wood_carved
+  shutter: wood_boards_green
+defaults:
+  roof:
+    type: gable
+    pitch: 24
+    overhang: 1.8
+  windows:
+    shutters: true
+macros:
+- alpine_chalet
+tips: Stone ground floor, timber upper floors, wide low roofs with deep overhangs,
+  long wooden balconies, flower boxes, painted shutters.

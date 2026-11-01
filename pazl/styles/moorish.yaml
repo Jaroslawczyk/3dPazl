@@ -1,0 +1,23 @@
+id: moorish
+name: Moorish / Andalusian
+name_ru: Мавританская
+era: 711-1492
+region: Spain, Morocco
+materials:
+  wall: plaster_ochre
+  plinth: stone_rubble
+  roof: clay_tile
+  trim: ceramic_blue
+  accent: ceramic_blue
+defaults:
+  windows:
+    kind: horseshoe
+    trim: archivolt
+  door:
+    kind: horseshoe
+  battlements:
+    style: swallowtail
+macros:
+- moorish_palace
+tips: Horseshoe and multifoil arches, arcaded courtyards, zellij tiles, flat roofs
+  with stepped merlons, square minaret towers.

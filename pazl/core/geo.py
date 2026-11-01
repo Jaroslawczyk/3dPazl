@@ -100,6 +100,11 @@ def offset2(cs: CrossSection, d: float, round_=False) -> CrossSection:
     return cs.offset(d, JoinType.Round if round_ else JoinType.Miter, 2.0, 16)
 
 
+def union_cs(items) -> CrossSection:
+    items = [c for c in items if c is not None and not c.is_empty()]
+    return CrossSection.batch_boolean(items, OpType.Add) if len(items) > 1 else items[0]
+
+
 def arc_pts(cx, cy, r, a0, a1, n) -> list[tuple[float, float]]:
     return [(cx + r * math.cos(a0 + (a1 - a0) * i / n), cy + r * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
 

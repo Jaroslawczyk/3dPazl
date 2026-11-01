@@ -1,0 +1,25 @@
+id: japanese
+name: Japanese
+name_ru: Японская
+era: 600-1900
+region: Japan
+materials:
+  wall: plaster_white
+  plinth: stone_ashlar
+  roof: clay_tile_dark
+  trim: wood_dark
+  timber: wood_dark
+  column: wood_dark
+  gable: wood_dark
+defaults:
+  roof:
+    type: irimoya
+    overhang: 1.6
+  timber_frame:
+    pattern: grid
+    material: wood_dark
+macros:
+- japanese_house
+- pagoda
+tips: Irimoya hip-and-gable roofs with deep eaves, dark timber posts, shoji screens
+  (paper_shoji), engawa verandas, five-storey pagodas with sorin spire.

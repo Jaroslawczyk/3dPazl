@@ -35,20 +35,23 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
 
 ## Elements (see `describe_element(type)` for params)
 - structure: block (hollow building volume, floors, plinth), wall, tower, log_cabin (сруб), platform (stylobate),
-  stairs, mound (earth); primitives: box, cylinder, sphere, prism, revolve, hull, beam — combine for anything unusual.
-- openings: windows (grid), window, door/portal (orders, steps, canopy), niche. Shapes: rect, arch, segmental, lancet,
+  stairs, mound (earth), step_pyramid (smooth/stepped/ziggurat), pylon, minaret, stupa, iwan; primitives: box, cylinder, sphere, prism, revolve, hull, beam — combine for anything unusual.
+- openings: windows (grid), window, door/portal (orders, steps, canopy), niche, bay_window (эркер). Shapes: rect, arch, segmental, lancet,
   round, rose, horseshoe, ogee, slit, ribbon, triangle. Trims: simple, classic, pediment, segment_pediment, baroque,
   gothic_hood, nalichnik, archivolt, rustic, soviet.
 - roofs: roof (gable, hip, half_hip, pyramid, tent, shed, mansard, gambrel, flat, cone, dome, onion, helmet, bell,
-  barrel, cross_gable, pagoda), dome (drum, windows, kokoshniki, lantern, cross), spire, cross, chimney, dormer, pinnacle.
+  barrel, cross_gable, pagoda, chinese (curved, upturned corners), irimoya, sawtooth), dome (half=true for semi-domes) (drum, windows, kokoshniki, lantern, cross), spire, cross, chimney, dormer, pinnacle, shikhara (Hindu tower).
 - columns: column (doric, tuscan, ionic, corinthian, composite, egyptian, plain, square, byzantine, wood_post),
   colonnade/portico, pilasters.
 - decor: cornice (crown, dentil, corbel, lombard, machicolation, band, soviet), battlements, buttresses (+flying),
   quoins, timber_frame (фахверк), panel_grid (швы панелей), balconies/loggias, canopy, curtain_wall, balustrade,
-  fence, pediment, panel (mosaic, fresco, painting, icon, relief, sign, clock — unique texture slot from `subject`).
+  fence, pediment, gable_wall (Dutch stepped/neck/bell gables), chhatri, obelisk, panel (mosaic, fresco, painting, icon, relief, sign, clock — unique texture slot from `subject`).
 - macros (whole buildings → editable children): house, izba, dugout, fachwerk_house, panel_building (1-464, 1-447,
   121, P-44, II-18), gothic_cathedral, orthodox_church, greek_temple, castle_keep, glass_tower, lithuanian_church,
-  palazzo, stalinka, romanesque_church, baroque_church, constructivist, roman_pantheon.
+  palazzo, stalinka, romanesque_church, baroque_church, constructivist, roman_pantheon, egyptian_temple, giza_pyramid,
+  ziggurat, maya_pyramid, byzantine_church, caucasian_church, ottoman_mosque, persian_mosque, moorish_palace,
+  mughal_mausoleum, hindu_temple, chinese_temple, pagoda, japanese_house, stave_church, dutch_house, victorian_house,
+  alpine_chalet, art_deco_tower, brutalist_block, factory, bunker.
 
 ## Editing macro children
 Children ids look like `b/roof`. `patch([{op:"update", id:"b/roof", params:{pitch:50}}])` stores an override in the

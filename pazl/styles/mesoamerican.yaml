@@ -1,0 +1,23 @@
+id: mesoamerican
+name: Mesoamerican (Maya, Aztec)
+name_ru: Месоамерика (майя, ацтеки)
+era: 1000 BC - 1521 AD
+region: Mexico, Guatemala
+materials:
+  wall: stone_maya
+  plinth: stone_maya
+  roof: stone_maya
+  trim: stone_maya
+  stone: stone_maya
+  stairs: stone_maya
+defaults:
+  step_pyramid:
+    levels: 9
+    stairs: all
+  roof:
+    type: flat
+    parapet_h: 0
+macros:
+- maya_pyramid
+tips: Steep stepped pyramids with staircases, temples with roof combs, corbel arches
+  (windows kind=triangle), stucco friezes (panel kind=relief).

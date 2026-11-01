@@ -1,0 +1,22 @@
+id: hindu
+name: Hindu temple architecture (Nagara, Dravida)
+name_ru: Индуистская (нагара, дравида)
+era: 500-1700
+region: India, South-East Asia
+materials:
+  wall: sandstone
+  plinth: sandstone
+  roof: sandstone
+  trim: sandstone
+  stone: sandstone
+  accent: gold
+defaults:
+  shikhara:
+    rathas: 2
+  column:
+    order: square
+macros:
+- hindu_temple
+tips: Sanctum with a curvilinear shikhara (north) or pyramidal vimana and gopuram
+  (south, stepped=true), pillared mandapa halls, jagati platforms, stupas (Buddhist)
+  via stupa.

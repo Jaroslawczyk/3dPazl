@@ -71,3 +71,15 @@ terracotta:     {color: [190, 100, 65], rough: 0.85, tile: 1, prompt: "terracott
 red_paint:      {color: [170, 40, 35], rough: 0.6, tile: 1, prompt: "red lacquered wood, chinese temple column"}
 stained_glass:  {color: [140, 60, 120], rough: 0.1, tile: 1, prompt: "gothic stained glass window, deep blue and red"}
 mosaic:         {color: [190, 150, 70], rough: 0.4, tile: 1, prompt: "byzantine gold mosaic tesserae"}
+# --- world styles
+stone_maya:     {color: [190, 182, 160], rough: 0.95, tile: 2, prompt: "weathered grey-white limestone blocks, maya temple"}
+tufa:           {color: [196, 140, 120], rough: 0.9, tile: 2, prompt: "pink armenian tufa stone ashlar"}
+red_sandstone:  {color: [168, 82, 60], rough: 0.85, tile: 2, prompt: "red sandstone ashlar, mughal architecture, white marble inlay lines"}
+glazed_tile_yellow: {color: [222, 170, 40], rough: 0.35, tile: 1, prompt: "imperial yellow glazed chinese roof tiles, barrel tiles"}
+wood_dark:      {color: [72, 50, 36], rough: 0.8, tile: 1.5, prompt: "dark aged hinoki wood, japanese temple"}
+wood_painted_green: {color: [60, 120, 100], rough: 0.6, tile: 1, prompt: "chinese painted brackets and beams, green and blue patterns (dougong)"}
+paper_shoji:    {color: [235, 228, 205], rough: 0.9, tile: 1, prompt: "japanese shoji rice paper panel with thin wooden lattice"}
+bronze:         {color: [150, 110, 60], rough: 0.4, metal: 1.0, tile: 1, prompt: "aged bronze"}
+wood_tar:       {color: [55, 40, 30], rough: 0.85, tile: 1.5, prompt: "tarred black-brown wooden planks, norwegian stave church"}
+clapboard:      {color: [210, 200, 170], rough: 0.7, tile: 1.5, prompt: "painted horizontal wooden clapboard siding, victorian house, cream color"}
+corrugated_metal: {color: [140, 145, 150], rough: 0.5, metal: 0.7, tile: 2, prompt: "corrugated galvanized metal sheet"}

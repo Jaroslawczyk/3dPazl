@@ -1,0 +1,27 @@
+id: dutch
+name: Dutch and Hanseatic
+name_ru: Голландская и ганзейская
+era: 1500-1800
+region: Netherlands, Flanders, Northern Germany, Baltics
+materials:
+  wall: brick_red
+  plinth: stone_ashlar
+  roof: clay_tile_dark
+  trim: limestone_trim
+  frame: frame_white
+defaults:
+  gable_wall:
+    kind: stepped
+  roof:
+    type: gable
+    ridge: y
+    pitch: 58
+  windows:
+    trim: simple
+    mullions:
+    - 1
+    - 2
+macros:
+- dutch_house
+tips: Narrow tall brick houses, decorative street gables (stepped, neck, bell), big
+  sash windows, hoist beams. Build a canal row with count>1.

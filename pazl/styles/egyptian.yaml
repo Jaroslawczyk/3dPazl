@@ -1,0 +1,30 @@
+id: egyptian
+name: Ancient Egyptian
+name_ru: Древний Египет
+era: 3000-30 BC
+region: Egypt, Nubia
+materials:
+  wall: sandstone
+  plinth: sandstone
+  roof: sandstone
+  trim: sandstone
+  column: sandstone
+  stone: sandstone
+  accent: gold
+  gable: sandstone
+defaults:
+  column:
+    order: egyptian
+  colonnade:
+    order: egyptian
+    pediment: false
+  roof:
+    type: flat
+    parapet_h: 0.4
+  cornice:
+    kind: crown
+macros:
+- egyptian_temple
+- giza_pyramid
+tips: Massive battered walls, pylons, flat roofs with cavetto cornices, papyrus columns,
+  obelisks, sunk reliefs (panel kind=relief). Pyramids via step_pyramid levels=0.

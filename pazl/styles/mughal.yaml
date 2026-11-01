@@ -1,0 +1,25 @@
+id: mughal
+name: Mughal / Indo-Islamic
+name_ru: Могольская
+era: 1526-1857
+region: India, Pakistan
+materials:
+  wall: marble
+  plinth: red_sandstone
+  roof: marble
+  trim: red_sandstone
+  dome: marble
+  stone: red_sandstone
+defaults:
+  windows:
+    kind: ogee
+  dome:
+    profile: onion
+  chhatri:
+    dome: onion
+  minaret:
+    cap: lantern
+macros:
+- mughal_mausoleum
+tips: Symmetry on a high plinth, bulbous double domes, chhatris, iwans with ogee arches,
+  minarets, red sandstone with white marble.

@@ -1,0 +1,24 @@
+id: chinese
+name: Chinese
+name_ru: Китайская
+era: 200 BC - 1912
+region: China
+materials:
+  wall: red_paint
+  plinth: stone_ashlar
+  roof: glazed_tile_yellow
+  trim: wood_painted_green
+  column: red_paint
+  gable: red_paint
+  frame: red_paint
+defaults:
+  roof:
+    type: chinese
+    overhang: 2.0
+  column:
+    order: plain
+macros:
+- chinese_temple
+- pagoda
+tips: Raised stone terraces, red columns, bracket sets, double-eave curved roofs with
+  upturned corners (glazed yellow for imperial, grey for common), pagodas.
