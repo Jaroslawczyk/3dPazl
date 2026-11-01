@@ -1,0 +1,27 @@
+id: roman
+name: Ancient Roman
+name_ru: Древний Рим
+era: 5th c. BC - 5th c. AD
+region: Roman Empire
+materials:
+  wall: stone_ashlar
+  plinth: granite
+  roof: clay_tile
+  trim: marble
+  column: marble
+  dome: lead_roof
+  stairs: marble
+defaults:
+  colonnade:
+    order: corinthian
+  windows:
+    kind: arch
+    trim: archivolt
+  roof:
+    type: gable
+    pitch: 20
+macros:
+- roman_pantheon
+- greek_temple
+tips: Arches, vaults, domes, concrete and brick cores faced with marble. Corinthian
+  and composite orders.

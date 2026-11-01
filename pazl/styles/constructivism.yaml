@@ -1,0 +1,22 @@
+id: constructivism
+name: Constructivism / Modernism
+name_ru: Конструктивизм / модернизм
+era: 1920-1960
+region: USSR, Europe (Bauhaus)
+materials:
+  wall: plaster_white
+  plinth: concrete_raw
+  roof: bitumen
+  trim: concrete_raw
+  frame: steel
+defaults:
+  windows:
+    kind: ribbon
+    trim: none
+  roof:
+    type: flat
+    parapet_h: 1.0
+macros:
+- constructivist
+tips: Intersecting volumes, ribbon windows, glazed stair cylinders, flat roofs, no
+  ornament.

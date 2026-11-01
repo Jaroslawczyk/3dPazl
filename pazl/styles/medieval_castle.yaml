@@ -1,0 +1,21 @@
+id: medieval_castle
+name: Medieval stone (castles, town houses)
+name_ru: Средневековая каменная (замки)
+era: 1000-1500
+region: Europe
+materials:
+  wall: stone_rubble
+  plinth: stone_dark
+  roof: slate
+  trim: stone_ashlar
+  stone: stone_rubble
+defaults:
+  block:
+    wall_t: 2.0
+  battlements:
+    style: square
+macros:
+- castle_keep
+tips: Keeps, curtain walls with towers, battlements, machicolations, arrow slits (windows
+  kind=slit), conical slate roofs on turrets. Mix stone ground floor with timber_frame
+  upper floors for mixed stone and wood town houses.

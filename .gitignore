@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+projects/
+!projects/.keep
+textures/library/*.png
+textures/library/*.jpg
+graphify-out/
+.env

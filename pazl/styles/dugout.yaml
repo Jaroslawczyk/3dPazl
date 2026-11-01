@@ -1,0 +1,20 @@
+id: dugout
+name: Earth and primitive dwellings
+name_ru: Землянки и полуземлянки
+era: prehistory - 20th c.
+region: Eastern Europe, steppe, war-time
+materials:
+  wall: log_dark
+  log: log_dark
+  roof: turf
+  gable: log_dark
+  ground: earth
+defaults:
+  roof:
+    type: gable
+    pitch: 50
+    material: turf
+macros:
+- dugout
+tips: Pit 1-1.5 m deep, low log walls, steep turf roof to the ground, earth berm,
+  trench entrance with steps.

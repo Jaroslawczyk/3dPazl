@@ -1,0 +1,26 @@
+id: classicism
+name: Neoclassicism / Empire
+name_ru: Классицизм / ампир
+era: 1750-1850
+region: Europe, Russia
+materials:
+  wall: plaster_ochre
+  plinth: granite
+  roof: metal_roof_green
+  trim: plaster_white
+  column: plaster_white
+defaults:
+  colonnade:
+    order: ionic
+    pediment: true
+  windows:
+    kind: rect
+    trim: classic
+  roof:
+    type: hip
+    pitch: 18
+macros:
+- house
+- greek_temple
+tips: Strict symmetry, central portico with pediment, yellow-and-white palette (Russian
+  empire), low roofs, belvedere.

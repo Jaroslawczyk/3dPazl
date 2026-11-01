@@ -1,0 +1,74 @@
+# 3dPazl — guide for AI agents
+
+Parametric building constructor. You describe a building as a **recipe** (JSON list of elements); the app
+generates watertight geometry, welds everything into one closed mesh, validates it and renders checks.
+Units: meters. Z is up. Facades: X along the wall, Y outward.
+
+## Workflow (cheap in tokens)
+1. `list_styles` → pick a style (sets materials + default proportions). `list_elements` once if needed.
+2. `new_building(name, style, elements=[...])`. Fastest start: one macro, e.g. `{"id":"b","type":"orthodox_church"}`.
+3. `validate` → fix every error (floating parts are listed with element ids and coordinates).
+4. `render_views` → ONE image, 12 views (4 sides, 4 isometric, top, below, 2 sections). Red = problem elements.
+   Check every view, not just the front. Zoom: `render_views(views=["iso_fl","front"], tile_w=640)` or `render_custom`.
+5. `patch` small changes, repeat 3–4. Then `export` (glb) and `texture_manifest`.
+6. Use `note("...")` to tell the user what you are doing — they watch the live log and the 3D view.
+
+## Recipe element
+```json
+{"id": "main", "type": "block", "params": {"w": 12, "d": 9, "floors": 3},
+ "on": "hostId:anchor", "at": [u, v], "offset": [x, y, z], "rot": 0,
+ "repeat": {"count": 4, "step": [5, 0, 0]}, "mirror_u": false,
+ "subtract": false, "cut": ["otherId"], "material": "brick_red", "hidden": false}
+```
+- `on` attaches to an anchor of another element. Never place by guessing absolute coordinates when an anchor exists:
+  attached parts can't float.
+- Face anchors (`block:front|right|back|left|face0..N`, `tower:face0..N`, `dormer:front`): `at=[u, v]`,
+  u = meters from the left edge of the face (seen from outside), v = height. `"50%"` works. Single items
+  (door, window, panel, canopy, stairs) default to u = centre; grid items (windows, balconies, buttresses,
+  pilasters, timber_frame, panel_grid, curtain_wall, colonnade) lay themselves out over the whole face.
+- Top anchors (`block:top`, `block:floor2`, `tower:top`, `roof:top`): `at=[x, y]` from the footprint centre.
+- Point anchors: `roof:ridge`, `dome:top`, `spire:top`, `origin` (any element).
+- Square towers: face0=north(+Y), face1=west(-X), face2=south(-Y), face3=east(+X). Round towers: 8 tangent faces,
+  face7 = east, face0 = north-east … (counter-clockwise).
+- Block `front` faces -Y, `right` +X, `back` +Y, `left` -X.
+- `anchors(id)` lists anchors with sizes, floors, floor height of a built element.
+
+## Elements (see `describe_element(type)` for params)
+- structure: block (hollow building volume, floors, plinth), wall, tower, log_cabin (сруб), platform (stylobate),
+  stairs, mound (earth); primitives: box, cylinder, sphere, prism, revolve, hull, beam — combine for anything unusual.
+- openings: windows (grid), window, door/portal (orders, steps, canopy), niche. Shapes: rect, arch, segmental, lancet,
+  round, rose, horseshoe, ogee, slit, ribbon, triangle. Trims: simple, classic, pediment, segment_pediment, baroque,
+  gothic_hood, nalichnik, archivolt, rustic, soviet.
+- roofs: roof (gable, hip, half_hip, pyramid, tent, shed, mansard, gambrel, flat, cone, dome, onion, helmet, bell,
+  barrel, cross_gable, pagoda), dome (drum, windows, kokoshniki, lantern, cross), spire, cross, chimney, dormer, pinnacle.
+- columns: column (doric, tuscan, ionic, corinthian, composite, egyptian, plain, square, byzantine, wood_post),
+  colonnade/portico, pilasters.
+- decor: cornice (crown, dentil, corbel, lombard, machicolation, band, soviet), battlements, buttresses (+flying),
+  quoins, timber_frame (фахверк), panel_grid (швы панелей), balconies/loggias, canopy, curtain_wall, balustrade,
+  fence, pediment, panel (mosaic, fresco, painting, icon, relief, sign, clock — unique texture slot from `subject`).
+- macros (whole buildings → editable children): house, izba, dugout, fachwerk_house, panel_building (1-464, 1-447,
+  121, P-44, II-18), gothic_cathedral, orthodox_church, greek_temple, castle_keep, glass_tower, lithuanian_church,
+  palazzo, stalinka, romanesque_church, baroque_church, constructivist, roman_pantheon.
+
+## Editing macro children
+Children ids look like `b/roof`. `patch([{op:"update", id:"b/roof", params:{pitch:50}}])` stores an override in the
+macro. `{op:"remove", id:"b/chimney"}` hides a child. `{op:"explode", id:"b"}` turns the macro into plain elements.
+
+## Building a real building from photos
+1. Estimate overall size from known references (floor ≈ 3 m, door ≈ 2.1 m, window ≈ 1.5 m, step ≈ 0.16 m).
+2. Massing first: blocks/towers for each volume, overlapping where they join (union welds them).
+3. Roofs on `:top` anchors. Then openings per face, then decor. Validate + render after each stage.
+4. Match the style: set `style`, then override materials per element (`material`) where the photo differs.
+
+## Rules for clean models
+- Everything must touch something: attach via anchors, overlap volumes by ≥5 cm. Validation lists floating parts.
+- Walls stay closed: windows/doors cut real holes and add frames + glass; roofs fill gables; top slabs close blocks.
+- Low-poly: `{op:"set", key:"detail", value:"lowpoly"}` — fewer segments, no micro-decor, flat shading.
+- Exports are welded into one watertight mesh with materials (+ box-projected UVs). `lod_tris` decimates for LODs.
+
+## HTTP API (for agents without MCP)
+Base `http://127.0.0.1:8765/api`, header `X-Agent: <your name>`.
+GET state, recipe, tree, anchors/{id}, element/{id}, catalog/styles, catalog/elements, catalog/element/{type},
+projects, log?since=; POST new, load, save, patch {ops,note}, undo, redo, validate, render {views,tile,custom},
+export {format,lod_tris,force}, textures/manifest, note {text}, camera {az,el,dist,target}.
+GET preview.glb (per element), model.glb (welded, textured), render/latest.png.

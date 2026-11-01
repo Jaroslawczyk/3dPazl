@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3dPazl — конструктор зданий</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+</script>
+</head>
+<body>
+<header id="top">
+  <div class="brand">3d<b>Pazl</b></div>
+  <input id="projName" title="Название проекта" spellcheck="false">
+  <div class="grp">
+    <button id="btnNew" title="Новый проект">Новый</button>
+    <select id="selProjects" title="Открыть сохранённый проект"><option value="">Открыть…</option></select>
+  </div>
+  <div class="grp">
+    <button id="btnUndo" title="Отменить (Ctrl+Z)">↶</button>
+    <button id="btnRedo" title="Повторить (Ctrl+Y)">↷</button>
+  </div>
+  <div class="grp">
+    <label>Стиль <select id="selStyle"></select></label>
+    <div class="seg" id="segDetail" title="Детализация модели">
+      <button data-v="realistic">Реализм</button><button data-v="lowpoly">Low-poly</button>
+    </div>
+  </div>
+  <div class="grp right">
+    <button id="btnValidate" class="act" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
+    <button id="btnRender" class="act" title="Скриншоты со всех 12 сторон одним листом">📷 Со всех сторон</button>
+    <button id="btnTextures" title="Промпты и файлы текстур для другой ИИ">🎨 Текстуры</button>
+    <select id="selExport" title="Экспорт цельной модели">
+      <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
+      <option value="obj">OBJ</option><option value="stl">STL (цельный меш)</option><option value="lod">GLB LOD (меньше треугольников)</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <aside id="left">
+    <nav class="tabs" data-for="left">
+      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button>
+    </nav>
+    <section data-pane="tree" class="pane on">
+      <div class="hint">Клик — выбрать. Элементы вложены по тому, к чему прикреплены.</div>
+      <ul id="tree"></ul>
+    </section>
+    <section data-pane="lib" class="pane">
+      <input id="libSearch" placeholder="Поиск: окно, купол, колонна…">
+      <div id="lib"></div>
+    </section>
+    <section data-pane="styles" class="pane"><div id="styles"></div></section>
+  </aside>
+
+  <section id="center">
+    <div id="viewport"></div>
+    <div id="vtools">
+      <button data-mode="select" class="on" title="Выбор (Q)">⬚</button>
+      <button data-mode="translate" title="Двигать (W)">✥</button>
+      <button data-mode="rotate" title="Вращать вокруг вертикали (E)">⟳</button>
+      <span class="sep"></span>
+      <button id="vFront" title="Вид спереди">Перед</button>
+      <button id="vSide" title="Вид сбоку">Бок</button>
+      <button id="vTop" title="Вид сверху">Верх</button>
+      <button id="vIso" title="Изометрия">3/4</button>
+      <span class="sep"></span>
+      <label title="Показывать сварную (итоговую) модель вместо разборной"><input type="checkbox" id="chkWelded"> Цельная</label>
+      <label><input type="checkbox" id="chkWire"> Каркас</label>
+      <label title="Камера повторяет ракурсы, с которых ИИ проверяет модель"><input type="checkbox" id="chkFollow" checked> Камера ИИ</label>
+    </div>
+    <div id="status"></div>
+    <div id="busy" hidden>сборка…</div>
+  </section>
+
+  <aside id="right">
+    <h3>Свойства</h3>
+    <div id="props"><div class="hint">Выберите элемент в сцене или в дереве.</div></div>
+  </aside>
+</main>
+
+<footer id="bottom">
+  <nav class="tabs" data-for="bottom">
+    <button data-tab="feed" class="on">Лента работы ИИ</button><button data-tab="check">Проверка</button><button data-tab="shots">Скриншоты</button>
+  </nav>
+  <section data-pane="feed" class="pane on"><ul id="feed"></ul></section>
+  <section data-pane="check" class="pane"><div id="check"><div class="hint">Нажмите «Проверить».</div></div></section>
+  <section data-pane="shots" class="pane"><div id="shots"></div></section>
+</footer>
+
+<div id="lightbox" hidden><img alt=""></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

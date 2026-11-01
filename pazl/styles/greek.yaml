@@ -1,0 +1,29 @@
+id: greek
+name: Ancient Greek
+name_ru: Античная Греция
+era: 7th-1st c. BC
+region: Greece, Magna Graecia
+materials:
+  wall: marble
+  plinth: marble
+  roof: clay_tile
+  trim: marble
+  column: marble
+  stairs: marble
+  gable: marble
+defaults:
+  colonnade:
+    order: doric
+    pediment: true
+    pediment_pitch: 14
+  column:
+    order: doric
+  roof:
+    type: gable
+    pitch: 14
+  block:
+    plinth_h: 0
+macros:
+- greek_temple
+tips: Proportions follow the order - doric column h ~ 5.5 diameters, ionic ~9, corinthian
+  ~10. Pediment pitch 12-15 deg.

@@ -1,0 +1,28 @@
+id: russian_wooden
+name: Russian wooden (izba)
+name_ru: Русская деревянная (изба, терем)
+era: 10th-20th c.
+region: Russia
+materials:
+  wall: log_pine
+  log: log_pine
+  roof: shingles_wood
+  trim: wood_carved
+  frame: wood_painted_white
+  gable: wood_boards
+  plinth: stone_rubble
+defaults:
+  windows:
+    trim: nalichnik
+    shutters: true
+    w: 0.8
+    h: 1.0
+  roof:
+    type: gable
+    pitch: 42
+    overhang: 0.6
+macros:
+- izba
+- orthodox_church
+tips: Log cribs (srub) in obla or lapa, carved nalichniki, porches (kryltso), shingle
+  (lemekh) domes for wooden churches - use orthodox_church wooden=true.

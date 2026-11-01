@@ -1,0 +1,23 @@
+id: modern
+name: Contemporary glass and concrete
+name_ru: Современный (стекло, бетон)
+era: 1970-now
+region: worldwide
+materials:
+  wall: concrete_raw
+  plinth: granite
+  roof: bitumen
+  trim: aluminium
+  frame: aluminium
+  glass: glass_dark
+defaults:
+  roof:
+    type: flat
+    parapet_h: 1.2
+  windows:
+    trim: none
+    frame_material: aluminium
+macros:
+- glass_tower
+tips: Curtain walls, podium plus tower, minimal trim. Brutalism - concrete_raw everywhere
+  with deep window recesses.

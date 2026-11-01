@@ -1,0 +1,73 @@
+# Material library. color = preview/base color (sRGB 0-255), tile = meters covered by one texture tile.
+# prompt = ready text for a texture-generating AI (seamless tileable PBR texture).
+default:        {color: [200, 200, 200], rough: 0.8, tile: 2, prompt: "neutral grey plaster"}
+# --- stone / masonry
+stone_ashlar:   {color: [196, 186, 165], rough: 0.85, tile: 2, prompt: "light limestone ashlar masonry blocks, regular courses, thin mortar joints"}
+stone_rubble:   {color: [140, 132, 120], rough: 0.95, tile: 2, prompt: "medieval rubble stone wall, irregular grey fieldstones with lime mortar"}
+stone_dark:     {color: [105, 100, 95], rough: 0.9, tile: 2, prompt: "dark weathered granite block wall, medieval castle"}
+granite:        {color: [125, 115, 112], rough: 0.7, tile: 1.5, prompt: "polished red-grey granite cladding slabs"}
+marble:         {color: [236, 232, 224], rough: 0.35, tile: 2, prompt: "white Carrara marble blocks, subtle grey veins"}
+sandstone:      {color: [214, 182, 135], rough: 0.9, tile: 2, prompt: "warm sandstone ashlar, eroded edges"}
+limestone_trim: {color: [222, 214, 196], rough: 0.7, tile: 1, prompt: "smooth carved limestone, architectural trim"}
+rustication:    {color: [185, 175, 158], rough: 0.9, tile: 2, prompt: "rusticated stone blocks with deep chamfered joints, renaissance palazzo base"}
+# --- brick
+brick_red:      {color: [160, 72, 52], rough: 0.9, tile: 1.5, prompt: "red clay brick wall, running bond, grey mortar"}
+brick_yellow:   {color: [206, 170, 100], rough: 0.9, tile: 1.5, prompt: "yellow brick wall, running bond"}
+brick_silicate: {color: [222, 220, 212], rough: 0.85, tile: 1.5, prompt: "white silicate brick wall, soviet khrushchyovka, slightly dirty"}
+brick_gothic:   {color: [140, 62, 45], rough: 0.9, tile: 1.5, prompt: "dark red baltic gothic brick, monk bond, glazed headers"}
+adobe:          {color: [190, 150, 110], rough: 1.0, tile: 2, prompt: "adobe mud brick plaster wall, hand smoothed"}
+# --- plaster / concrete
+plaster_white:  {color: [238, 236, 230], rough: 0.85, tile: 2, prompt: "white lime plaster wall, slightly uneven"}
+plaster_ochre:  {color: [222, 186, 120], rough: 0.85, tile: 2, prompt: "ochre yellow stucco facade plaster"}
+plaster_pink:   {color: [225, 175, 165], rough: 0.85, tile: 2, prompt: "pale pink baroque stucco plaster"}
+plaster_blue:   {color: [150, 185, 210], rough: 0.85, tile: 2, prompt: "light blue painted plaster, baroque"}
+plaster_green:  {color: [150, 190, 160], rough: 0.85, tile: 2, prompt: "mint green painted plaster facade"}
+plaster_grey:   {color: [170, 168, 160], rough: 0.9, tile: 2, prompt: "grey weathered cement plaster"}
+concrete_panel: {color: [178, 176, 168], rough: 0.9, tile: 3, prompt: "soviet precast concrete wall panel, small embedded pebbles, stains"}
+concrete_raw:   {color: [160, 160, 156], rough: 0.9, tile: 3, prompt: "raw board-formed concrete, brutalist"}
+concrete_tile:  {color: [205, 200, 185], rough: 0.8, tile: 2, prompt: "soviet facade ceramic tiles, small beige square tiles on concrete panel"}
+sealant:        {color: [70, 70, 70], rough: 0.9, tile: 1, prompt: "dark rubber sealant joint"}
+interior:       {color: [230, 225, 215], rough: 0.9, tile: 2, prompt: "interior white painted wall"}
+# --- wood
+log_pine:       {color: [168, 120, 72], rough: 0.85, tile: 2, prompt: "round pine logs, weathered brown, log cabin wall, horizontal"}
+log_dark:       {color: [96, 70, 48], rough: 0.9, tile: 2, prompt: "old dark grey-brown weathered logs, russian izba"}
+timber_dark:    {color: [70, 48, 32], rough: 0.8, tile: 1, prompt: "dark stained oak beam, half-timbering"}
+wood_boards:    {color: [150, 110, 72], rough: 0.85, tile: 2, prompt: "vertical wooden plank cladding with battens, painted brown"}
+wood_boards_green: {color: [96, 130, 96], rough: 0.85, tile: 2, prompt: "vertical wooden board cladding painted green, lithuanian village"}
+wood_painted_white: {color: [235, 232, 222], rough: 0.7, tile: 1, prompt: "white painted wood trim, carved"}
+wood_carved:    {color: [205, 190, 160], rough: 0.7, tile: 1, prompt: "carved wooden folk ornament, russian nalichnik"}
+wood_door:      {color: [110, 70, 40], rough: 0.7, tile: 1, prompt: "old wooden plank door with iron studs"}
+wood_floor:     {color: [140, 100, 65], rough: 0.8, tile: 2, prompt: "wooden floorboards"}
+shingles_wood:  {color: [120, 95, 70], rough: 0.9, tile: 1.5, prompt: "wooden shingles roof, aspen lemekh scales"}
+thatch:         {color: [176, 150, 90], rough: 1.0, tile: 2, prompt: "thatched straw roof"}
+bamboo:         {color: [180, 160, 100], rough: 0.8, tile: 1, prompt: "bamboo poles"}
+# --- roof
+clay_tile:      {color: [170, 80, 50], rough: 0.8, tile: 1.5, prompt: "red clay roof tiles, beaver tail"}
+clay_tile_dark: {color: [115, 60, 45], rough: 0.8, tile: 1.5, prompt: "dark brown glazed clay roof tiles"}
+slate:          {color: [70, 74, 82], rough: 0.7, tile: 1.5, prompt: "dark grey slate roof tiles"}
+lead_roof:      {color: [120, 125, 130], rough: 0.5, tile: 2, prompt: "grey lead roof sheets with seams"}
+metal_roof_green: {color: [60, 110, 80], rough: 0.5, tile: 2, prompt: "green painted standing seam tin roof, russian"}
+metal_roof_red: {color: [140, 50, 45], rough: 0.5, tile: 2, prompt: "red painted metal sheet roof"}
+zinc:           {color: [150, 155, 160], rough: 0.4, tile: 2, prompt: "galvanized zinc sheet roof"}
+bitumen:        {color: [55, 55, 58], rough: 0.95, tile: 3, prompt: "flat roof bitumen membrane with gravel"}
+turf:           {color: [90, 110, 60], rough: 1.0, tile: 2, prompt: "grass turf sod roof"}
+copper_green:   {color: [95, 160, 135], rough: 0.5, tile: 2, prompt: "oxidized green copper patina roof"}
+gold:           {color: [212, 175, 55], rough: 0.25, metal: 1.0, tile: 1, prompt: "gilded gold leaf dome surface"}
+dome_blue:      {color: [40, 80, 170], rough: 0.4, tile: 1, prompt: "deep blue painted dome with golden stars"}
+glazed_tile_green: {color: [40, 120, 80], rough: 0.4, tile: 1, prompt: "green glazed chinese roof tiles"}
+# --- glass / metal
+glass:          {color: [120, 160, 185], rough: 0.05, metal: 0.2, alpha: 0.6, tile: 2, prompt: "clear window glass with slight reflections"}
+glass_dark:     {color: [45, 65, 85], rough: 0.05, metal: 0.4, tile: 3, prompt: "dark tinted curtain wall glass, reflections of sky"}
+iron:           {color: [40, 40, 42], rough: 0.5, metal: 0.9, tile: 1, prompt: "black wrought iron"}
+steel:          {color: [150, 152, 155], rough: 0.35, metal: 1.0, tile: 1, prompt: "brushed steel"}
+aluminium:      {color: [190, 192, 195], rough: 0.35, metal: 1.0, tile: 1, prompt: "anodized aluminium mullion"}
+frame_white:    {color: [240, 240, 236], rough: 0.5, tile: 1, prompt: "white painted window frame"}
+frame_brown:    {color: [95, 62, 40], rough: 0.6, tile: 1, prompt: "brown wooden window frame"}
+# --- earth / misc
+earth:          {color: [110, 85, 60], rough: 1.0, tile: 2, prompt: "packed brown earth, soil"}
+gravel:         {color: [150, 145, 135], rough: 1.0, tile: 2, prompt: "gravel"}
+ceramic_blue:   {color: [40, 100, 170], rough: 0.3, tile: 1, prompt: "blue islamic glazed ceramic tiles, geometric pattern"}
+terracotta:     {color: [190, 100, 65], rough: 0.85, tile: 1, prompt: "terracotta ornament"}
+red_paint:      {color: [170, 40, 35], rough: 0.6, tile: 1, prompt: "red lacquered wood, chinese temple column"}
+stained_glass:  {color: [140, 60, 120], rough: 0.1, tile: 1, prompt: "gothic stained glass window, deep blue and red"}
+mosaic:         {color: [190, 150, 70], rough: 0.4, tile: 1, prompt: "byzantine gold mosaic tesserae"}

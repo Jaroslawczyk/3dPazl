@@ -1,0 +1,25 @@
+id: baroque
+name: Baroque
+name_ru: Барокко
+era: 1600-1750
+region: Italy, Central Europe, Russia (Naryshkin, Elizabethan), Lithuania (Vilnius
+  baroque)
+materials:
+  wall: plaster_pink
+  plinth: granite
+  roof: copper_green
+  trim: plaster_white
+  dome: copper_green
+defaults:
+  windows:
+    kind: segmental
+    trim: baroque
+  dome:
+    profile: bell
+    lantern: true
+  cornice:
+    kind: crown
+macros:
+- baroque_church
+tips: Curves, broken pediments, bell-shaped tower helmets with lanterns, rich pilasters,
+  white trim on colored plaster.

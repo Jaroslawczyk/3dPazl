@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pazl": {
+      "command": ".venv/Scripts/python.exe",
+      "args": ["-m", "pazl.mcp"],
+      "env": { "PAZL_AGENT": "claude" }
+    }
+  }
+}

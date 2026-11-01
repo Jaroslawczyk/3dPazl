@@ -1,0 +1,14 @@
+id: generic
+name: Generic
+name_ru: Универсальный
+era: any
+region: any
+materials:
+  wall: plaster_white
+  plinth: stone_rubble
+  roof: clay_tile
+  trim: limestone_trim
+defaults: {}
+macros:
+- house
+tips: Neutral defaults. Pick a concrete style for real buildings.

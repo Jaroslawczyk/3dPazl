@@ -1,0 +1,31 @@
+id: gothic
+name: Gothic
+name_ru: Готика
+era: 1140-1520
+region: France, Germany, England, Baltic (brick gothic)
+materials:
+  wall: stone_ashlar
+  plinth: stone_dark
+  roof: lead_roof
+  trim: limestone_trim
+  stone: stone_ashlar
+defaults:
+  windows:
+    kind: lancet
+    trim: gothic_hood
+    mullions:
+    - 1
+    - 0
+  door:
+    kind: lancet
+    orders: 3
+    trim: gothic_hood
+  roof:
+    type: gable
+    pitch: 55
+  buttresses:
+    pinnacle: true
+macros:
+- gothic_cathedral
+tips: Verticality - pointed arches, steep roofs 50-60 deg, buttresses, flying buttresses,
+  rose windows, spires. For brick gothic set materials wall=brick_gothic.

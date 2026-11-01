@@ -1,0 +1,33 @@
+id: romanesque
+name: Romanesque
+name_ru: Романский стиль
+era: 1000-1200
+region: Western Europe
+materials:
+  wall: sandstone
+  plinth: stone_rubble
+  roof: clay_tile
+  trim: sandstone
+  stone: sandstone
+defaults:
+  block:
+    wall_t: 1.5
+  windows:
+    kind: arch
+    w: 0.9
+    h: 1.8
+    trim: archivolt
+    mullions:
+    - 0
+    - 0
+  door:
+    kind: arch
+    orders: 3
+    trim: archivolt
+  roof:
+    type: gable
+    pitch: 30
+macros:
+- romanesque_church
+tips: Thick walls, small round-arched windows, lombard bands under eaves, apse, square
+  bell tower with pyramid roof.

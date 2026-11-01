@@ -1,0 +1,24 @@
+id: russian_orthodox
+name: Russian Orthodox church architecture
+name_ru: Древнерусская / православная
+era: 11th-19th c.
+region: Russia, Belarus, Ukraine
+materials:
+  wall: plaster_white
+  plinth: stone_rubble
+  roof: metal_roof_green
+  trim: plaster_white
+  dome: gold
+  cross: gold
+defaults:
+  windows:
+    kind: arch
+    trim: nalichnik
+  dome:
+    profile: onion
+    kokoshniki: 8
+    cross: orthodox
+macros:
+- orthodox_church
+tips: Cube (chetverik) + apse + refectory + bell tower, onion domes on drums, kokoshniki,
+  tent roofs (shatyor). Domes gold or blue with stars (dome_blue).

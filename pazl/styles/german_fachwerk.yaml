@@ -1,0 +1,26 @@
+id: german_fachwerk
+name: German half-timbered
+name_ru: Немецкий фахверк
+era: 1400-1800
+region: Germany, Alsace, Denmark
+materials:
+  wall: plaster_white
+  plinth: stone_rubble
+  roof: clay_tile
+  trim: timber_dark
+  timber: timber_dark
+  frame: frame_white
+defaults:
+  roof:
+    type: gable
+    pitch: 55
+  timber_frame:
+    pattern: mann
+  windows:
+    trim: none
+    w: 0.9
+    h: 1.3
+macros:
+- fachwerk_house
+tips: Stone ground floor, jettied upper floors (each projects 0.3-0.5 m), steep roofs
+  with dormers, dark oak timber patterns (Mann, St Andrew cross).

@@ -1,0 +1,32 @@
+id: soviet_panel
+name: Soviet mass housing (GOST series)
+name_ru: Советский панельный (ГОСТ, серии)
+era: 1956-1991
+region: USSR
+materials:
+  wall: concrete_panel
+  plinth: concrete_raw
+  roof: bitumen
+  trim: concrete_raw
+  frame: frame_white
+  railing: iron
+defaults:
+  block:
+    wall_t: 0.35
+    floor_h: 2.8
+    plinth_h: 0.9
+  windows:
+    trim: soviet
+    w: 1.5
+    h: 1.4
+    mullions:
+    - 1
+    - 0
+  roof:
+    type: flat
+    parapet_h: 0.5
+macros:
+- panel_building
+tips: Series 1-464 and 1-447 (5 floors, khrushchyovka), 121 (9 floors), P-44 (17 floors),
+  II-18 (12-floor point tower). Floor height 2.8 m, panel joints, entrances with slab
+  canopies on the yard side.

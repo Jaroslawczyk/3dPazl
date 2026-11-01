@@ -1,0 +1,23 @@
+id: stalinist
+name: Stalinist Empire
+name_ru: Сталинский ампир
+era: 1933-1955
+region: USSR, Eastern bloc
+materials:
+  wall: plaster_ochre
+  plinth: granite
+  roof: metal_roof_red
+  trim: plaster_white
+  column: plaster_white
+  accent: gold
+defaults:
+  windows:
+    trim: classic
+  cornice:
+    kind: dentil
+    h: 1.2
+    out: 0.9
+macros:
+- stalinka
+tips: Monumental symmetry, granite base, rustication, central risalit with columns,
+  balusters, heavy cornices, spires with stars on high-rises (stalinka tower=true).

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "pazl": {
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["-m", "pazl.mcp"],
+      "cwd": "${workspaceFolder}",
+      "env": { "PAZL_AGENT": "cursor" }
+    }
+  }
+}

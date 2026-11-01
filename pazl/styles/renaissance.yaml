@@ -1,0 +1,26 @@
+id: renaissance
+name: Renaissance
+name_ru: Ренессанс
+era: 1400-1600
+region: Italy, then Europe
+materials:
+  wall: plaster_ochre
+  plinth: rustication
+  roof: clay_tile
+  trim: limestone_trim
+  dome: clay_tile_dark
+defaults:
+  windows:
+    kind: rect
+    trim: pediment
+  cornice:
+    kind: dentil
+    h: 1.2
+    out: 1.0
+  roof:
+    type: hip
+    pitch: 22
+macros:
+- palazzo
+tips: Symmetry, rusticated ground floor, piano nobile, strong crowning cornice, low
+  hip roofs, domes on drums with lanterns.

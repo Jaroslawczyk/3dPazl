@@ -1,0 +1,25 @@
+id: lithuanian
+name: Lithuanian wooden and baroque
+name_ru: Литовская (деревянная, барокко)
+era: 17th-20th c.
+region: Lithuania
+materials:
+  wall: wood_boards
+  roof: shingles_wood
+  trim: wood_painted_white
+  frame: frame_white
+  plinth: stone_rubble
+  shutter: wood_boards_green
+defaults:
+  windows:
+    kind: rect
+    trim: nalichnik
+    shutters: true
+  roof:
+    type: gable
+    pitch: 50
+macros:
+- lithuanian_church
+- house
+tips: Board-clad wooden churches with front bell towers and baroque helmets, homesteads
+  with steep (often half_hip) roofs, wayside crosses.
