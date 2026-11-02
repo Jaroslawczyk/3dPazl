@@ -45,3 +45,9 @@
 - Fix: glb_preview.py now samples 500k area-weighted points (solid look) - ALWAYS view the ref in this before building.
   Rebuilt as scripts/textured_jungle_house.py (400 tris, procedural plank/roof textures). Ladder inflated the bbox: check W:L:H.
 - Rule: "looks unlike" => first re-look at the ref at 3 angles at 600 px, list 6 defining features, tick them off in my render.
+
+## Case 5 notes (medieval stone cottage, 28k tris, 5 baked atlases)
+- Preview the ref first (3 angles, 600 px): stone walls + timber posts, half-timbered gables, steep brown thatch, arched plank door
+  on the gable end. Atlases are baked but contain usable flat panels: crop tiles (tile_stone/tile_roof/tile_door) into
+  textures/library/ref_medieval_house/ and tile them with alternate flips (hides seams).
+- scripts/textured_medieval_house.py (238 tris). Door must fit under the wall top (arch height + radius < wall height).
