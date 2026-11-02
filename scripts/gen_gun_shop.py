@@ -50,25 +50,12 @@ box(-HX, -HY, H-.2, HX, HY, H, ROOF)           # roof deck + parapet
 for a, b, c, d in [(-HX-.1, -HY-.1, HX+.1, -HY+.15), (-HX-.1, HY-.15, HX+.1, HY+.1), (-HX-.1, -HY-.1, -HX+.15, HY+.1), (HX-.15, -HY-.1, HX+.1, HY+.1)]:
     box(a, b, H, c, d, H+.55, ROOF)
 box(-HX-.15, -HY-.15, H+.55, HX+.15, -HY+.2, H+.7, DARK)
-# inside: counter with glass top, back-wall gun rack, so the shop can be entered
-box(-3.5, 0.6, .2, 3.5, 1.3, 1.05, WOOD); box(-3.55, .55, 1.05, 3.55, 1.35, 1.12, DARK)
-box(-4.6, HY-.45, 1.3, 4.6, HY-.25, 1.4, DARK); box(-4.6, HY-.45, 2.1, 4.6, HY-.25, 2.2, DARK)
-for k in range(8): rx = -4.2+k*1.2; box(rx, HY-.4, 1.4, rx+.08, HY-.3, 2.1, "#5a432d")
 # front sign board on the parapet + red stripe, sandbag wall, crates, target
 box(-3.6, -HY-.3, H+.7, 3.6, -HY-.18, H+2.2, SIGN)                                  # texture plate
 box(-3.7, -HY-.32, H+.65, 3.7, -HY-.2, H+.72, DARK); box(-3.7, -HY-.32, H+2.2, 3.7, -HY-.2, H+2.28, DARK)
 box(-3.7, -HY-.32, H+.65, -3.62, -HY-.2, H+2.28, DARK); box(3.62, -HY-.32, H+.65, 3.7, -HY-.2, H+2.28, DARK)
 box(-3.5, -HY-.3, H+.7, -3.45, -HY-.18, H+2.2, DARK)
 box(-HX, -HY-.02, 2.9, HX, -HY+.28, 3.05, "#c0392b")                              # red band under the parapet
-for k in range(3):                                                                    # sandbag wall, left of the door
-    for r in range(3):
-        ox = (k % 2 if r % 2 else 0) * .0 + (.3 if r % 2 else 0)
-        box(-3.6 + k*.8 + ox, -HY-1.1, .13 + r*.28, -2.85 + k*.8 + ox, -HY-.45, .4 + r*.28, "#b9a77a")
-for (x, y, s, z) in [(2.2, -HY-.9, .8, 0), (3.1, -HY-.9, .8, 0), (2.65, -HY-.9, .8, .8)]:    # crates
-    box(x, y, z+.13, x+s, y+s, z+.13+s, WOOD); 
-    box(x-.02, y-.02, z+.13+s*.45, x+s+.02, y+s+.02, z+.13+s*.55, "#5a432d")
-cyl(4.6, -HY-.5, .13, 1.0, .05, DARK, 6); box(4.15, -HY-.55, 1.0, 5.05, -HY-.45, 1.9, "#e8e2d0")   # shooting target board
-cyl(4.6, -HY-.5, 1.45, 1.46, .4, "#c0392b", 14); cyl(4.6, -HY-.52, 1.46, 1.47, .2, "#e8e2d0", 12)
 box(-HX+.8, -1.5, H, -HX+1.8, -.5, H+.9, DARK)                                       # roof AC unit
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
