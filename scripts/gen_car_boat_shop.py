@@ -1,4 +1,4 @@
-"""Car & boat dealership (low-poly, Roblox-ready). Built Z-up in metres, exported Y-up. Run with .venv/Scripts/python.exe"""
+"""Shop (no cars/asphalt) -- was car & boat dealership (low-poly, Roblox-ready). Built Z-up in metres, exported Y-up. Run with .venv/Scripts/python.exe"""
 import numpy as np, trimesh as tm, pathlib
 from trimesh.transformations import rotation_matrix as RM, translation_matrix as TM
 P = []
@@ -49,18 +49,15 @@ def trailer(cx, cy, yaw):
     grp = tm.util.concatenate(P[s0:]); del P[s0:]; grp.apply_transform(TM([cx, cy, 0]) @ RM(yaw, [0, 0, 1])); P.append(grp)
 
 # ---- site ----
-box(-13, -11, -.2, 13, 8, 0, "#6f7680")                                   # pavement
-box(-13, -11, -.19, 13, -9.2, .0, "#6f7680")
-for i in range(-5, 6): box(i*2.3-.08, -10.2, 0, i*2.3+.08, -9.6, .01, "#f5f5f5")     # parking stripes
 box(-7.5, -4.5, 0, 7.5, 4.5, .2, "#b9a98d")                               # showroom floor
 # showroom shell 15 x 9 x 4.4, front = -Y
 WALL, TRIM = "#eceae4", "#2b2f3a"
 box(-7.5, 4.2, .2, 7.5, 4.5, 4.4, WALL); box(-7.5, -4.5, .2, -7.2, 4.5, 4.4, WALL); box(7.2, -4.5, .2, 7.5, 4.5, 4.4, WALL)
 box(-7.5, -4.5, 3.4, 7.5, -4.2, 4.4, WALL)                                # fascia
 box(-7.5, -4.5, .2, -6.5, -4.2, 3.4, WALL); box(6.5, -4.5, .2, 7.5, -4.2, 3.4, WALL)
-box(-6.5, -4.42, .2, 6.5, -4.3, 3.4, "#8fd3f4")                            # big glass wall
-for i in range(-3, 4): box(i*1.8-.05, -4.46, .2, i*1.8+.05, -4.28, 3.4, TRIM)
-box(-1.2, -4.5, .2, 1.2, -4.2, 3.0, "#8fd3f4"); box(-1.25, -4.52, .2, -1.15, -4.2, 3.05, TRIM); box(1.15, -4.52, .2, 1.25, -4.2, 3.05, TRIM)
+box(-6.5, -4.42, .2, -1.2, -4.3, 3.4, "#8fd3f4"); box(1.2, -4.42, .2, 6.5, -4.3, 3.4, "#8fd3f4")   # glass wall with a doorway
+for i in (-3, -2, -1, 1, 2, 3): box(i*1.8-.05, -4.46, .2, i*1.8+.05, -4.28, 3.4, TRIM)
+box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4, TRIM)   # door posts
 box(-7.8, -4.8, 4.4, 7.8, 4.8, 4.7, "#3a3f4b")                            # roof slab
 box(-7.8, -4.8, 4.7, 7.8, -4.6, 5.0, "#3a3f4b")
 # sign: blue band with white "letters" (left = AUTO, right = BOAT)
@@ -70,21 +67,14 @@ box(-0.9, -5.0, 5.3, 0.9, -4.96, 5.8, "#1b4f9c")
 for i in range(4): box(1.4+i*1.1, -5.0, 5.2, 2.2+i*1.1, -4.96, 5.9, "#1b4f9c")
 # awning over entrance
 for k in range(6): box(-2.4+k*.8, -6.0, 3.2, -1.6+k*.8, -4.3, 3.35, "#d8262c" if k % 2 == 0 else "#f5f5f5")
-# interior: 2 cars on podiums + counter
-box(-5.6, -3.2, .2, -1.0, -0.8, .4, "#d8dee9"); box(1.2, -3.2, .2, 6.0, -0.8, .4, "#d8dee9")
-car(-3.3, -2.0, .4, 0.35, "#d8262c"); car(3.6, -2.0, .4, -0.35, "#f2c230")
+# interior: counter, lounge
 box(-6.5, 2.4, .2, -2.5, 3.4, 1.3, "#3b4252"); box(-6.6, 2.3, 1.3, -2.4, 3.5, 1.38, "#d8dee9"); box(-5.0, 2.7, 1.38, -4.3, 3.1, 1.8, "#1c1e24")
 box(2.5, 3.9, .2, 7.0, 4.2, 2.6, "#5b4636")                               # wall board with keys/brochures
 for i in range(6): box(2.8+i*.7, 3.85, 1.0, 3.3+i*.7, 3.9, 2.2, "#3fa7ff" if i % 2 else "#f5f5f5")
 box(-1.5, 1.5, .2, 1.5, 2.5, .8, "#c8b79a")                               # lounge table
 for sx in (-2.2, 2.2): box(sx-.5, 1.4, .2, sx+.5, 2.4, .7, "#1b4f9c")
-# outside: car ramp display, boat on trailer, boat on water-blue podium, flags
-car(9.5, -6.5, .2, 0.0, "#1b4f9c") if False else None
-box(8.0, -8.2, 0, 12.0, -4.8, .35, "#d8dee9"); car(10.0, -6.5, .35, 1.2, "#1b4f9c")
-trailer(-9.7, -5.5, 0.0); boat(-9.4, -5.5, .7, 0.0, "#f5f5f5")
-box(-12.4, 0.6, 0, -6.6, 5.0, .3, "#2f7fc4"); boat(-9.5, 2.8, .35, 0.5, "#d8262c", 5.2, 2.0)         # boat on 'water' display
-for fx in (-7.0, 7.0, 12.2):
-    box(fx-.06, -8.6, 0, fx+.06, -8.5+.1, 6.0, "#c9ced6"); box(fx+.06, -8.6, 4.8, fx+1.0, -8.55, 5.9, "#d8262c" if fx > 0 else "#1b4f9c")
+box(-1.2, -9.0, 0, 1.2, -4.5, .06, "#d8d2c4")                                  # entrance path
+box(-1.2, -4.5, .2, 1.2, -4.2, .26, "#b9a98d")
 
 scene = tm.util.concatenate(P)
 scene.apply_transform(RM(-np.pi/2, [1, 0, 0]))                              # Z-up -> Y-up
