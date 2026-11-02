@@ -58,3 +58,7 @@
 - glTF colour factors are LINEAR: convert with 255*f**(1/2.2) before painting (preview tools show them raw = too orange).
 - Built `fishing_house` (878 tris, bbox 10.45 x 9.87 x 20.79 vs ref 10.45 x 10.0 x 20.8). Floating checks: barrel must touch its
   pillar top, ladder must touch a wall.
+- Case 6 redo ("closer, all angles"): v1 was a MIRROR image (I used my_y = +ref_z). Correct Y-up -> Z-up mapping that keeps
+  handedness: (x, y, z)_ref -> (x, -z, y)_mine. Then place EVERY part from its measured world bbox (glb_inspect min/size), check
+  4 sides (az 0/90/180/270) against the ref, not just 3/4 views. Elements can be generated from a python list and sent via
+  POST /api/new (server on :8765) instead of pasting JSON. Per-element colour: recipe element `"colors":{"wall":"#hex"}` works.

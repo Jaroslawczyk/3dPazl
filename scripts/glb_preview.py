@@ -38,6 +38,7 @@ def mat(nd):
     return m
 
 
+NPRIM = max(1, sum(len(m["primitives"]) for m in j["meshes"]))
 pts, cols = [], []
 def walk(i, P):
     nd = j["nodes"][i]; W = P @ mat(nd)
@@ -50,7 +51,7 @@ def walk(i, P):
                 ix = acc(p["indices"]).astype(int).reshape(-1, 3)
                 ar = np.linalg.norm(np.cross(v[ix[:, 1]] - v[ix[:, 0]], v[ix[:, 2]] - v[ix[:, 0]]), axis=1) + 1e-12
                 rng = np.random.default_rng(1)
-                pick = rng.choice(len(ix), size=500000, p=ar / ar.sum())          # area-weighted -> uniform density
+                pick = rng.choice(len(ix), size=max(8000, 900000 // NPRIM), p=ar / ar.sum())          # area-weighted -> uniform density
                 r1, r2 = rng.random((2, len(pick))); f = r1 + r2 > 1; r1[f], r2[f] = 1 - r1[f], 1 - r2[f]
                 t = ix[pick]; w0, w1, w2 = (1 - r1 - r2)[:, None], r1[:, None], r2[:, None]
                 nv = v[t[:, 0]] * w0 + v[t[:, 1]] * w1 + v[t[:, 2]] * w2
