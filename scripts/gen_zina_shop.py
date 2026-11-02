@@ -22,8 +22,8 @@ def wall(mk, a0, a1, ops, z0=0.2, z1=H):          # wall along one axis with ope
 def frame(mk, a0, a1, z0, z1, t=0.1, d=0.14):      # teal frame round an opening (mk(a0, a1, z0, z1, depth_out))
     mk(a0-t, a0, z0-t, z1+t); mk(a1, a1+t, z0-t, z1+t); mk(a0-t, a1+t, z0-t, z0); mk(a0-t, a1+t, z1, z1+t)
 box(-HX, -HY, 0, HX, HY, .2, "#a8763e")                                        # floor slab (wood planks)
-DOOR, WIN, WINL = (-1.9, -0.7, 0.2, 2.2), (0.5, 2.5, 1.1, 2.1), (-3.2, -2.4, 1.1, 2.1)
-wall(lambda a, b, z0, z1: box(a, -HY, z0, b, -HY+.25, z1, WALL), -HX, HX, [DOOR, WIN, WINL])      # front wall
+DOOR, WIN, WINL, WINL2 = (-1.9, -0.7, 0.2, 2.2), (0.5, 2.5, 1.1, 2.1), (-3.7, -3.1, 1.1, 2.1), (-2.8, -2.2, 1.1, 2.1)
+wall(lambda a, b, z0, z1: box(a, -HY, z0, b, -HY+.25, z1, WALL), -HX, HX, [DOOR, WIN, WINL, WINL2])      # front wall
 box(-HX, HY-.25, .2, HX, HY, H, WALL)                                                              # back wall
 SW = (0.6, 1.6, 1.1, 2.1)
 for sx in (-1, 1):                                                                                  # side walls with a window each
@@ -35,7 +35,7 @@ for sx in (-1, 1):                                                              
     for y0, y1, z0, z1 in [(SW[0]-.1, SW[0], SW[2]-.1, SW[3]+.1), (SW[1], SW[1]+.1, SW[2]-.1, SW[3]+.1), (SW[0]-.1, SW[1]+.1, SW[2]-.1, SW[2]), (SW[0]-.1, SW[1]+.1, SW[3], SW[3]+.1)]:
         box(sx*HX-.14 if sx < 0 else HX-.25-.0, y0, z0, sx*HX+.0 if sx < 0 else HX+.14, y1, z1, TEAL)
 # front windows: glass + teal frames + muntins, sill planks with flower boxes
-for (a0, a1, z0, z1) in (WIN, WINL):
+for (a0, a1, z0, z1) in (WIN, WINL, WINL2):
     box(a0, -HY+.08, z0, a1, -HY+.16, z1, "#8fd3f4")
     frame(lambda a, b, c, d: box(a, -HY-.06, c, b, -HY+.25, d, TEAL), a0, a1, z0, z1)
     box(a0-.15, -HY-.2, z0-.14, a1+.15, -HY, z0-.04, PALE)                       # sill
@@ -155,7 +155,7 @@ def tex_floorboards(base):                            # horizontal wooden planks
     y, x = np.mgrid[0:N, 0:N]; h = N // 6
     row = y // h; sh = ((row * 97) % N)
     a = tint(base, (noise(N, 2) - .5) * .10 + np.sin(((x + sh) * .05) + noise(N, 3) * 5) * .05 + (row % 3 - 1) * .05).astype(float)
-    a[::h, :, :] *= .5; a[(x + sh) % N < 3] *= .6
+    a[(y % h) < 5] *= .5; a[(x + sh) % N < 5] *= .6
     return a.clip(0, 255).astype(np.uint8)
 def tex_brick(base):                                  # running-bond bricks with light mortar
     y, x = np.mgrid[0:N, 0:N]; bh, bw = N // 8, N // 4
@@ -175,6 +175,7 @@ def pbr_boards(base):                                  # horizontal cut boards w
         d[r*hr:(r+1)*hr, :] = dd[None, :]; tone[r*hr:(r+1)*hr, :] = tv[k][None, :]
     st = np.tile(rng.random((n, 1)), (1, n)); st = (st + np.roll(st, 1, 0) + np.roll(st, -1, 0)) / 3     # horizontal grain streaks
     st = st * .6 + noise(n, 3) * .4
+    for _ in range(3): st = (st + np.roll(st, 1, 0) + np.roll(st, -1, 0) + np.roll(st, 1, 1) + np.roll(st, -1, 1)) / 5
     e = np.minimum(np.minimum(v, 1 - v) * hr, d)                                                          # px to nearest board edge
     h = np.clip(e / 9, 0, 1) ** .6 * .7 + st * .25
     dark = np.zeros((n, n))
@@ -186,7 +187,8 @@ def pbr_boards(base):                                  # horizontal cut boards w
     a *= (.55 + .45 * np.clip(e / 4, 0, 1))[..., None]                                                      # dark gaps
     wear = (noise(n, 4) > .72) * (noise(n, 1) * .5)                                                         # paint wear -> bare wood
     a = a * (1 - wear[..., None]) + wear[..., None] * np.array([170, 130, 85.])
-    s_ = 7.0
+    for _ in range(3): h = (h + np.roll(h, 1, 0) + np.roll(h, -1, 0) + np.roll(h, 1, 1) + np.roll(h, -1, 1)) / 5     # soften: no sparkle when moving
+    s_ = 5.0
     nx = -(np.roll(h, -1, 1) - np.roll(h, 1, 1)) * s_; ny = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * s_
     nz = np.ones_like(nx); l = np.sqrt(nx**2 + ny**2 + nz**2)
     nrm = np.stack([nx / l, ny / l, nz / l], -1) * .5 + .5
