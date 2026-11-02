@@ -11,7 +11,7 @@
 </head>
 <body>
 <header id="top">
-  <div class="brand">3d<b>Pazl</b></div>
+  <div class="brand" id="brand" title="О программе">3d<b>Pazl</b></div>
   <input id="projName" title="Название проекта" spellcheck="false">
   <div class="grp">
     <button id="btnNew" title="Новый проект">Новый</button>
@@ -162,6 +162,16 @@
 </footer>
 
 <div id="lightbox" hidden><img alt=""></div>
+<div id="about" hidden><div class="about-card">
+  <h2>3d<b>Pazl</b> <span id="aboutVer"></span></h2>
+  <p>Конструктор цельных 3D-зданий.</p>
+  <p><b>Автор:</b> Yaraslau Sychou · <a href="mailto:jaro9869004@gmail.com">jaro9869004@gmail.com</a><br>© 2026 Yaraslau Sychou. Все права защищены.</p>
+  <p class="lic"><b>Лицензия:</b> бесплатно только для некоммерческого использования (личное, хобби, обучение).
+    <b>Любое коммерческое использование — только по письменному договору с автором.</b></p>
+  <details><summary>Полный текст лицензии</summary><pre id="aboutLic"></pre></details>
+  <p class="hint">Сторонние компоненты (three.js, библиотеки Python, текстуры CC0) — под своими лицензиями, см. THIRD_PARTY_NOTICES.txt.</p>
+  <button id="aboutClose">Закрыть</button>
+</div></div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

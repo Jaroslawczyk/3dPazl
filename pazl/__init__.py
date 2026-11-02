@@ -1,1 +1,5 @@
-__version__ = "0.3.0"
+__version__ = "0.10.0"
+__author__ = "Yaraslau Sychou"
+__email__ = "jaro9869004@gmail.com"
+__license__ = "3dPazl Non-Commercial License (commercial use only under a written agreement with the author)"
+__copyright__ = "Copyright (c) 2026 Yaraslau Sychou"

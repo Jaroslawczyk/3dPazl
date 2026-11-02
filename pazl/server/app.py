@@ -70,6 +70,14 @@ def _run(fn, *a, **kw):
 
 
 # ------------------------------------------------------------------ catalog
+@app.get("/api/about")
+def about():
+    from .. import __author__, __copyright__, __email__, __license__
+    lic = ROOT / "LICENSE"
+    return {"name": "3dPazl", "version": __version__, "author": __author__, "email": __email__, "license": __license__,
+            "copyright": __copyright__, "license_text": lic.read_text("utf-8") if lic.exists() else ""}
+
+
 @app.get("/api/state")
 def state():
     return _run(P.summary)

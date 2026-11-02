@@ -1068,6 +1068,19 @@ $('#chatSend').onclick = chatSend;
 $('#chatText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } });
 chatInit().catch((e) => chatItem({ role: 'error', text: 'чат: ' + e.message }));
 
+// ---------------------------------------------------------------- about / author / license
+async function showAbout() {
+  try {
+    const a = await api('about');
+    $('#aboutVer').textContent = 'v' + a.version;
+    $('#aboutLic').textContent = a.license_text;
+  } catch { /* the card still shows the author and terms */ }
+  $('#about').hidden = false;
+}
+$('#brand').onclick = showAbout;
+$('#aboutClose').onclick = () => { $('#about').hidden = true; };
+$('#about').onclick = (e) => { if (e.target.id === 'about') $('#about').hidden = true; };
+
 function showTab(where, tab) {
   $$(`.tabs[data-for="${where}"] button`).forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   const parent = where === 'left' ? $('#left') : $('#bottom');

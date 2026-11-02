@@ -37,7 +37,7 @@ def main():
         while True:
             time.sleep(3600)
     import webview
-    webview.create_window("3dPazl — конструктор зданий", URL, width=1500, height=920, min_size=(1000, 650))
+    webview.create_window("3dPazl — конструктор зданий · © Yaraslau Sychou", URL, width=1500, height=920, min_size=(1000, 650))
     webview.start()
 
 

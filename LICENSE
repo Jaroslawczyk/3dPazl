@@ -1,0 +1,115 @@
+3dPazl Non-Commercial License
+Copyright (c) 2026 Yaraslau Sychou <jaro9869004@gmail.com>
+All rights reserved, except as expressly granted below.
+
+======================================================================
+ENGLISH
+======================================================================
+
+1. Definitions
+   "Software" means 3dPazl: its source code, the compiled program and installer,
+   documentation, styles, presets and other materials in this repository written
+   by the Author, in any version.
+   "Author" means Yaraslau Sychou.
+   "Commercial use" means any use that is intended for, or directed toward,
+   commercial advantage or monetary compensation, including but not limited to:
+   selling or licensing the Software or works based on it; offering it as a paid
+   service or as part of a paid product or service; using it in the course of
+   business by a company, sole proprietor or organisation that operates for
+   profit; using it to produce models, images, games or other results that are
+   sold or used in paid work; removing or bypassing the attribution to sell it.
+
+2. Permitted non-commercial use
+   Subject to this license, the Author grants you a free, non-exclusive,
+   worldwide permission to use, copy, run, study and modify the Software, and to
+   share copies and modified versions, for NON-COMMERCIAL purposes only, such as
+   personal use, hobby projects, education, and non-commercial research.
+
+3. Commercial use requires a written agreement
+   Any Commercial use is prohibited without a prior written agreement (license
+   contract) signed with the Author. To request one, contact:
+   jaro9869004@gmail.com
+
+4. Conditions
+   a) Keep this license and the copyright notice "Copyright (c) Yaraslau Sychou"
+      in all copies and modified versions, and in the program's About screen.
+   b) Modified versions must say that they were changed and must not be
+      presented as the original Software or as made by the Author.
+   c) You may not sublicense the Software or distribute it under other terms.
+   d) The name "3dPazl" and the Author's name may not be used to promote other
+      products without the Author's written permission.
+
+5. Third-party components
+   The Software includes or uses third-party components (for example three.js,
+   Python libraries, CC0 textures). They are NOT covered by this license and
+   remain under their own licenses, listed in THIRD_PARTY_NOTICES.txt.
+
+6. Termination
+   Any use in breach of this license terminates your permission automatically.
+   The Author may reinstate it in writing.
+
+7. No warranty, limitation of liability
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE AUTHOR IS NOT LIABLE FOR
+   ANY DAMAGES ARISING FROM THE USE OF THE SOFTWARE.
+
+8. Governing law
+   This license is governed by the law of the Author's country of residence,
+   unless mandatory law provides otherwise.
+
+======================================================================
+РУССКИЙ
+======================================================================
+
+1. Определения
+   «Программа» — 3dPazl: исходный код, собранная программа и установщик,
+   документация, стили, пресеты и другие материалы этого репозитория,
+   созданные Автором, в любой версии.
+   «Автор» — Yaraslau Sychou.
+   «Коммерческое использование» — любое использование с целью получения
+   прибыли или вознаграждения, в том числе: продажа или лицензирование
+   Программы или произведений на её основе; предоставление её как платного
+   сервиса или в составе платного продукта или услуги; использование в
+   деятельности коммерческой организации или индивидуального предпринимателя;
+   использование для создания моделей, изображений, игр и других результатов,
+   которые продаются или используются в платной работе; удаление или обход
+   указания авторства для продажи.
+
+2. Разрешённое некоммерческое использование
+   Автор бесплатно и неисключительно разрешает использовать, копировать,
+   запускать, изучать и изменять Программу, а также распространять её копии и
+   изменённые версии ТОЛЬКО в некоммерческих целях: для личного использования,
+   хобби, обучения и некоммерческих исследований.
+
+3. Коммерческое использование — только по письменному договору
+   Любое коммерческое использование запрещено без предварительного
+   письменного договора (лицензионного договора), заключённого с Автором.
+   Для заключения договора: jaro9869004@gmail.com
+
+4. Условия
+   а) Сохраняйте эту лицензию и указание авторства «Copyright (c) Yaraslau
+      Sychou» во всех копиях и изменённых версиях, а также в окне «О программе».
+   б) Изменённые версии должны указывать, что они изменены, и не могут
+      выдаваться за оригинальную Программу или за работу Автора.
+   в) Запрещено сублицензировать Программу или распространять её на других
+      условиях.
+   г) Название «3dPazl» и имя Автора нельзя использовать для продвижения других
+      продуктов без письменного разрешения Автора.
+
+5. Сторонние компоненты
+   Программа включает или использует сторонние компоненты (например three.js,
+   библиотеки Python, текстуры CC0). На них эта лицензия НЕ распространяется,
+   они остаются под своими лицензиями — см. THIRD_PARTY_NOTICES.txt.
+
+6. Прекращение
+   Любое использование с нарушением этой лицензии автоматически прекращает
+   разрешение. Автор может письменно восстановить его.
+
+7. Отказ от гарантий и ограничение ответственности
+   ПРОГРАММА ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. В
+   МАКСИМАЛЬНОЙ СТЕПЕНИ, ДОПУСТИМОЙ ЗАКОНОМ, АВТОР НЕ НЕСЁТ ОТВЕТСТВЕННОСТИ ЗА
+   ЛЮБОЙ УЩЕРБ ОТ ИСПОЛЬЗОВАНИЯ ПРОГРАММЫ.
+
+8. Применимое право
+   К этой лицензии применяется право страны проживания Автора, если иное не
+   предусмотрено императивными нормами.
