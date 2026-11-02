@@ -94,7 +94,7 @@ function updateClipRange() {
 }
 function loop() {
   requestAnimationFrame(loop);
-  orbit.update(); tickCamAnim();
+  orbit.update(); tickCamAnim(); tickDoors(); tickBoom();
   if (!dirty && !camAnim) return;
   dirty = false;
   updateClipRange();
@@ -127,7 +127,9 @@ async function reloadModel(fit = false) {
       if (name.startsWith('overlay|')) { setupOverlay(o, name.slice(8)); return; }
       o.castShadow = o.receiveShadow = true;
       if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
-      const id = welded ? null : name.split('|')[0].replaceAll('~', '/');
+      const door = name.startsWith('door|') ? o.parent : null;  // the hinge node: rotate it to open the leaf
+      if (door) { door.userData.openDeg = Number(name.split('|')[3]) || -95; o.userData.door = door; }
+      const id = door ? name.split('|')[1].replaceAll('~', '/') : welded ? null : name.split('|')[0].replaceAll('~', '/');
       o.userData.eid = id;
       // own material per mesh: glTF shares them by index, so highlighting one element lit up all of that material
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
@@ -312,6 +314,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   ray.setFromCamera(mouse, camera);
   const hit = ray.intersectObjects(root.children, true)
     .find((h) => h.object.userData.eid && h.object.visible && (!renderer.clippingPlanes.length || clipPlane.distanceToPoint(h.point) >= 0));
+  if (hit?.object.userData.door) toggleDoor(hit.object.userData.door);
   select(hit ? hit.object.userData.eid : null);
   pickFace(hit);
 });
@@ -378,8 +381,10 @@ async function refreshAll(fit = false) {
   $$('#segDetail button').forEach((b) => b.classList.toggle('on', b.dataset.v === S.state.detail));
   $('#btnUndo').disabled = !S.state.can_undo; $('#btnRedo').disabled = !S.state.can_redo;
   renderTree();
+  if (frac.group) fracReset();  // the model changed: old chunks are stale
   await reloadModel(fit);
   renderMats();
+  renderBuild();
   if (S.selected && !S.tree.find((t) => t.id === S.selected)) select(null);
   else if (S.selected) { attachGizmo(); showProps(S.selected); }
 }
@@ -873,6 +878,123 @@ $('#selShapes').onchange = async (e) => {
   const shape = e.target.value; e.target.value = '';
   if (shape) await patch([{ op: 'shapes', shape }], 'формы зданий: ' + shape);
 };
+
+// ---------------------------------------------------------------- doors (separate objects on hinges)
+const doorAnims = new Map();  // hinge node -> {from, to, t0}
+function toggleDoor(node) {
+  const open = !node.userData.open;
+  node.userData.open = open;
+  doorAnims.set(node, { from: node.rotation.y, to: open ? THREE.MathUtils.degToRad(node.userData.openDeg) : 0, t0: performance.now() });
+  invalidate();
+}
+function tickDoors() {
+  for (const [n, a] of doorAnims) {
+    const k = Math.min(1, (performance.now() - a.t0) / 700), e = k * k * (3 - 2 * k);
+    n.rotation.y = a.from + (a.to - a.from) * e;
+    if (k >= 1) doorAnims.delete(n);
+    invalidate();
+  }
+}
+$('#btnDoors').onclick = () => {
+  const doors = []; root.traverse((o) => { if (o.userData.door && !doors.includes(o.userData.door)) doors.push(o.userData.door); });
+  const open = !doors.some((d) => d.userData.open);
+  doors.forEach((d) => { if (!!d.userData.open !== open) toggleDoor(d); });
+};
+
+// ---------------------------------------------------------------- building mode, destruction
+function renderBuild() {
+  const st = S.state || {};
+  $$('#segBuild button').forEach((b) => b.classList.toggle('on', b.dataset.v === (st.build_mode || 'solid')));
+  $('#selBrick').value = String(st.brick_size ?? 0.5);
+  $('#chkCull').checked = st.brick_cull !== false;
+  $('#chkDoors').checked = st.doors_separate !== false;
+  const f = st.fracture || {};
+  $('#chkFrac').checked = !!f.on;
+  $('#selFracLevel').value = f.level || 'medium';
+  $('#selFracMode').value = f.mode || 'voronoi';
+  $('#selFracLevel option[value="bricks"]').disabled = st.build_mode !== 'bricks';
+}
+$$('#segBuild button').forEach((b) => b.onclick = () => patch([{ op: 'set', key: 'build_mode', value: b.dataset.v }], 'сборщик: ' + b.textContent));
+$('#selBrick').onchange = (e) => patch([{ op: 'set', key: 'brick_size', value: Number(e.target.value) }], 'кирпич ' + e.target.value + ' м');
+$('#chkCull').onchange = (e) => patch([{ op: 'set', key: 'brick_cull', value: e.target.checked }], e.target.checked ? 'невидимые грани удаляются' : 'кирпичи — полные кубы');
+$('#chkDoors').onchange = (e) => patch([{ op: 'set', key: 'doors_separate', value: e.target.checked }], e.target.checked ? 'двери отдельно' : 'двери вварены');
+function fracSet(upd, note) {
+  const f = { on: $('#chkFrac').checked, level: $('#selFracLevel').value, mode: $('#selFracMode').value, seed: (S.state?.fracture?.seed || 1), ...upd };
+  return patch([{ op: 'set', key: 'fracture', value: f }], note);
+}
+$('#chkFrac').onchange = (e) => { fracReset(); fracSet({ on: e.target.checked }, e.target.checked ? 'разрушаемость включена' : 'разрушаемость выключена'); };
+$('#selFracLevel').onchange = (e) => { fracReset(); fracSet({ level: e.target.value }, 'разрушаемость: ' + e.target.selectedOptions[0].textContent); };
+$('#selFracMode').onchange = (e) => { fracReset(); fracSet({ mode: e.target.value }, 'разрушаемость: ' + e.target.selectedOptions[0].textContent); };
+
+const frac = { group: null, chunks: [], center: new THREE.Vector3(), boom: null };
+async function fracLoad() {
+  if (frac.group) return true;
+  if (!$('#chkFrac').checked) { alert('Сначала включите «Разрушаемое здание».'); return false; }
+  $('#busy').hidden = false;
+  try {
+    const gltf = await loader.parseAsync(await api('fracture.glb'), '');
+    frac.group = gltf.scene;
+    const realistic = (S.state?.detail || 'realistic') === 'realistic';
+    frac.group.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();  // without normals the pieces render black
+      o.material.flatShading = !realistic;
+      if (realistic) applyTextures(o.material);
+      o.material.needsUpdate = true;
+    });
+    frac.chunks = frac.group.children.filter((c) => c.name.startsWith('chunk'));
+    frac.chunks.forEach((c) => { c.userData.base = c.position.clone(); c.userData.rot = c.quaternion.clone(); });
+    frac.center = new THREE.Box3().setFromObject(frac.group).getCenter(new THREE.Vector3());
+    scene.add(frac.group);
+    root.visible = false;
+    $('#status').textContent = `💥 ${frac.chunks.length} кусков`;
+    return true;
+  } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); return false; }
+  finally { $('#busy').hidden = true; invalidate(true); }
+}
+function fracReset() {
+  if (frac.group) { scene.remove(frac.group); frac.group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+  frac.group = null; frac.chunks = []; frac.boom = null; root.visible = true; $('#rngExplode').value = 0; invalidate(true);
+}
+function fracExplode(k) {
+  frac.chunks.forEach((c) => {
+    const d = c.userData.base.clone().sub(frac.center);
+    c.position.copy(c.userData.base).add(d.multiplyScalar(k * 0.6));
+    c.quaternion.copy(c.userData.rot);
+  });
+  invalidate(true);
+}
+$('#btnFracShow').onclick = async () => { if (await fracLoad()) fracExplode(Number($('#rngExplode').value) / 100); };
+$('#rngExplode').oninput = async (e) => { if (await fracLoad()) { frac.boom = null; fracExplode(Number(e.target.value) / 100); } };
+$('#btnFracReset').onclick = fracReset;
+$('#btnFracBoom').onclick = async () => {  // a quick physics demo: impulse from the centre, gravity, ground bounce
+  if (!(await fracLoad())) return;
+  fracExplode(0);
+  frac.chunks.forEach((c) => {
+    const d = c.userData.base.clone().sub(frac.center); d.y = Math.max(d.y, 0.5);
+    const r = new THREE.Box3().setFromObject(c).getSize(new THREE.Vector3()).length() / 4;
+    c.userData.v = d.normalize().multiplyScalar(4 + Math.random() * 7).add(new THREE.Vector3(0, 3 + Math.random() * 6, 0));
+    c.userData.w = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(6);
+    c.userData.r = Math.max(0.1, r);
+  });
+  frac.boom = { t: performance.now(), last: performance.now() };
+};
+function tickBoom() {
+  const b = frac.boom;
+  if (!b) return;
+  const now = performance.now(), dt = Math.min(0.04, (now - b.last) / 1000);
+  b.last = now;
+  frac.chunks.forEach((c) => {
+    const v = c.userData.v, w = c.userData.w;
+    v.y -= 9.81 * dt;
+    c.position.addScaledVector(v, dt);
+    if (c.position.y < c.userData.r) { c.position.y = c.userData.r; v.y = -v.y * 0.3; v.x *= 0.7; v.z *= 0.7; w.multiplyScalar(0.7); }
+    c.rotateOnAxis(w.clone().normalize(), w.length() * dt);
+  });
+  if (now - b.t > 6000) frac.boom = null;
+  invalidate(true);
+}
 
 // ---------------------------------------------------------------- marks for the AI: points and drawings on the model
 // The AI then changes only the marked elements (the server locks everything else for the run).

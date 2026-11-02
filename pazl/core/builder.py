@@ -46,6 +46,7 @@ class ElemResult:
     decals: list = field(default_factory=list)      # overlay quads in world coords {"pts","mat","kind"}
     info: dict = field(default_factory=dict)
     params: dict = field(default_factory=dict)      # resolved params (first instance)
+    movables: list = field(default_factory=list)    # separate moving objects (door leaves), world coords
 
 
 @dataclass
@@ -60,6 +61,10 @@ class BuildResult:
     def overlay(self, kinds=None):
         """Overlay layer quads (decals, fake interiors) - NOT part of the watertight shell."""
         return [(eid, d) for eid, r in self.elements.items() for d in r.decals if kinds is None or d["kind"] in kinds]
+
+    def movables(self):
+        """[(eid, index, movable)] - door leaves etc. that stay separate objects."""
+        return [(eid, i, mv) for eid, r in self.elements.items() for i, mv in enumerate(r.movables)]
 
     def final(self):
         if self._final is None:
@@ -236,6 +241,8 @@ def generate(etype, params, detail, anchor, style, eid, seed=1) -> Part:
     part = ELEMENTS[etype].gen(params, ctx)
     for m, mat in part.solids:
         _register_unknown(m, mat, eid)
+    for mv in part.movables:  # door leaves keep their material and element too
+        _register_unknown(mv["m"], mv["mat"], eid)
     part.info["_art"] = {k: v for k, v in MATS.art.items() if k not in art_before}
     if len(_CACHE) > _CACHE_MAX:
         _CACHE.clear()
@@ -362,6 +369,14 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
                 continue
             for m, mat in part.solids:
                 r.solids.append((g.xf(m, W), mat))
+            for mv in part.movables:
+                if recipe.get("doors_separate", True) is False:  # old behaviour: leaves welded into the shell
+                    r.solids.append((g.xf(mv["m"], W), mv["mat"]))
+                    continue
+                # face frames are mirrored (x along, y out, z up): a local angle turns the other way in the world
+                flip = -1.0 if np.linalg.det(W[:3, :3]) < 0 else 1.0
+                r.movables.append({**mv, "m": g.xf(mv["m"], W), "hinge": (W @ [*mv["hinge"], 1.0])[:3].tolist(),
+                                   "axis": (W[:3, :3] @ np.asarray(mv["axis"])).tolist(), "open": mv["open"] * flip})
             for d in part.decals:
                 pts = (np.c_[np.asarray(d["pts"]), np.ones(len(d["pts"]))] @ W.T)[:, :3]
                 mat = d["mat"] if d["mat"].startswith(("decal_", "interior_")) else MATS.resolve(d["mat"], est)

@@ -109,3 +109,4 @@ candy_pink:     {color: [255, 168, 200], rough: 0.5, tile: 2, prompt: "pastel pi
 candy_mint:     {color: [160, 235, 205], rough: 0.5, tile: 2, prompt: "pastel mint cartoon surface"}
 toon_purple:    {color: [96, 60, 140], rough: 0.7, tile: 2, prompt: "cartoon spooky purple painted wood"}
 toon_orange:    {color: [240, 130, 30], rough: 0.6, tile: 2, prompt: "cartoon pumpkin orange painted surface"}
+rubble:         {color: [128, 118, 106], rough: 0.95, tile: 1.5, prompt: "freshly broken masonry and concrete fracture surface, rough crumbled edges, dust"}

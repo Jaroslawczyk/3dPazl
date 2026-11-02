@@ -552,7 +552,11 @@ class Project:
             bad = sorted({e for f in rep.get("floating", []) for e in f["elements"]})
             n = len(list((self.dir / "renders").glob("*.png"))) if (self.dir / "renders").exists() else 0
             out = self.dir / "renders" / f"r{n + 1:03d}_v{self.version}.png"
-            info = render_sheet(self.final(), out, views=views, tile=tile, highlight=bad,
+            res_ = self.result()
+            model = self.final()
+            if res_.movables():  # renders show the doors (closed) - they are separate objects, not in the shell
+                model = g.union([model] + [mv["m"] for _, _, mv in res_.movables()])
+            info = render_sheet(model, out, views=views, tile=tile, highlight=bad,
                                 title=f"{self.recipe.get('name')} [{self.recipe.get('style')}/{self.result().detail}] v{self.version}",
                                 custom=custom)
             info["url"] = f"/files/{out.relative_to(PROJECTS).as_posix()}"
@@ -565,6 +569,18 @@ class Project:
     def preview_glb(self) -> bytes:
         with self.lock:
             return preview_scene(self.result()).export(file_type="glb")
+
+    def fracture_glb(self) -> bytes:
+        """Chunks of the destructible model for the viewer (cached per version)."""
+        from ..core.mesh import fracture_scene
+        with self.lock:
+            key = (self.version, json.dumps(self.recipe.get("fracture"), sort_keys=True))
+            if getattr(self, "_frac_cache", (None,))[0] != key:
+                sc = fracture_scene(self.result())
+                if not sc.geometry:
+                    raise ValueError("destruction is off: switch on «Разрушаемое здание»")
+                self._frac_cache = (key, sc.export(file_type="glb"))
+            return self._frac_cache[1]
 
     def model_glb(self) -> bytes:
         with self.lock:
@@ -620,4 +636,7 @@ class Project:
                 "seed": self.recipe.get("seed", 1), "interiors": self.recipe.get("interiors", True),
                 "rooms": self.recipe.get("rooms", True), "textures": self.recipe.get("textures", True),
                 "decals_off": self.recipe.get("decals_off") or [], "tex_swap": self.recipe.get("tex_swap") or {},
+                "build_mode": self.recipe.get("build_mode", "solid"), "brick_size": self.recipe.get("brick_size", 0.5),
+                "brick_cull": self.recipe.get("brick_cull", True), "doors_separate": self.recipe.get("doors_separate", True),
+                "fracture": self.recipe.get("fracture") or {"on": False},
                 "decals": self.recipe.get("decals", True), "colors": self.recipe.get("colors")}

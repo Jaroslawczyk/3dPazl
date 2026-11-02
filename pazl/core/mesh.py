@@ -294,21 +294,105 @@ def overlay_kinds(recipe: dict):
     return kinds
 
 
-def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured=True, result=None, only=None) -> trimesh.Scene:
+_RY = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])  # Z-up (core) -> Y-up (glTF, engines)
+
+
+def surface(final, result=None):
+    """Triangles to show / export: the welded shell, or its bricks (recipe build_mode = bricks; hidden brick faces
+    culled unless brick_cull is false). -> V, F, materials, elements per triangle."""
+    from .bricks import brick_mesh, bricks_of, is_bricks, voxelize
     V, F, oid = manifold_to_arrays(final)
-    mats, _ = tri_materials(oid)
+    mats, elems = tri_materials(oid)
+    if not is_bricks(result):
+        return V, F, mats, elems
+    rec = result.recipe
+    vox = bricks_of(result) if final is result.final() else voxelize(final, V, F, mats, elems, float(rec.get("brick_size") or 0.5))
+    V2, F2, M2, E2, _ = brick_mesh(vox, cull=rec.get("brick_cull", True) is not False)
+    return V2, F2, M2, E2
+
+
+def chunk_parts(final, result):
+    """Destructible model: [(name, V, F, mats, centroid, volume)] or [] when fracture is off."""
+    from .bricks import brick_mesh, bricks_of, is_bricks
+    from .fracture import brick_labels, fracture_elements, fracture_solid, settings
+    st = settings(result.recipe if result is not None else {})
+    if not st:
+        return []
+    out = []
+    if is_bricks(result):
+        vox = bricks_of(result)
+        lab = brick_labels(vox, st["pieces"], st["seed"], st["level"])
+        V, F, Ms, _, L = brick_mesh(vox, cull=result.recipe.get("brick_cull", True) is not False, labels=lab)
+        for k in np.unique(L):
+            idx = np.flatnonzero(L == k)
+            c = V[F[idx]].reshape(-1, 3).mean(0)
+            out.append((f"chunk_{len(out):04d}", V, F[idx], Ms[idx], c, float((lab == k).sum()) * vox["size"] ** 3))
+        return out
+    if st["mode"] == "elements":
+        pieces = [(f"chunk_{i:04d}_{eid.replace('/', '-')}", m, c, v) for i, (eid, m, c, v) in enumerate(fracture_elements(result))]
+    else:
+        pieces = [(f"chunk_{i:04d}", m, c, v) for i, (m, c, v) in enumerate(fracture_solid(final, st["pieces"], st["seed"]))]
+    for name, m, c, v in pieces:
+        V, F, oid = manifold_to_arrays(m)
+        mats, _ = tri_materials(oid)
+        out.append((name, V, F, mats, np.asarray(c), float(v)))
+    return out
+
+
+def movable_parts(result, only=None):
+    """Door leaves: [(name, eid, V, F, mats, hinge, axis, open_deg)] in Z-up world coords."""
+    out = []
+    if result is None:
+        return out
+    for eid, i, mv in result.movables():
+        if only is not None and eid not in only:
+            continue
+        V, F, oid = manifold_to_arrays(mv["m"])
+        mats, _ = tri_materials(oid)
+        out.append((f"door|{eid.replace('/', '~')}|{i}|{int(round(mv['open']))}", eid, V, F, mats,
+                    np.asarray(mv["hinge"]), np.asarray(mv["axis"]), mv["open"]))
+    return out
+
+
+def _add_object(scene, name, V, F, mats, pivot, y_up, make_mat):
+    """A separate object: an empty node at `pivot` (hinge / centre of mass) with its meshes under it, vertices
+    relative to the pivot - rotating or moving the node in a game moves the whole object."""
+    T = trimesh.transformations.translation_matrix(_RY[:3, :3] @ pivot if y_up else pivot)
+    scene.graph.update(frame_from=scene.graph.base_frame, frame_to=name, matrix=T)
+    for mat_name, tm in split_by_material(V - pivot, F, mats).items():
+        tm2 = box_uv(tm, MATS.get(mat_name).get("tile") or 1.0)
+        tm2.visual.material = make_mat(mat_name)
+        if y_up:
+            tm2.apply_transform(_RY)
+        nm = f"{name}|{mat_name}"
+        scene.add_geometry(tm2, node_name=nm, geom_name=nm, parent_node_name=name)
+
+
+def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured=True, result=None, only=None) -> trimesh.Scene:
     scene = trimesh.Scene()
     recipe = result.recipe if result is not None else {}
     textured = textured and recipe.get("textures") is not False
     swap = recipe.get("tex_swap") or {}
-    for name, tm in split_by_material(V, F, mats).items():
-        info = MATS.get(name)
-        tm2 = box_uv(tm, info.get("tile") or 1.0)
-        tm2.visual.material = material_for(name, tex_dir, textured, swap)
-        if y_up:
-            tm2.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
-        scene.add_geometry(tm2, node_name=name, geom_name=name)
-    if result is not None:  # overlay layer: separate meshes, never welded into the shell
+    info = {"up": "Y" if y_up else "Z", "doors": [], "chunks": []}
+    chunks = chunk_parts(final, result) if only is None and result is not None else []
+    if chunks:  # destructible: every chunk its own object (pivot = centre of mass)
+        for name, V, F, mats, c, vol in chunks:
+            _add_object(scene, name, V, F, mats, c, y_up, lambda n: material_for(n, tex_dir, textured, swap))
+            info["chunks"].append({"node": name, "center": (_RY[:3, :3] @ c if y_up else c).round(4).tolist(), "volume_m3": round(vol, 4)})
+    else:
+        V, F, mats, _ = surface(final, result)
+        for name, tm in split_by_material(V, F, mats).items():
+            tm2 = box_uv(tm, MATS.get(name).get("tile") or 1.0)
+            tm2.visual.material = material_for(name, tex_dir, textured, swap)
+            if y_up:
+                tm2.apply_transform(_RY)
+            scene.add_geometry(tm2, node_name=name, geom_name=name)
+    for name, eid, V, F, mats, hinge, axis, deg in movable_parts(result, only):  # doors: open in a game
+        _add_object(scene, name.replace("|", "_"), V, F, mats, hinge, y_up, lambda n: material_for(n, tex_dir, textured, swap))
+        info["doors"].append({"node": name.replace("|", "_"), "element": eid, "hinge": (_RY[:3, :3] @ hinge if y_up else hinge).round(4).tolist(),
+                              "axis": (_RY[:3, :3] @ axis if y_up else axis).round(4).tolist(), "open_deg": deg})
+    scene.metadata["pazl_objects"] = info
+    if result is not None and not chunks:  # overlay layer: separate meshes, never welded into the shell
         for name, tm in overlay_meshes(result, overlay_kinds(result.recipe), y_up, only):
             tm.visual.material = material_for(name, tex_dir, textured)
             scene.add_geometry(tm, node_name=f"overlay|{name}", geom_name=f"overlay|{name}")
@@ -324,8 +408,7 @@ def preview_scene(result, textured=False) -> trimesh.Scene:
     R = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
     final = result.final()
     if not final.is_empty():
-        V, F, oid = manifold_to_arrays(final)
-        mats, elems = tri_materials(oid)
+        V, F, mats, elems = surface(final, result)
         keys = np.array([f"{e}|{m}" for e, m in zip(elems, mats)], dtype=object)
         for key in sorted(set(keys)):
             eid, name = key.split("|", 1)
@@ -340,6 +423,16 @@ def preview_scene(result, textured=False) -> trimesh.Scene:
         tm.visual.material = trimesh.visual.material.PBRMaterial(name=name, baseColorFactor=[1, 1, 1, 1])
         nm = f"overlay|{name}"
         scene.add_geometry(tm, node_name=nm, geom_name=nm)
+    for name, eid, V, F, mats, hinge, axis, deg in movable_parts(result):  # node "door|elem|i|angle" at the hinge
+        _add_object(scene, name, V, F, mats, hinge, True, lambda n: material_for(n, None, False))
+    return scene
+
+
+def fracture_scene(result) -> trimesh.Scene:
+    """Viewer preview of a destructible model: chunk nodes "chunk_NNNN" at their centres (Y-up)."""
+    scene = trimesh.Scene()
+    for name, V, F, mats, c, vol in chunk_parts(result.final(), result):
+        _add_object(scene, name, V, F, mats, c, True, lambda n: material_for(n, None, False))
     return scene
 
 
@@ -359,9 +452,13 @@ def export(final, path: Path, fmt="glb", tex_dir=None, decimate_to=None, texture
         raise ValueError(f"unknown format {fmt}; use one of {', '.join(EXPORT_FORMATS)}")
     if fmt in ("glb", "gltf", "obj", "dae", "3mf"):
         sc = to_scene(m, tex_dir, y_up=fmt != "3mf", textured=textured and fmt in ("glb", "gltf", "obj"), result=result, only=only)
+        objs = sc.metadata.get("pazl_objects") or {}
+        if objs.get("doors") or objs.get("chunks"):  # doors / chunks for a game: pivots, axes, angles, volumes
+            import json as _json
+            (path.parent / f"{path.stem}.objects.json").write_text(_json.dumps(objs, indent=1), "utf-8")
         if fmt == "dae":  # the collada writer takes one mesh: merge, keep per-face colours
             parts = []
-            for g_ in sc.geometry.values():
+            for g_ in sc.dump(concatenate=False):  # world coords: door / chunk node transforms applied
                 g2 = g_.copy()
                 col = getattr(getattr(g_.visual, "material", None), "baseColorFactor", None)
                 if col is not None:
@@ -381,10 +478,13 @@ def export(final, path: Path, fmt="glb", tex_dir=None, decimate_to=None, texture
         else:
             sc.export(str(path), file_type=fmt)
     else:
-        V, F, oid = manifold_to_arrays(m)
+        V, F, mats, _ = surface(m, result)
+        for _, _, Vd, Fd, Md, _, _, _ in movable_parts(result, only):  # doors (closed) belong to the model too
+            F = np.vstack([F, Fd + len(V)])
+            V = np.vstack([V, Vd])
+            mats = np.concatenate([mats, Md])
         tm = trimesh.Trimesh(V, F, process=False)
         if fmt == "ply":
-            mats, _ = tri_materials(oid)
             tm.visual = trimesh.visual.ColorVisuals(tm, face_colors=np.array(
                 [list(MATS.get(n).get("color", [200, 200, 200])) + [255] for n in mats], dtype=np.uint8))
         tm.export(str(path), file_type=fmt)

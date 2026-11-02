@@ -160,3 +160,9 @@ body:has([data-pane="chat"].on) { grid-template-rows: 46px 1fr 340px; } /* more 
 .modal[hidden] { display: none; }
 #settings .row { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
 #settings select { min-width: 220px; }
+
+/* build tab */
+[data-pane="build"] h4 { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; color: var(--mute); }
+[data-pane="build"] .row { align-items: center; margin: 5px 0; }
+[data-pane="build"] select { flex: 1; min-width: 0; }
+[data-pane="build"] input[type="range"] { flex: 1; }

@@ -246,6 +246,11 @@ def latest_png():
     return FileResponse(P.last_render["path"])
 
 
+@app.get("/api/fracture.glb")
+def fracture_glb():
+    return Response(_run(P.fracture_glb), media_type="model/gltf-binary")
+
+
 @app.get("/api/preview.glb")
 def preview_glb():
     return Response(_run(P.preview_glb), media_type="model/gltf-binary")

@@ -55,6 +55,7 @@ class Part:
     notes: list = field(default_factory=list)
     decals: list = field(default_factory=list)      # overlay layer quads: {"pts": 4x[x,y,z] local, "mat", "kind"}
     info: dict = field(default_factory=dict)        # extra data for the API (e.g. floor plans)
+    movables: list = field(default_factory=list)    # separate moving objects: {"m","mat","kind","hinge","axis","open"}
 
     def decal(self, pts, mat: str, kind: str = "decal", normal=(0.0, 1.0, 0.0)):
         """Quad BL, BR, TR, TL in local coords; `normal` = the side it faces (local), used to orient triangles."""
@@ -64,6 +65,14 @@ class Part:
     def add(self, m: Manifold, mat: str):
         if m is not None and not m.is_empty():
             self.solids.append((m, mat))
+        return self
+
+    def move(self, m: Manifold, mat: str, hinge, axis=(0.0, 0.0, 1.0), open_deg=-95.0, kind="door"):
+        """A separate object that can move in a game (door leaf): not welded into the shell; rotates `open_deg`
+        around `axis` through `hinge` (local coords). Negative = opens inward (-Y, into the building)."""
+        if m is not None and not m.is_empty():
+            self.movables.append({"m": m, "mat": mat, "kind": kind, "hinge": [float(x) for x in hinge],
+                                  "axis": [float(x) for x in axis], "open": float(open_deg)})
         return self
 
     def cut(self, m: Manifold, mat: str = "@host"):

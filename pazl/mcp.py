@@ -254,11 +254,19 @@ def weather(amount: float = 0.6, clear: bool = False) -> str:
 
 @tool
 def set_options(interiors: bool | None = None, decals: bool | None = None, rooms: bool | None = None, detail: str | None = None,
-                style: str | None = None, reroll: bool = False) -> str:
+                style: str | None = None, reroll: bool = False, build_mode: str | None = None, brick_size: float | None = None,
+                brick_cull: bool | None = None, doors_separate: bool | None = None, fracture: dict | None = None) -> str:
     """Project switches: fake interiors behind windows (window plugs), rooms (real interior geometry on/off), decals, detail (realistic = PBR textures | lowpoly = flat colours),
-    style (mix with '+', e.g. 'gothic+russian_orthodox'), reroll = new random seed for ranges/mixes/decals."""
+    style (mix with '+', e.g. 'gothic+russian_orthodox'), reroll = new random seed for ranges/mixes/decals.
+    build_mode: "solid" (welded shell) | "bricks" (everything made of cubic bricks of brick_size m, voxel / toy look);
+    brick_cull: true = hidden brick faces removed, false = every brick a full cube.
+    doors_separate: door leaves are separate objects with hinges (open in games); false = welded.
+    fracture: destructible model, e.g. {"on": true, "level": "light|medium|heavy|extreme", "pieces": 60,
+    "mode": "voronoi|elements", "seed": 1}; exports then contain one object per chunk (+ .objects.json)."""
     ops = [{"op": "set", "key": k, "value": v} for k, v in (("interiors", interiors), ("rooms", rooms), ("decals", decals), ("detail", detail),
-                                                              ("style", style)) if v is not None]
+                                                              ("style", style), ("build_mode", build_mode), ("brick_size", brick_size),
+                                                              ("brick_cull", brick_cull), ("doors_separate", doors_separate),
+                                                              ("fracture", fracture)) if v is not None]
     if reroll:
         ops.append({"op": "reroll"})
     return _j(_call("POST", "/api/patch", {"ops": ops}))

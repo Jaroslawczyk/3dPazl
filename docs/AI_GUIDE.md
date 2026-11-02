@@ -94,6 +94,18 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
   `only` exports just those elements with their children and everything attached. Y-up for glb/gltf/obj/dae
   (game engines, Roblox Studio: obj or gltf), Z-up for 3mf/stl/ply/off.
 
+## Doors, brick builder, destruction (set_options)
+- Door leaves are separate objects on hinges (`doors_separate`, default true): in exports each leaf is a node with
+  its pivot on the hinge; `<name>.objects.json` lists hinge, axis and open angle (negative = inward) for game animation.
+  The opening keeps a static door frame. `doors_separate: false` welds them like before.
+- `build_mode: "bricks"` builds everything from cubic bricks of `brick_size` m (voxel / toy-brick games): bricks fill
+  the solid volume (openings wider than a brick stay open, glazed windows become glass bricks), every brick face
+  takes the colour of the surface facing that way. `brick_cull: true` keeps only visible faces (watertight);
+  false = every brick a full cube. Renders and validate still use the solid model.
+- `fracture: {"on": true, "level": "light|medium|heavy|extreme" (12/40/100/250 pieces) | "pieces": N,
+  "mode": "voronoi|elements"}`: exports become one object per chunk (pivot = centre of mass, break faces `rubble`,
+  volumes in `.objects.json`); with bricks, chunks are groups of bricks, level "bricks" = every brick a piece.
+
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
 degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,

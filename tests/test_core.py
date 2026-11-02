@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 import trimesh
 
@@ -115,3 +116,37 @@ def test_textured_export_has_overlay(tmp_path):
     scene = trimesh.load(out)
     assert any(k.startswith("overlay|interior_") for k in scene.geometry)
     assert any(k.startswith("overlay|decal_") for k in scene.geometry)
+
+
+# ---------------------------------------------------------------- doors, bricks, destruction
+def test_door_leaf_is_separate_and_opens_inward():
+    from pazl.core.mesh import movable_parts
+    r = build({"style": "generic", "elements": [{"id": "h", "type": "house"}]})
+    parts = movable_parts(r)
+    assert len(parts) == 1
+    _, eid, V, F, mats, hinge, axis, deg = parts[0]
+    assert eid == "h/door" and set(mats) == {"wood_door"}
+    a = np.radians(deg)
+    Rz = np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
+    assert (Rz @ (V.mean(0) - hinge) + hinge)[1] > hinge[1]  # front wall at -Y: open leaf goes into the house
+    assert validate(r)["ok"]
+
+
+def test_bricks_mesh_is_watertight_and_keeps_openings():
+    import trimesh
+    from pazl.core.bricks import brick_mesh, bricks_of
+    r = build({"style": "blocky_toy_classic", "elements": [{"id": "h", "type": "game_house"}], "build_mode": "bricks", "brick_size": 0.5})
+    V, F, M, E, L = brick_mesh(bricks_of(r), cull=True)
+    assert trimesh.Trimesh(V, F, process=True).is_watertight
+    full = brick_mesh(bricks_of(r), cull=False)[1]
+    assert len(full) == 12 * len(bricks_of(r)["ijk"])  # every brick a full cube when culling is off
+    assert "plastic_yellow" in set(M)
+
+
+def test_fracture_keeps_volume():
+    from pazl.core.fracture import fracture_solid
+    r = build({"style": "generic", "elements": [{"id": "h", "type": "house"}]})
+    f = r.final()
+    chunks = fracture_solid(f, 20, seed=3)
+    assert len(chunks) >= 20
+    assert abs(sum(c[2] for c in chunks) - f.volume()) / f.volume() < 1e-3

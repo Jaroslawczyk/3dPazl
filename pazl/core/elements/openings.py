@@ -280,15 +280,29 @@ def door(p, ctx):
     rec = float(p["recess"]) + orders * 0.15
     if not p["open"]:
         leaf_mat = ctx.mat("glass" if p["glazed"] else p["leaf_material"])
-        part.add(g.prism_xz(g.offset2(shape, 0.03), -rec - 0.06, -rec), leaf_mat)
-        if p["double"] and not ctx.low:
-            part.add(g.box(-0.02, -rec + 0.0, 0, 0.02, -rec + 0.02, h * 0.95), ctx.mat("frame"))
-        if not ctx.low and not p["glazed"]:  # panels relief
+        fw = 0.06  # door frame (jambs + head) in the opening, embedded 3 cm in the wall; the leaf turns inside it
+        inner = g.offset2(shape, -fw)
+        part.add(g.prism_xz(g.offset2(shape, 0.03) - inner, -rec - 0.1, -rec + 0.02), ctx.mat("frame"))
+        clear = g.offset2(shape, -fw - 0.008)  # 8 mm gap: the leaf can swing without touching the frame
+        x0, x1 = -w / 2 + fw + 0.008, w / 2 - fw - 0.008
+        yb, yf = -rec - 0.06, -rec  # leaf thickness 6 cm
+        relief = []
+        if not ctx.low and not p["glazed"]:  # panel relief on the outer side
             for zz in (0.25, h * 0.55):
                 hh = min(0.7, h * 0.3)
                 for xx in ([-w / 4, w / 4] if p["double"] else [0.0]):
                     pw = w / (2 if p["double"] else 1) * 0.6
-                    part.add(g.box(xx - pw / 2, -rec + 0.0, zz, xx + pw / 2, -rec + 0.025, zz + hh), leaf_mat)
+                    relief.append(g.box(xx - pw / 2, yf - 0.001, zz, xx + pw / 2, yf + 0.02, zz + hh))
+        slab = g.prism_xz(clear, yb, yf)
+        if relief:
+            slab = slab + (g.union(relief) ^ g.prism_xz(clear, yb, yf + 0.03))
+        if p["double"]:  # two leaves, hinged on both jambs, 8 mm between them
+            left = slab ^ g.box(x0 - 1, yb - 1, -1, -0.004, yf + 1, h + 1)
+            right = slab ^ g.box(0.004, yb - 1, -1, x1 + 1, yf + 1, h + 1)
+            part.move(left, leaf_mat, [x0, yb, 0.0], open_deg=-95)
+            part.move(right, leaf_mat, [x1, yb, 0.0], open_deg=95)
+        else:
+            part.move(slab, leaf_mat, [x0, yb, 0.0], open_deg=-95)
     if p["transom"]:
         part.add(g.box(-w / 2, -rec - 0.08, h * 0.78, w / 2, -rec + 0.01, h * 0.8), ctx.mat("frame"))
     if p["trim"] != "none":

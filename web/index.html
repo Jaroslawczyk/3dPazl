@@ -72,7 +72,7 @@
 <main>
   <aside id="left">
     <nav class="tabs" data-for="left">
-      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button><button data-tab="mats">Материалы</button>
+      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button><button data-tab="mats">Материалы</button><button data-tab="build">Сборка</button>
     </nav>
     <section data-pane="tree" class="pane on">
       <div class="hint">Клик — выбрать. Элементы вложены по тому, к чему прикреплены.</div>
@@ -85,6 +85,29 @@
       <div id="lib"></div>
     </section>
     <section data-pane="styles" class="pane"><div id="styles"></div></section>
+    <section data-pane="build" class="pane">
+      <h4>Сборщик</h4>
+      <div class="seg" id="segBuild" title="Цельный — сварная оболочка; из кирпичиков — всё собрано из кубиков, как в воксельных и блочных играх">
+        <button data-v="solid">Цельный</button><button data-v="bricks">Из кирпичиков</button>
+      </div>
+      <label class="row">Кирпич <select id="selBrick"><option value="0.25">0.25 м</option><option value="0.5">0.5 м</option>
+        <option value="1">1 м</option><option value="2">2 м</option></select></label>
+      <label class="row"><input type="checkbox" id="chkCull" checked> Удалять невидимые грани</label>
+      <div class="hint">Выкл. — каждый кирпич остаётся полным кубом (грани на гранях): тяжелее, но каждый кирпич можно сделать отдельным объектом.</div>
+      <h4>Двери</h4>
+      <label class="row"><input type="checkbox" id="chkDoors" checked> Двери — отдельные объекты на петлях</label>
+      <button id="btnDoors">🚪 Открыть / закрыть все двери</button>
+      <div class="hint">Клик по двери в сцене открывает её. В экспорте каждая створка — свой узел с точкой петли и углом открытия (файл .objects.json) — для анимации в игре.</div>
+      <h4>Разрушаемость</h4>
+      <label class="row"><input type="checkbox" id="chkFrac"> Разрушаемое здание</label>
+      <label class="row">Насколько <select id="selFracLevel"><option value="light">слабо — 12 кусков</option><option value="medium">средне — 40 кусков</option>
+        <option value="heavy">сильно — 100 кусков</option><option value="extreme">в щепки — 250 кусков</option>
+        <option value="bricks">каждый кирпич отдельно</option></select></label>
+      <label class="row">Как <select id="selFracMode"><option value="voronoi">трещинами (куски)</option><option value="elements">по элементам (стены, крыша, окна)</option></select></label>
+      <div class="row"><button id="btnFracShow">Показать куски</button><button id="btnFracBoom">💥 Взорвать</button><button id="btnFracReset">↺ Собрать</button></div>
+      <label class="row">Разлёт <input type="range" id="rngExplode" min="0" max="100" value="0"></label>
+      <div class="hint">Больше кусков — реалистичнее, но тяжелее для игры. В экспорте каждый кусок — отдельный объект с центром масс и объёмом (для физики), места разлома — материал «rubble».</div>
+    </section>
     <section data-pane="mats" class="pane">
       <label class="row"><input type="checkbox" id="chkTextures" checked> Текстуры (выкл. — плоские цвета)</label>
       <h4>Декали</h4>
