@@ -81,13 +81,6 @@ for k in range(14):
 for sx in (-4.0, 4.0):
     box(sx-1.2, -5.35, .2, sx+1.2, -4.75, .75, "#e8743b"); box(sx-1.15, -5.3, .75, sx+1.15, -4.8, .9, "#2ecc71")
     for f in range(6): box(sx-1.0+f*.4, -5.2+(f % 2)*.1, .9, sx-.8+f*.4, -5.0+(f % 2)*.1, 1.25, ["#ff3b8f", "#ffd23f", "#ffffff"][f % 3] if False else ["#ff3b8f", "#ffd23f", "#ff8a1f"][f % 3])
-# interior: counter, lounge
-box(-6.5, 2.4, .2, -2.5, 3.4, 1.3, "#3b4252"); box(-6.6, 2.3, 1.3, -2.4, 3.5, 1.38, "#d8dee9"); box(-5.0, 2.7, 1.38, -4.3, 3.1, 1.8, "#1c1e24")
-box(2.5, 3.9, .2, 7.0, 4.2, 2.6, "#5b4636")                               # wall board with keys/brochures
-for i in range(6): box(2.8+i*.7, 3.85, 1.0, 3.3+i*.7, 3.9, 2.2, "#3fa7ff" if i % 2 else "#f5f5f5")
-box(-1.5, 1.5, .2, 1.5, 2.5, .8, "#c8b79a")                               # lounge table
-for sx in (-2.2, 2.2): box(sx-.5, 1.4, .2, sx+.5, 2.4, .7, "#1b4f9c")
-
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
