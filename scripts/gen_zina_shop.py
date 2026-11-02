@@ -9,7 +9,7 @@ def box(x0, y0, z0, x1, y1, z1, c):
     m = tm.creation.box([x1-x0, y1-y0, z1-z0]); m.apply_translation([(x0+x1)/2, (y0+y1)/2, (z0+z1)/2]); return col(m, c)
 def hullp(pts, c): return col(tm.convex.convex_hull(np.array(pts, float)), c)
 
-WALL, TEAL, WOOD, PALE, RED, WHITE = "#7fa88a", "#f4f1e8", "#8a6a4a", "#c8b79a", "#2f5fa8", "#f5f5f5"   # sage planks, white trim, blue-white awning
+WALL, TEAL, WOOD, PALE, RED, WHITE = "#f0cf8a", "#f4f1e8", "#8a6a4a", "#c8b79a", "#2f5fa8", "#f5f5f5"   # warm cream planks, white trim, blue-white awning
 HX, HY, H = 4.0, 3.0, 3.4            # shop 8 x 6 m, walls 3.4 m, front = -Y
 def wall(mk, a0, a1, ops, z0=0.2, z1=H):          # wall along one axis with openings [(a0, a1, z0, z1)]
     cuts = sorted({a0, a1, *[o[i] for o in ops for i in (0, 1)]})
@@ -46,7 +46,6 @@ frame(lambda a, b, c, d: box(a, -HY-.06, c, b, -HY+.25, d, TEAL), DOOR[0], DOOR[
 box(DOOR[0]-.14, -HY-.1, 2.2, DOOR[1]+.14, -HY, 2.3, PALE)                       # door pediment
 # porch: two steps + small lamp
 box(-2.2, -HY-.6, 0, -.4, -HY, .1, WOOD); box(-2.1, -HY-.35, .1, -.5, -HY, .2, PALE)
-box(-.55, -HY-.18, 2.35, -.35, -HY, 2.55, "#ffd23f")
 # striped awning over the big window
 for k in range(6):
     x0 = .1 + k*.55; cc = RED if k % 2 == 0 else WHITE
@@ -57,7 +56,7 @@ for k in range(6):
 RZ, RIDGE, OV, EV, TH = 3.15, 2.0, 4.5, 3.7, .25
 for sy in (-1, 1):
     hullp([(-OV, sy*EV, RZ), (OV, sy*EV, RZ), (-OV, 0, RZ+RIDGE), (OV, 0, RZ+RIDGE),
-           (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], "#5a3b2a")
+           (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], "#b5532f")
 hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+RIDGE-.2), (OV+.05, -.5, RZ+RIDGE-.2), (-OV-.05, .5, RZ+RIDGE-.2), (OV+.05, .5, RZ+RIDGE-.2)], "#7a4a2a")
 for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
@@ -154,9 +153,9 @@ def tex_boards(base):                                  # vertical painted planks
     a = tint(base, (noise(N, 2) - .5) * .10 + (rng.random((N, N)) - .5) * .04 + np.sin(x * .5 + noise(N, 3) * 6) * .02).astype(float)
     a *= (0.93 + 0.07 * ((x % w) / w))[..., None]; a[:, ::w, :] *= .55
     return a.clip(0, 255).astype(np.uint8)
-SPECIAL = {"#5a3b2a": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#b9a98d": ("floor", tex_floor, 1.0),
+SPECIAL = {"#b5532f": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#b9a98d": ("floor", tex_floor, 1.0),
            "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#2f5fa8": ("fabric", tex_fabric, 1.0),
-           "#f5f5f5": ("fabric", tex_fabric, 1.0), "#f4f1e8": ("plaster", tex_plaster, 2.0), "#7fa88a": ("boards", tex_boards, 2.0),
+           "#f5f5f5": ("fabric", tex_fabric, 1.0), "#f4f1e8": ("plaster", tex_plaster, 2.0), "#f0cf8a": ("boards", tex_boards, 2.0),
            "#5b4636": ("wood", tex_wood, 1.0), "#8a6a4a": ("wood", tex_wood, 1.0), "#c8b79a": ("wood", tex_wood, 1.0)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
