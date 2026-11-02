@@ -18,9 +18,7 @@ def BM(i, p0, p1, c, w=.05, h=None, rnd=True):
 
 # ---- shell
 def M(i, x, y, z, w, d, h, mat): E.append({"id": i, "type": "box", "params": {"w": w, "d": d, "h": h, "material": mat}, "offset": [x, y, z]})
-M("found", 0, 4, 0, 12.4, 8.4, .2, "concrete_tile#a8a69a")
-for n, x, y, w, d in (("ot_f", 0, -3.1, 14.4, 1.1), ("ot_b", 0, 8.7, 14.4, 1.1), ("ot_l", -6.7, 3.0, 1.1, 11.0), ("ot_r", 6.7, 3.0, 1.1, 11.0)):
-    M(n, x, y, 0, w, d, .12, "concrete_raw#9d9b93")
+M("found", 0, 4, 0, 12.4, 8.4, .2, "stone_dark#8a8a86")
 M("porch", 0, -1.3, 0, 12.4, 2.6, .2, "wood_boards#b08a5a")
 M("fl", 0, 4, .15, 11, 7, .06, "wood_floor#c8a070")
 E.append({"id": "shop", "type": "block", "params": {"w": 12, "d": 8, "floors": 1, "floor_h": 3.8, "hollow": True, "material": pl(KH), "plinth_material": "granite#8a8472", "plinth_h": 0, "slab_t": .2, "plinth_out": 0}, "offset": [0, 4, 0]})
