@@ -33,17 +33,17 @@ col = np.where(inb[..., None], brick, np.array([236, 226, 205.])[None, None])
 hgt = np.where(inb, 1.0, 0.0) + blur(rng.random((N, N)), 1) * .15
 save("wall_brick", col, hgt, 3.0, 0.85, 1.0)
 # --- fish-scale shingles
-im = Image.new("RGB", (N, N), "#1c6b3a"); hm = Image.new("L", (N, N), 0)
+im = Image.new("RGB", (N, N), "#1b4d33"); hm = Image.new("L", (N, N), 0)
 d, dh = ImageDraw.Draw(im), ImageDraw.Draw(hm)
 rw, rh = 64, 32
 for r in range(-1, N // rh + 2):
     for c in range(-1, N // rw + 2):
         cx = c * rw + (rw // 2 if r % 2 else 0); cy = r * rh
-        t = rng.random(); shade = (int(40 + 60 * t), int(170 + 70 * t), int(80 + 40 * t))
+        t = rng.random(); shade = (int(48 + 30 * t), int(104 + 40 * t), int(78 + 26 * t))
         for ox in (0, -N, N):
             for oy in (0, -N, N):
                 bb = [cx - rw // 2 + ox, cy - rh + oy, cx + rw // 2 + ox, cy + rh + oy]
-                d.pieslice(bb, 0, 180, fill=shade, outline=(20, 90, 50), width=3) if False else d.ellipse([bb[0], bb[1] - rh, bb[2], bb[3]], fill=shade, outline=(18, 100, 55), width=3)
+                d.pieslice(bb, 0, 180, fill=shade, outline=(20, 90, 50), width=3) if False else d.ellipse([bb[0], bb[1] - rh, bb[2], bb[3]], fill=shade, outline=(24, 62, 46), width=3)
                 dh.ellipse([bb[0], bb[1] - rh, bb[2], bb[3]], fill=int(120 + 100 * (r % 7) / 7), outline=40, width=3)
 col = np.asarray(im, float) * (0.95 + blur(rng.random((N, N)), 2)[..., None] * .1)
 save("roof_shingles", col, np.asarray(hm, float) + blur(rng.random((N, N)), 1) * 10, 3.0, 0.75, 1.0)

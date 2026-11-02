@@ -61,8 +61,9 @@ box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4,
 # gable roof: two sloped slabs (26 deg, 0.25 thick) over the long sides, 0.6 overhang at the gable ends, vertical gable walls, ceiling
 RZ, RH, OV, TH = 4.3, 2.44, 8.1, 0.25
 for sy in (-1, 1):
-    hullp([(-OV, sy*5.0, RZ), (OV, sy*5.0, RZ), (-OV, 0.05*sy, RZ+RH), (OV, 0.05*sy, RZ+RH),
-           (-OV, sy*5.0, RZ-TH), (OV, sy*5.0, RZ-TH), (-OV, 0.05*sy, RZ+RH-TH), (OV, 0.05*sy, RZ+RH-TH)], "#a8472f")
+    hullp([(-OV, sy*5.0, RZ), (OV, sy*5.0, RZ), (-OV, 0, RZ+RH), (OV, 0, RZ+RH),
+           (-OV, sy*5.0, RZ-TH), (OV, sy*5.0, RZ-TH), (-OV, 0, RZ+RH-TH), (OV, 0, RZ+RH-TH)], "#a8472f")
+hullp([(-OV-.05, 0, RZ+RH+.14), (OV+.05, 0, RZ+RH+.14), (-OV-.05, -.5, RZ+RH-.2), (OV+.05, -.5, RZ+RH-.2), (-OV-.05, .5, RZ+RH-.2), (OV+.05, .5, RZ+RH-.2)], "#7a4a2a")   # ridge cap
 for gx in (-7.5, 7.2):
     hullp([(gx, -4.5, 4.4), (gx, 4.5, 4.4), (gx, 0, 6.55), (gx+0.3, -4.5, 4.4), (gx+0.3, 4.5, 4.4), (gx+0.3, 0, 6.55)], "#eceae4")
 box(-7.5, -4.5, 4.2, 7.5, 4.5, 4.4, "#eceae4")                           # ceiling
