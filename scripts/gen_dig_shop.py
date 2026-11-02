@@ -56,35 +56,35 @@ while y < HY-.01:                                  # real boards: 0.2 m wide row
     y += .2
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
+    if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
     if z1 > .7: box(a, -HY, max(z0, .7), b, -HY+.25, z1, WOODW)
 wall(fw, -HX, HX, [WIN, WIN2, DR], z1=H+.12)
-box(-HX, HY-.25, .7, HX, HY, H+.12, WOODW)
+box(-HX, HY-.25, .2, HX, HY, .7, STONE); box(-HX, HY-.25, .7, HX, HY, H+.12, WOODW)
 for sx in (-1, 1):
     x0, x1 = (sx*HX-.25, sx*HX) if sx > 0 else (sx*HX, sx*HX+.25)
-    box(x0, -HY, .7, x1, HY, H+.12, WOODW)
+    box(x0, -HY, .2, x1, HY, .7, STONE); box(x0, -HY, .7, x1, HY, H+.12, WOODW)
     hullp([(x, y, z) for x in (x0, x1) for (y, z) in ((-HY, H+.12), (HY, H+.12), (0, H+1.55))], WOODW)     # gable end
-# plinth: real coursed ashlar - whole blocks, running bond, every segment fitted to an exact block count
-MT = ["#8b7b66", "#857560", "#918270"]; mr = np.random.default_rng(21)
-def course(n, L, row):                               # block widths summing exactly to L (row 1 shifted by half a block)
-    w = [L/n]*n if row == 0 else [L/(2*n)] + [L/n]*(n-1) + [L/(2*n)]
-    return w
-def plinth(a0, a1, c0, c1, along):                  # along 'x': wall at y in [c0, c1]; 'y': wall at x in [c0, c1]
-    L = a1 - a0; n = max(1, round(L/.7)); out = c0 if along == 'x' else c0
-    inner = (c0+.03, c1) if c0 < 0 and abs(c0) > 1 else (c0, c1-.03)       # recessed mortar backing, outer face at the wall's outside
-    mk = (lambda x0, y0, z0, x1, y1, z1, c: box(x0, y0, z0, x1, y1, z1, c)) if along == 'x' else (lambda x0, y0, z0, x1, y1, z1, c: box(y0, x0, z0, y1, x1, z1, c))
-    mk(a0, inner[0], .2, a1, inner[1], .7, "#8d8373")
-    for row in range(2):
-        z0 = .2 + .25*row + .005; x = a0
-        for wd in course(n, L, row):
-            mk(x+.005, c0, z0, x+wd-.005, c1, z0+.24, MT[mr.integers(3)]); x += wd
-plinth(-HX, DR[0], -HY, -HY+.25, 'x'); plinth(DR[1], HX, -HY, -HY+.25, 'x'); plinth(-HX, HX, HY-.25, HY, 'x')
-plinth(-HY, HY, -HX, -HX+.25, 'y'); plinth(-HY, HY, HX-.25, HX, 'y')
 for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cross, shutters, sill
     box(a0, -HY+.08, z0, a1, -HY+.16, z1, GLASS)
     for (p0, p1, q0, q1) in [(a0-.1, a0, z0-.1, z1+.1), (a1, a1+.1, z0-.1, z1+.1), (a0-.1, a1+.1, z0-.1, z0), (a0-.1, a1+.1, z1, z1+.1)]:
         box(p0, -HY-.05, q0, p1, -HY+.25, q1, DK)
     mx = (a0+a1)/2; box(mx-.03, -HY-.03, z0, mx+.03, -HY+.2, z1, DK); box(a0, -HY-.03, (z0+z1)/2-.03, a1, -HY+.2, (z0+z1)/2+.03, DK)
-    box(a0-.18, -HY-.22, z0-.16, a1+.18, -HY, z0-.06, WOOD)
+    # exterior: sloped sill with drip edge + apron + brackets, head cap over the window
+    sa, sb = a0-.2, a1+.2
+    hullp([(sa, -HY, z0-.03), (sb, -HY, z0-.03), (sa, -HY-.2, z0-.075), (sb, -HY-.2, z0-.075), (sa, -HY, z0-.11), (sb, -HY, z0-.11), (sa, -HY-.2, z0-.13), (sb, -HY-.2, z0-.13)], WOOD)
+    box(a0-.06, -HY-.05, z0-.3, a1+.06, -HY, z0-.11, DK)
+    for bx_ in (a0+.02, a1-.12):
+        hullp([(bx_, -HY, z0-.11), (bx_+.1, -HY, z0-.11), (bx_, -HY, z0-.34), (bx_+.1, -HY, z0-.34), (bx_, -HY-.16, z0-.11), (bx_+.1, -HY-.16, z0-.11)], DK)
+    box(a0-.2, -HY-.1, z1+.1, a1+.2, -HY, z1+.17, WOOD); box(a0-.16, -HY-.14, z1+.17, a1+.16, -HY, z1+.21, DK)
+    for (p0, p1, q0, q1) in [(a0+.02, a1-.02, z0+.03, z0+.08), (a0+.02, a1-.02, z1-.08, z1-.03), (a0+.02, a0+.07, z0, z1), (a1-.07, a1-.02, z0, z1)]:
+        box(p0, -HY+.05, q0, p1, -HY+.13, q1, DK)                  # sash border around the glass
+    # interior: casing around the opening, window stool (shelf) and apron
+    fy2 = -HY+.25
+    for (p0, p1, q0, q1) in [(a0-.12, a0, z0-.06, z1+.12), (a1, a1+.12, z0-.06, z1+.12), (a0-.12, a1+.12, z1, z1+.12)]:
+        box(p0, fy2, q0, p1, fy2+.07, q1, DK)
+    box(a0-.2, fy2, z0-.06, a1+.2, fy2+.22, z0, WOODW); box(a0-.14, fy2, z0-.2, a1+.14, fy2+.05, z0-.06, DK)
+    for (p0, p1, q0, q1) in [(a0, a1, z0, z0+.05), (a0, a1, z1-.05, z1), (a0, a0+.05, z0, z1), (a1-.05, a1, z0, z1)]:
+        box(p0, fy2-.05, q0, p1, fy2+.05, q1, DK)                   # inner sash frame
     for sx_ in (a0-.1-.42, a1+.1):
         box(sx_, -HY-.06, z0-.1, sx_+.42, -HY, z1+.1, SHUT)
 for (p0, p1, q0, q1) in [(DR[0]-.2, DR[0], .2, DR[3]+.2), (DR[1], DR[1]+.2, .2, DR[3]+.2), (DR[0]-.2, DR[1]+.2, DR[3], DR[3]+.2)]:
@@ -94,7 +94,8 @@ for cx in (-1, 1):                              # corner posts
         xa, xb = sorted((cx*(HX-.2), cx*HX + cx*.06)); ya, yb = sorted((cy*(HY-.2), cy*HY + cy*.06))
         box(xa, ya, .2, xb, yb, H+.12, DK)
 ox, yE, zr, t = HX+.45, HY+.6, H+1.7, .16        # gable roof
-for s in (-1, 1):
+import os
+for s in ((-1, 1) if not os.environ.get("NOROOF") else ()):
     hullp([(sx_*ox, s*yE, H) for sx_ in (-1, 1)] + [(sx_*ox, s*yE, H-t) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr-t) for sx_ in (-1, 1)], ROOF)
 box(-ox, -.16, zr-.02, ox, .16, zr+.1, DK)
 # --- interior lining: light plaster above a dark panelled wainscot (inner faces only) ---
@@ -286,9 +287,7 @@ def tex_stone(base):                                  # coursed ashlar: 8 rows, 
     a *= (1 + fine + big)[..., None]
     a[::1] *= 1.0
     return a.clip(0, 255).astype(np.uint8)
-def tex_rock(base):                                   # weathered stone face: soft mottling + fine grain, no joints
-    return tint(base, (noise(N, 3) - .5) * .28 + (noise(N, 1) - .5) * .10 + (rng.random((N, N)) - .5) * .08)
-FLAT = {"#2e2016", "#8d8373", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
+FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
 SPECIAL = {"#dccaa2": ("plasterin", tex_plaster, 2.0), "#6a4a30": ("wain", tex_boards, 2.0), "#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
@@ -345,6 +344,6 @@ for cc in np.unique(fc, axis=0):
         pb = load_pbr(hx); m, uv = uvs(m, 2.0 if PBR.get(hx, ("",))[0] == "wall_plaster" else 1.0)
         m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv, pbr=pb)
     sc.add_geometry(m, geom_name=m.metadata["name"])
-out = pathlib.Path("projects/dig_shop/export"); out.mkdir(parents=True, exist_ok=True)
+out = pathlib.Path(os.environ.get("OUT", "projects/dig_shop/export")); out.mkdir(parents=True, exist_ok=True)
 sc.export(out/"dig_shop.glb"); sc.export(out/"dig_shop.obj")
 print(len(scene.faces), "tris", len(sc.geometry), "materials")
