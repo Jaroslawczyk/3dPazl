@@ -50,17 +50,6 @@ for (a0, a1, z0, z1) in (WIN, WIN2):                                            
     n = max(1, int((a1-a0)/1.0))
     for k in range(1, n): mx = a0+(a1-a0)*k/n; box(mx-.03, -HY-.02, z0, mx+.03, -HY+.2, z1, TRIM)
     hz = z0+(z1-z0)*.6; box(a0, -HY-.02, hz-.03, a1, -HY+.2, hz+.03, TRIM)
-box(DR[0]+.1, -HY+.05, DR[2], DR[1]-.1, -HY+.2, DR[3]-.1, DOOR)                   # green door, glazed top, white frame
-box(DR[0]+.3, -HY-.01, 1.5, DR[1]-.3, -HY+.22, 2.3, GLASS)
-for (p0, p1, q0, q1) in [(DR[0]-.12, DR[0]+.1, .2, DR[3]+.12), (DR[1]-.1, DR[1]+.12, .2, DR[3]+.12), (DR[0]-.12, DR[1]+.12, DR[3]-.1, DR[3]+.12)]:
-    box(p0, -HY-.06, q0, p1, -HY+.25, q1, TRIM)
-box(DR[1]-.3, -HY-.08, 1.1, DR[1]-.2, -HY-.02, 1.35, DARK)                        # handle
-box(DR[0]-.3, -HY-.3, 2.7, DR[1]+.3, -HY, 2.78, TRIM)                             # door canopy ledge
-box(-4.6, -HY-.9, 0, 4.6, -HY, .15, STONE); box(.7, -HY-1.3, 0, 2.5, -HY-.9, .08, STONE)   # porch + step
-for k in range(7):                                                                # striped awning over the big window
-    x0 = -4.1 + k*.5; cc = ROOF if k % 2 == 0 else "#f5f5f5"
-    hullp([(x0, -HY, 2.85), (x0+.5, -HY, 2.85), (x0, -HY-1.0, 2.4), (x0+.5, -HY-1.0, 2.4),
-           (x0, -HY, 2.8), (x0+.5, -HY, 2.8), (x0, -HY-1.0, 2.35), (x0+.5, -HY-1.0, 2.35)], cc)
 # gable roof (ridge along X): two slabs, ridge cap, gable triangles, ceiling, brick chimney
 RZ, RIDGE, OV, EV, TH = 3.15, 1.9, 5.6, 4.2, .25
 for sy in (-1, 1):
@@ -70,32 +59,7 @@ hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+
 for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
 box(-HX, -HY, H-.2, HX, HY, H, WALL)
-box(-3.8, .8, H, -3.2, 1.4, 5.6, BRICK); box(-3.9, .7, 5.6, -3.1, 1.5, 5.75, DARK)  # chimney
 cyl(3.8, 0, RZ+RIDGE+.1, RZ+RIDGE+.6, .07, "#ffcc33", 8); ball(3.8, 0, RZ+RIDGE+1.0, .42, "#f4f4f4", 1)   # giant golf ball on a tee
-cyl(-4.4, 0, RZ+RIDGE, RZ+RIDGE+1.9, .03, "#eeeeee", 6); box(-4.4, 0, RZ+RIDGE+1.35, -3.6, .02, RZ+RIDGE+1.85, "#e03030")   # flag
-# lot: grass, path, putting green with flag + bunker, sign, fence, cart, trees, bags
-box(-8, -HY-8.5, 0, 8, -HY-.9, .06, GRASS); box(-8, HY, 0, 8, HY+3, .06, GRASS); box(-8, -HY-.9, 0, -HX, HY, .06, GRASS); box(HX, -HY-.9, 0, 8, HY, .06, GRASS)
-box(1.0, -HY-5.5, .06, 2.2, -HY-1.3, .09, STONE)
-cyl(-3.8, -HY-5.0, .06, .1, 2.6, GREEN2, 28)
-cyl(-3.8, -HY-5.0, .1, .14, .2, "#1a1a1a", 14); cyl(-3.8, -HY-5.0, .1, 2.2, .025, "#eeeeee", 6); box(-3.8, -HY-5.0, 1.7, -3.1, -HY-4.98, 2.2, "#e03030")
-cyl(-0.2, -HY-6.2, .06, .1, 1.1, SAND, 20)
-box(-3.0, -HY-2.6, 1.9, 0.0, -HY-2.5, 2.9, "#f6f6f6")                              # sign board on posts (front face = -Y)
-box(-3.1, -HY-2.65, 1.85, 0.1, -HY-2.45, 1.9, DARK); box(-3.1, -HY-2.65, 2.9, 0.1, -HY-2.45, 2.95, DARK)
-box(-3.1, -HY-2.65, 1.9, -3.0, -HY-2.45, 2.9, DARK); box(0.0, -HY-2.65, 1.9, 0.1, -HY-2.45, 2.9, DARK)
-box(-2.7, -HY-2.58, 0, -2.55, -HY-2.52, 1.9, WOOD); box(-.45, -HY-2.58, 0, -.3, -HY-2.52, 1.9, WOOD)
-for x in np.linspace(-7.6, 7.6, 7): box(x-.06, -HY-8.4, .06, x+.06, -HY-8.3, .9, TRIM)   # white fence
-box(-7.65, -HY-8.38, .65, 7.65, -HY-8.32, .72, TRIM)
-cx, cy = 5.2, -HY-4.2                                                              # golf cart
-box(cx-.9, cy-.55, .35, cx+.9, cy+.55, .7, TRIM); box(cx-.9, cy-.55, .7, cx-.1, cy+.55, 1.2, TRIM); box(cx-1.0, cy-.6, 1.9, cx+.25, cy+.6, 1.98, ROOF)
-for px in (cx-.95, cx+.15): box(px, cy-.58, 1.2, px+.05, cy-.52, 1.9, DARK); box(px, cy+.52, 1.2, px+.05, cy+.58, 1.9, DARK)
-box(cx+.2, cy-.5, .7, cx+.85, cy+.5, .76, DARK)
-for wx in (cx-.6, cx+.6):
-    for wy in (cy-.58, cy+.58): m = tm.creation.cylinder(radius=.28, height=.12, sections=8); m.apply_transform(RM(np.pi/2, [1, 0, 0])); m.apply_translation([wx, wy, .28]); col(m, DARK)
-for tx, ty, tr in [(-6.8, -HY-1.6, 1.0), (6.8, -HY-1.2, 1.1), (-6.5, 1.5, 1.2)]:      # trees
-    cyl(tx, ty, 0, 1.6, .18, WOOD, 8); ball(tx, ty, 2.7, tr*1.15, "#2e7d32")
-for bx, bc in ((-4.8, "#c0392b"), (-4.3, "#2f5fa8")):                                # golf bags by the wall
-    cyl(bx, -HY-.5, .15, .95, .17, bc, 8); cyl(bx, -HY-.5, .95, 1.0, .19, DARK, 8)
-    for k in range(3): cyl(bx-.07+k*.07, -HY-.5, 1.0, 1.45+k*.08, .02, "#cccccc", 4)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
