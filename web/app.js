@@ -332,6 +332,8 @@ function applyHighlights() {
 
 function select(id) {
   S.selected = id;
+  $('#saveLib').hidden = !id;
+  if (id) $('#saveLibName').placeholder = 'Название (по умолчанию: ' + id.split('/').pop() + ')';
   applyHighlights();
   $$('#tree li > div').forEach((d) => d.classList.toggle('sel', d.dataset.id === id));
   attachGizmo();
@@ -631,6 +633,7 @@ function renderFilters() {
   });
 }
 function renderLib() {
+  renderMyLib();
   const q = $('#libSearch').value.toLowerCase();
   const groups = {};
   const filtering = S.periodSel.size || $('#regionSel').value;
@@ -1276,6 +1279,65 @@ async function renderUsage() {
 }
 window.addEventListener('error', (e) => { api('log', { where: 'window', error: e.message, src: e.filename + ':' + e.lineno }).catch(() => {}); });
 window.addEventListener('unhandledrejection', (e) => { api('log', { where: 'promise', error: String(e.reason?.message || e.reason) }).catch(() => {}); });
+
+// ---------------------------------------------------------------- my elements: saved from any project, reused everywhere
+S.myLib = { categories: [], groups: [] };
+async function loadMyLib() { S.myLib = await api('library').catch(() => S.myLib); renderMyLib(); fillLibCats(); }
+function renderMyLib() {
+  const q = ($('#libSearch')?.value || '').toLowerCase();
+  const groups = S.myLib.groups.map((g) => ({ ...g, items: g.items.filter((it) => !q || (it.name + ' ' + it.category + ' ' + (it.description || '')).toLowerCase().includes(q)) }))
+    .filter((g) => g.items.length);
+  const count = S.myLib.groups.reduce((n, g) => n + g.items.length, 0);
+  $('#myLib').innerHTML = `<div class="cat">⭐ Мои элементы (${count})</div>` + (count ? groups.map((g) => `<details class="mycat" open><summary>${esc(g.category)} · ${g.items.length}</summary>`
+    + g.items.map((it) => `<div class="my-item" data-id="${esc(it.id)}" title="${esc(it.description || '')}">
+        ${it.thumb ? `<img src="${it.thumb}?v=${encodeURIComponent(it.created)}" alt="">` : '<div class="noimg">▦</div>'}
+        <div class="my-meta"><b>${esc(it.name)}</b><small>${esc(it.root_type)} · ${it.size.map((v) => v.toFixed(1)).join('×')} м · ${it.attach === 'face' ? 'на стену' : it.attach === 'top' ? 'на верх' : 'на землю'}</small>
+        <small>из «${esc(it.source_project || '')}»</small></div>
+        <div class="my-act"><button data-ins="${esc(it.id)}" title="Вставить в проект">＋</button><button data-ren="${esc(it.id)}" title="Переименовать / сменить категорию">✎</button><button data-del="${esc(it.id)}" title="Удалить из моих элементов">✕</button></div>
+      </div>`).join('') + '</details>').join('')
+    : '<div class="hint">Пусто. Выберите элемент и нажмите «💾 В мои элементы» в Свойствах.</div>');
+}
+$('#myLib').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  try {
+    if (b.dataset.ins) {
+      const it = S.myLib.groups.flatMap((g) => g.items).find((x) => x.id === b.dataset.ins);
+      const body = { id: b.dataset.ins };
+      if (S.face && it && it.attach === S.face.a.kind) {  // a selected wall / top that fits: put it there
+        body.on = `${S.face.eid}:${S.face.name}`;
+        if (S.face.a.kind === 'face') body.at = [+S.face.u.toFixed(2), +Math.max(0, S.face.v).toFixed(2)];
+      }
+      const r = await api('library/insert', body);
+      feedLine({ type: 'updated', agent: 'ui', note: '+' + r.id });
+    } else if (b.dataset.ren) {
+      const it = S.myLib.groups.flatMap((g) => g.items).find((x) => x.id === b.dataset.ren);
+      const name = prompt('Название:', it.name); if (name === null) return;
+      const cat = prompt('Категория (' + S.myLib.categories.join(', ') + ' или новая):', it.category); if (cat === null) return;
+      await api('library/update', { id: it.id, name, category: cat }); loadMyLib();
+    } else if (b.dataset.del) {
+      if (!confirm('Удалить из моих элементов? В проектах, куда он уже вставлен, он останется.')) return;
+      await api('library/delete', { id: b.dataset.del }); loadMyLib();
+    }
+  } catch (er) { feedLine({ type: 'error', agent: 'ui', note: er.message }); }
+};
+function fillLibCats() {
+  $('#saveLibCat').innerHTML = '<option value="">Категория: автоматически</option>'
+    + [...new Set([...S.myLib.categories, ...S.myLib.groups.map((g) => g.category)])].map((c) => `<option>${esc(c)}</option>`).join('')
+    + '<option value="__new">+ новая категория…</option>';
+}
+$('#saveLibCat').onchange = (e) => { $('#saveLibNewCat').hidden = e.target.value !== '__new'; };
+$('#saveLibBtn').onclick = async () => {
+  if (!S.selected) return;
+  const cat = $('#saveLibCat').value === '__new' ? $('#saveLibNewCat').value : $('#saveLibCat').value;
+  $('#saveLibBtn').disabled = true;
+  try {
+    const r = await api('library/save', { element: S.selected, name: $('#saveLibName').value, category: cat });
+    feedLine({ type: 'exported', agent: 'ui', note: `⭐ «${r.name}» → ${r.category}` });
+    $('#saveLibName').value = ''; loadMyLib();
+  } catch (er) { feedLine({ type: 'error', agent: 'ui', note: er.message }); }
+  $('#saveLibBtn').disabled = false;
+};
+loadMyLib();
 
 function showTab(where, tab) {
   $$(`.tabs[data-for="${where}"] button`).forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));

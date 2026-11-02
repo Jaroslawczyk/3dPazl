@@ -328,6 +328,29 @@ def usage() -> str:
     return _j(_call("GET", "/api/usage"))
 
 
+
+@tool
+def library_list() -> str:
+    """My elements: things saved from any project (buildings, parts, decorations), grouped by category."""
+    return _j(_call("GET", "/api/library"))
+
+
+@tool
+def library_save(element_id: str, name: str = "", category: str = "", description: str = "") -> str:
+    """Save an element of the current project (with everything attached to it) to My elements, to reuse it in other
+    projects. category: Здания, Части зданий, Окна и двери, Крыши и купола, Декор, Украшения, Природа, Мебель и интерьер,
+    Небоскрёбы, Другое or a new one (empty = automatic)."""
+    return _j(_call("POST", "/api/library/save", {"element": element_id, "name": name, "category": category,
+                                                    "description": description}))
+
+
+@tool
+def library_insert(item_id: str, on: str = "", at: list | None = None, rot: float = 0.0) -> str:
+    """Insert an item from My elements into the current project: on = "host:anchor" (e.g. "b/main:front" for a facade
+    part, "b/roof:top"), at = [u, v] on a face / [x, y] on the ground; empty = on the ground beside the model."""
+    return _j(_call("POST", "/api/library/insert", {"id": item_id, "on": on, "at": at, "rot": rot}))
+
+
 def main():
     mcp.run()
 

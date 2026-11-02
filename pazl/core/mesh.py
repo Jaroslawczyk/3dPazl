@@ -1,6 +1,7 @@
 """Manifold -> trimesh conversion, validation, optimisation, export."""
 from __future__ import annotations
 
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -199,15 +200,25 @@ def optimize(m, tolerance=0.004):
         return m
 
 
-_IMG_CACHE: dict = {}
+_IMG_CACHE: "OrderedDict" = OrderedDict()  # LRU: texture images are big (2048^2 RGB = 12 MB each)
+_IMG_MAX = 12
+
+
+def _img_put(key, im):
+    _IMG_CACHE[key] = im
+    while len(_IMG_CACHE) > _IMG_MAX:
+        _IMG_CACHE.popitem(last=False)
+    return im
 
 
 def _img(path, mode="RGB"):
     from PIL import Image
     key = (str(path), mode)
-    if key not in _IMG_CACHE:
-        _IMG_CACHE[key] = Image.open(path).convert(mode)
-    return _IMG_CACHE[key]
+    if key in _IMG_CACHE:
+        _IMG_CACHE.move_to_end(key)
+        return _IMG_CACHE[key]
+    with Image.open(path) as f:
+        return _img_put(key, f.convert(mode))
 
 
 def _orm(tex: dict):
@@ -221,8 +232,7 @@ def _orm(tex: dict):
     ao = _img(tex["ao"], "L").resize(size) if "ao" in tex else Image.new("L", size, 255)
     ro = _img(tex["roughness"], "L").resize(size) if "roughness" in tex else Image.new("L", size, 200)
     me = _img(tex["metal"], "L").resize(size) if "metal" in tex else Image.new("L", size, 0)
-    _IMG_CACHE[key] = Image.merge("RGB", (ao, ro, me))
-    return _IMG_CACHE[key]
+    return _img_put(key, Image.merge("RGB", (ao, ro, me)))
 
 
 def material_for(name: str, tex_dir: Path | None, textured: bool, swap: dict | None = None):

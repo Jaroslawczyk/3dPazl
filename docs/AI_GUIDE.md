@@ -115,6 +115,12 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
 - `measure(element_id)` gives exact sizes and faces; `fix_floating()` lowers floating parts; `usage()` = tokens/money.
 - Window grids never go past a wall edge or into the roof; textures are mapped in each face's plane (no stretching).
 
+## My elements (reuse between projects)
+- `library_save(element_id, name, category)` saves an element with everything attached (a whole macro keeps its
+  params and overrides; a macro part is saved as its concrete elements) to the shared library with a thumbnail.
+- `library_list()` - items grouped by category; `library_insert(item_id, on, at)` adds one to the current project
+  (fresh ids; on the ground beside the model, or on "host:anchor").
+
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
 degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,

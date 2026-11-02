@@ -15,6 +15,7 @@ from ..core.materials import MATS
 from ..core.registry import ELEMENTS
 from ..core.styles import load_styles, summary as styles_summary
 from .chat import Chat, usage_total
+from . import library as LIB
 from .logs import log, log_exception, report_zip
 from .project import PROJECTS, ROOT, Project
 
@@ -354,6 +355,46 @@ def _usage():
         data = {"runs": []}
     data["total"] = usage_total(data.get("runs", []))
     return data
+
+
+# ------------------------------------------------------------------ my elements (shared between projects)
+@app.get("/api/library")
+def library_list():
+    return _run(LIB.listing)
+
+
+@app.post("/api/library/save")
+def library_save(body: dict = Body(...), x_agent: str = Header("user")):
+    out = _run(LIB.save, P, body["element"], body.get("name", ""), body.get("category", ""), body.get("description", ""))
+    P.event("library", x_agent, f"saved {body['element']} as '{out['name']}' ({out['category']})")
+    return out
+
+
+@app.post("/api/library/insert")
+def library_insert(body: dict = Body(...), x_agent: str = Header("user")):
+    ops, new_id = _run(LIB.insert_ops, P, body["id"], body.get("on", ""), body.get("at"), body.get("rot", 0))
+    out = _run(P.patch, ops, x_agent, f"+{new_id} from my elements")
+    if "error" in out:
+        raise HTTPException(400, out["error"])
+    return {**out, "id": new_id}
+
+
+@app.post("/api/library/update")
+def library_update(body: dict = Body(...)):
+    return _run(LIB.update, body["id"], name=body.get("name"), category=body.get("category"), description=body.get("description"))
+
+
+@app.post("/api/library/delete")
+def library_delete(body: dict = Body(...)):
+    return _run(LIB.delete, body["id"])
+
+
+@app.get("/my_library/{name}")
+def library_thumb(name: str):
+    f = LIB.LIB / Path(name).name
+    if not f.exists() or f.suffix != ".png":
+        raise HTTPException(404, name)
+    return FileResponse(f)
 
 
 @app.get("/api/measure")

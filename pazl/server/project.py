@@ -7,6 +7,7 @@ import json
 import re
 import threading
 import time
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -43,14 +44,23 @@ def slug(s: str) -> str:
     return re.sub(r"[^\w\-]+", "_", s.strip(), flags=re.U)[:60] or "untitled"
 
 
+
+def _pack(recipe: dict) -> bytes:
+    return zlib.compress(json.dumps(recipe, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), 6)
+
+
+def _unpack(blob) -> dict:
+    return json.loads(zlib.decompress(blob).decode("utf-8")) if isinstance(blob, bytes) else blob
+
+
 class Project:
     def __init__(self, broadcast=None):
         self.lock = threading.RLock()
         self.scope: set | None = None  # while the AI fixes marked places: the only element ids it may change
         self.broadcast = broadcast or (lambda ev: None)
         self.recipe = {"name": "untitled", "style": "generic", "detail": "realistic", "elements": []}
-        self.undo_stack: list[dict] = []
-        self.redo_stack: list[dict] = []
+        self.undo_stack: list[bytes] = []  # zlib-compressed JSON snapshots (a few KB each)
+        self.redo_stack: list[bytes] = []
         self.version = 0
         self._res = None
         self._final_opt = None
@@ -171,7 +181,7 @@ class Project:
             return self._changed(agent, f"restored autosave {f.name}")
 
     def _push_undo(self):
-        self.undo_stack.append(copy.deepcopy(self.recipe))
+        self.undo_stack.append(_pack(self.recipe))
         self.undo_stack = self.undo_stack[-200:]
         self.redo_stack.clear()
 
@@ -180,8 +190,8 @@ class Project:
         with self.lock:
             if not self.undo_stack:
                 return {"error": "nothing to undo"}
-            self.redo_stack.append(copy.deepcopy(self.recipe))
-            self.recipe = self.undo_stack.pop()
+            self.redo_stack.append(_pack(self.recipe))
+            self.recipe = _unpack(self.undo_stack.pop())
             return self._changed(agent, "undo")
 
     def redo(self, agent="?"):
@@ -189,8 +199,8 @@ class Project:
         with self.lock:
             if not self.redo_stack:
                 return {"error": "nothing to redo"}
-            self.undo_stack.append(copy.deepcopy(self.recipe))
-            self.recipe = self.redo_stack.pop()
+            self.undo_stack.append(_pack(self.recipe))
+            self.recipe = _unpack(self.redo_stack.pop())
             return self._changed(agent, "redo")
 
     def _find(self, eid):
@@ -250,7 +260,7 @@ class Project:
             except Exception as ex:
                 self.recipe = before
                 return {"error": f"{type(ex).__name__}: {ex}", "applied": 0}
-            self.undo_stack.append(before)
+            self.undo_stack.append(_pack(before))
             self.redo_stack.clear()
             note = note or "; ".join(m for m in msgs if m)
             out = self._changed(agent, note)

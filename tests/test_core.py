@@ -150,3 +150,24 @@ def test_fracture_keeps_volume():
     chunks = fracture_solid(f, 20, seed=3)
     assert len(chunks) >= 20
     assert abs(sum(c[2] for c in chunks) - f.volume()) / f.volume() < 1e-3
+
+
+def test_my_elements_save_and_insert(tmp_path, monkeypatch):
+    import json as _json
+    from pazl.server import library as L
+    from pazl.server.project import Project
+    monkeypatch.setattr(L, "LIB", tmp_path)
+    rec = _json.loads((Path(__file__).resolve().parent.parent / "examples" / "varso_tower.json").read_text("utf-8"))
+    src = Project()
+    src.new("_t_lib_src", recipe={"name": "_t_lib_src", "style": "dutch", "elements": [{"id": "d", "type": "dutch_house", "params": {"count": 2}}]}, agent="t")
+    item = L.save(src, "d/h1", "Дом", "")
+    assert item["id"] == "dom" and item["category"] == "Части зданий"
+    dst = Project()
+    dst.new("_t_lib_dst", recipe={"name": "_t_lib_dst", "style": "generic", "elements": [{"id": "h", "type": "house"}]}, agent="t")
+    ops, nid = L.insert_ops(dst, "dom")
+    assert "error" not in dst.patch(ops, "t")
+    assert validate(dst.result())["ok"] and any(e["id"] == nid for e in dst.recipe["elements"])
+    assert rec["elements"][0]["type"] == "skyscraper"
+    import shutil
+    for p in (src.dir, dst.dir):
+        shutil.rmtree(p, ignore_errors=True)

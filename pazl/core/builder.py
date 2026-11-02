@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import json
+from collections import OrderedDict
 import math
 import traceback
 from dataclasses import dataclass, field
@@ -28,8 +29,8 @@ import random
 from .registry import ELEMENTS, Anchor, Ctx, Part, has_mix, pct, rand_value
 from .styles import get_style
 
-_CACHE: dict[str, Part] = {}
-_CACHE_MAX = 4000
+_CACHE: "OrderedDict[str, Part]" = OrderedDict()  # LRU of generated parts (geometry is heavy)
+_CACHE_MAX = 250
 
 
 @dataclass
@@ -233,6 +234,7 @@ def generate(etype, params, detail, anchor, style, eid, seed=1) -> Part:
     key = json.dumps([etype, params, detail, _anchor_key(anchor), style.get("id"), eid, seed], sort_keys=True, default=str)
     part = _CACHE.get(key)
     if part is not None:
+        _CACHE.move_to_end(key)
         MATS.art.update(part.info.get("_art", {}))
         return part
     g.set_current_element(eid)
@@ -244,9 +246,9 @@ def generate(etype, params, detail, anchor, style, eid, seed=1) -> Part:
     for mv in part.movables:  # door leaves keep their material and element too
         _register_unknown(mv["m"], mv["mat"], eid)
     part.info["_art"] = {k: v for k, v in MATS.art.items() if k not in art_before}
-    if len(_CACHE) > _CACHE_MAX:
-        _CACHE.clear()
     _CACHE[key] = part
+    while len(_CACHE) > _CACHE_MAX:  # drop the least recently used, not everything
+        _CACHE.popitem(last=False)
     return part
 
 

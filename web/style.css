@@ -218,3 +218,26 @@ button.icon { min-width: 34px; padding: 4px 8px; }
 .style-grp select { max-width: 170px; min-width: 90px; flex: 1 1 auto; }
 #selStyle2 { max-width: 110px; }
 @media (max-width: 1440px) { #segDetail button { padding: 4px 7px; } .style-grp select { max-width: 150px; } }
+
+/* my elements */
+#myLib { margin-bottom: 10px; }
+.mycat summary { cursor: pointer; color: var(--mute); font-size: 12px; margin: 6px 0 4px; }
+.my-item { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: center; padding: 5px; border-radius: 6px;
+  border: 1px solid transparent; }
+.my-item:hover { border-color: var(--line); background: var(--panel2); }
+.my-item img, .my-item .noimg { width: 56px; height: 42px; object-fit: cover; border-radius: 4px; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; color: var(--mute); }
+.my-meta { min-width: 0; } .my-meta b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-meta small { display: block; color: var(--mute); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-act { display: flex; flex-direction: column; gap: 2px; } .my-act button { padding: 1px 6px; font-size: 11px; }
+#saveLib { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+#saveLib h4 { margin: 0; font-size: 12px; }
+@media (max-width: 1100px) {  /* narrow window: secondary controls hide (still in menus / settings), panels shrink */
+  main { grid-template-columns: 56px 220px minmax(0, 1fr) 300px; }
+  #selStyle2, #segDetail, #btnRender { display: none !important; }
+  #projName { width: 100px; } .style-grp select { max-width: 120px; min-width: 70px; }
+  #top { gap: 6px; padding: 0 8px; } .menu > summary { padding: 5px 7px; }
+}
+@media (max-width: 860px) { main { grid-template-columns: 56px 0 minmax(0, 1fr) 280px; } #left { display: none; } }
+#center { overflow: hidden; }
+#vtools .vrow { flex-wrap: wrap; max-width: 100%; }

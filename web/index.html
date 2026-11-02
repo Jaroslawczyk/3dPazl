@@ -95,6 +95,7 @@
     </section>
     <section data-pane="lib" class="pane">
       <input id="libSearch" placeholder="Поиск: окно, купол, колонна…">
+      <div id="myLib"></div>
       <div id="periodChips" class="chips" title="Эпохи"></div>
       <select id="regionSel" title="Территория"><option value="">Все территории</option></select>
       <div id="lib"></div>
@@ -171,6 +172,14 @@
     </nav>
     <section data-pane="props" class="pane on">
       <div id="faceBox" hidden></div>
+      <div id="saveLib" hidden>
+        <h4>💾 В мои элементы</h4>
+        <div class="hint">Сохранить выбранное (со всем, что к нему прикреплено), чтобы вставлять в другие проекты.</div>
+        <input id="saveLibName" placeholder="Название">
+        <select id="saveLibCat"></select>
+        <input id="saveLibNewCat" placeholder="Новая категория" hidden>
+        <button id="saveLibBtn" class="act">Сохранить</button>
+      </div>
       <div id="props"><div class="hint">Выберите элемент в сцене или в дереве.</div></div>
     </section>
     <section data-pane="chat" class="pane">
