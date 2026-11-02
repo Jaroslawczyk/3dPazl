@@ -51,7 +51,7 @@ for a, b, c, d in [(-HX-.1, -HY-.1, HX+.1, -HY+.15), (-HX-.1, HY-.15, HX+.1, HY+
     box(a, b, H, c, d, H+.55, ROOF)
 box(-HX-.15, -HY-.15, H+.55, HX+.15, -HY+.2, H+.7, DARK)
 # front sign board on the parapet + red stripe, sandbag wall, crates, target
-box(-HX, -HY-.02, 2.9, HX, -HY+.28, 3.05, "#c0392b")                              # red band under the parapet
+box(-HX+.2, -HY-.02, 2.9, HX-.2, -HY+.28, 3.05, "#c0392b")                              # red band under the parapet
 box(-HX+.8, -1.5, H, -HX+1.8, -.5, H+.9, DARK)                                       # roof AC unit
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
