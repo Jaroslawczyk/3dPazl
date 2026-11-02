@@ -9,7 +9,7 @@ def box(x0, y0, z0, x1, y1, z1, c):
     m = tm.creation.box([x1-x0, y1-y0, z1-z0]); m.apply_translation([(x0+x1)/2, (y0+y1)/2, (z0+z1)/2]); return col(m, c)
 def hullp(pts, c): return col(tm.convex.convex_hull(np.array(pts, float)), c)
 
-WALL, TEAL, WOOD, PALE, RED, WHITE = "#eceae4", "#1fb8a8", "#8a6a4a", "#c8b79a", "#d8262c", "#f5f5f5"
+WALL, TEAL, WOOD, PALE, RED, WHITE = "#7fa88a", "#f4f1e8", "#8a6a4a", "#c8b79a", "#2f5fa8", "#f5f5f5"   # sage planks, white trim, blue-white awning
 HX, HY, H = 4.0, 3.0, 3.4            # shop 8 x 6 m, walls 3.4 m, front = -Y
 def wall(mk, a0, a1, ops, z0=0.2, z1=H):          # wall along one axis with openings [(a0, a1, z0, z1)]
     cuts = sorted({a0, a1, *[o[i] for o in ops for i in (0, 1)]})
@@ -57,7 +57,7 @@ for k in range(6):
 RZ, RIDGE, OV, EV, TH = 3.15, 2.0, 4.5, 3.7, .25
 for sy in (-1, 1):
     hullp([(-OV, sy*EV, RZ), (OV, sy*EV, RZ), (-OV, 0, RZ+RIDGE), (OV, 0, RZ+RIDGE),
-           (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], "#a8472f")
+           (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], "#5a3b2a")
 hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+RIDGE-.2), (OV+.05, -.5, RZ+RIDGE-.2), (-OV-.05, .5, RZ+RIDGE-.2), (OV+.05, .5, RZ+RIDGE-.2)], "#7a4a2a")
 for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
@@ -149,9 +149,14 @@ def tex_tiles(base):
                 a[row*w:(row+1)*w, (x0 + xx) % N] = h * sh * (0.78 + .22 * (np.arange(w)/w)[:, None])
     a[:, ::w // 1, :] *= .8; a[::w, :, :] *= .7
     return (a * (1 + (rng.random((N, N, 1)) - .5) * .06)).clip(0, 255).astype(np.uint8)
-SPECIAL = {"#a8472f": ("tiles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#4a4f5c": ("roof", tex_roof, 1.5), "#b9a98d": ("floor", tex_floor, 1.0),
-           "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#1b4f9c": ("blue", tex_sign_blue, 2.0),
-           "#d8262c": ("fabric", tex_fabric, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#eceae4": ("plaster", tex_plaster, 2.0),
+def tex_boards(base):                                  # vertical painted planks with dark gaps
+    y, x = np.mgrid[0:N, 0:N]; w = N // 8
+    a = tint(base, (noise(N, 2) - .5) * .10 + (rng.random((N, N)) - .5) * .04 + np.sin(x * .5 + noise(N, 3) * 6) * .02).astype(float)
+    a *= (0.93 + 0.07 * ((x % w) / w))[..., None]; a[:, ::w, :] *= .55
+    return a.clip(0, 255).astype(np.uint8)
+SPECIAL = {"#5a3b2a": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#b9a98d": ("floor", tex_floor, 1.0),
+           "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#2f5fa8": ("fabric", tex_fabric, 1.0),
+           "#f5f5f5": ("fabric", tex_fabric, 1.0), "#f4f1e8": ("plaster", tex_plaster, 2.0), "#7fa88a": ("boards", tex_boards, 2.0),
            "#5b4636": ("wood", tex_wood, 1.0), "#8a6a4a": ("wood", tex_wood, 1.0), "#c8b79a": ("wood", tex_wood, 1.0)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
@@ -169,11 +174,7 @@ def uvs(m, scale, plate=False):
                 uv[vi] = (v[vi][a] / scale, v[vi][b] / scale)
     return m, uv
 TEXDIR = pathlib.Path("textures/car_boat_shop")           # Cursor-made set: <n>.png, <n>_normal.png, <n>_orm.png
-PBR = {"#8fd3f4": ("glass", "#7fe8ff"), "#a8472f": ("roof_shingles", None), "#b9a98d": ("floor_planks", None),
-       "#2b2f3a": ("metal_dark", "#ff6b2c"), "#3a3f4b": ("metal_dark", "#ff6b2c"), "#1b4f9c": ("sign_blue", "#ff4f9a"),
-       "#eceae4": ("wall_brick", None), "#1fb8a8": ("wall_plaster", "#1fb8a8"), "#ff7a1a": ("wall_plaster", "#ff7a1a"),
-       "#5b4636": ("wood", "#c97b3a"), "#8a6a4a": ("wood", "#e0a050"), "#c8b79a": ("wood", "#f0c070"), "#e8743b": ("wood", "#e8743b")}
-for _h in ["#ff3b3b", "#ffd23f", "#2ecc71", "#3498db", "#ff8a1f", "#a855f7"]: PBR[_h] = ("awning_fabric", _h)
+PBR = {}                                             # procedural textures only (own look, not the dealership set)
 def tint_img(img, hx):                                   # recolour a texture: keep its light/dark detail, replace the hue
     a = np.asarray(img, float) / 255.0; lum = a.mean(2); lum = lum / lum.mean() * 1.05
     c = np.array([int(hx[i:i+2], 16) for i in (1, 3, 5)], float) / 255.0
