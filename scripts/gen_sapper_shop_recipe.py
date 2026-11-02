@@ -22,7 +22,7 @@ M("found", 0, 4, 0, 12.4, 8.4, .2, "bitumen#8a8a86")
 M("porch", 0, -1.3, 0, 12.4, 2.6, .2, "wood_boards#b08a5a")
 M("fl", 0, 4, .15, 11, 7, .06, "wood_floor#c8a070")
 E.append({"id": "shop", "type": "block", "params": {"w": 12, "d": 8, "floors": 1, "floor_h": 3.8, "hollow": True, "material": pl(KH), "plinth_material": "granite#8a8472", "plinth_h": 0, "slab_t": .2, "plinth_out": 0}, "offset": [0, 4, 0]})
-E.append({"id": "roof", "type": "roof", "params": {"type": "gable", "pitch": 28, "overhang": .6, "t": .08, "ridge": "x", "material": "steel#c9ced3", "gable_material": pl(KH)}, "on": "shop:top"})
+E.append({"id": "roof", "type": "roof", "params": {"type": "gable", "pitch": 28, "overhang": .6, "t": .08, "ridge": "x", "material": "lead_roof#ffffff", "gable_material": pl(KH)}, "on": "shop:top"})
 E.append({"id": "door", "type": "door", "params": {"w": 2.2, "h": 2.6, "open": True, "trim": "none", "steps": 0, "canopy": "none", "trim_w": .15, "trim_material": pl(OL)}, "on": "shop:front", "at": ["50%", 0]})
 WINS = [("front", u, 1.0, 1.6) for u in (1.2, 8.3, 10.4)] + [(f, u, 1.0, 1.6) for f in ("left", "right") for u in (2.2, 5.8)] + [("back", u, 1.0, 1.6) for u in (2.5, 9.5)]
 for k, (f, u, v, w) in enumerate(WINS):
