@@ -10,8 +10,9 @@ def B(i, x, y, z, w, d, h, c, rot=0):
     e = {"id": i, "type": "box", "params": {"w": w, "d": d, "h": h, "material": pl(c)}, "offset": [x, y, z]}
     if rot: e["rot"] = rot
     E.append(e)
-def C(i, x, y, z, r, h, c, rt=None, axis="z"):
+def C(i, x, y, z, r, h, c, rt=None, axis="z", sides=None):
     p = {"r": r, "h": h, "material": pl(c), "axis": axis}
+    if sides: p["sides"] = sides
     if rt is not None: p["r_top"] = rt
     E.append({"id": i, "type": "cylinder", "params": p, "offset": [x, y, z]})
 def BM(i, p0, p1, c, w=.05, h=None, rnd=True):
@@ -59,11 +60,11 @@ for k, x in enumerate((-2.7, -2.2, -1.7)):
 M("t2", 4.5, -1.6, .2, 2.4, 1.0, .8, "wood_boards#8a6a4a"); B("t2c", 4.5, -1.6, 1.0, 2.5, 1.1, .06, "#3d4a2a")
 def drone(i, x, y, z, big=1):
     s = big
-    B(i + "b", x, y, z + .02 * s, .5 * s, .5 * s, .14 * s, "#25282b"); C(i + "cam", x, y, z - .02 * s, .07 * s, .07 * s, "#111111")
+    B(i + "b", x, y, z + .02 * s, .5 * s, .5 * s, .14 * s, "#25282b"); C(i + "cam", x, y, z - .02 * s, .07 * s, .07 * s, "#111111", sides=8)
     for k, sg in enumerate((1, -1)): BM(f"{i}sk{k}", [x - .3 * s, y + sg * .18 * s, z + .01], [x + .3 * s, y + sg * .18 * s, z + .01], BLK, .03 * s)
     for k, sg in enumerate((1, -1)): BM(f"{i}ar{k}", [x - .4 * s, y - sg * .4 * s, z + .1 * s], [x + .4 * s, y + sg * .4 * s, z + .1 * s], STL, .06 * s, .04 * s, rnd=False)
     for k, (dx, dy) in enumerate(((-1, -1), (1, 1), (-1, 1), (1, -1))):
-        C(f"{i}m{k}", x + dx * .4 * s, y + dy * .4 * s, z + .1 * s, .05 * s, .1 * s, BLK); C(f"{i}p{k}", x + dx * .4 * s, y + dy * .4 * s, z + .2 * s, .2 * s, .015 * s, "#555a60")
+        C(f"{i}m{k}", x + dx * .4 * s, y + dy * .4 * s, z + .1 * s, .05 * s, .1 * s, BLK, sides=8); C(f"{i}p{k}", x + dx * .4 * s, y + dy * .4 * s, z + .2 * s, .2 * s, .015 * s, "#555a60", sides=8)
 drone("d1", 3.8, -1.6, TT - .01); drone("d2", 5.2, -1.6, TT - .01)
 BM("hang1", [-.2, -1.6, 3.25], [-.2, -1.6, 2.85], BLK, .03); BM("hang2", [.2, -1.6, 3.25], [.2, -1.6, 2.85], BLK, .03)
 drone("dh", 0, -1.6, 2.75)
