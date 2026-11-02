@@ -56,14 +56,29 @@ while y < HY-.01:                                  # real boards: 0.2 m wide row
     y += .2
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
-    if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
     if z1 > .7: box(a, -HY, max(z0, .7), b, -HY+.25, z1, WOODW)
 wall(fw, -HX, HX, [WIN, WIN2, DR], z1=H+.12)
-box(-HX, HY-.25, .2, HX, HY, .7, STONE); box(-HX, HY-.25, .7, HX, HY, H+.12, WOODW)
+box(-HX, HY-.25, .7, HX, HY, H+.12, WOODW)
 for sx in (-1, 1):
     x0, x1 = (sx*HX-.25, sx*HX) if sx > 0 else (sx*HX, sx*HX+.25)
-    box(x0, -HY, .2, x1, HY, .7, STONE); box(x0, -HY, .7, x1, HY, H+.12, WOODW)
+    box(x0, -HY, .7, x1, HY, H+.12, WOODW)
     hullp([(x, y, z) for x in (x0, x1) for (y, z) in ((-HY, H+.12), (HY, H+.12), (0, H+1.55))], WOODW)     # gable end
+# plinth: real coursed ashlar - whole blocks, running bond, every segment fitted to an exact block count
+MT = ["#8b7b66", "#857560", "#918270"]; mr = np.random.default_rng(21)
+def course(n, L, row):                               # block widths summing exactly to L (row 1 shifted by half a block)
+    w = [L/n]*n if row == 0 else [L/(2*n)] + [L/n]*(n-1) + [L/(2*n)]
+    return w
+def plinth(a0, a1, c0, c1, along):                  # along 'x': wall at y in [c0, c1]; 'y': wall at x in [c0, c1]
+    L = a1 - a0; n = max(1, round(L/.7)); out = c0 if along == 'x' else c0
+    inner = (c0+.03, c1) if c0 < 0 and abs(c0) > 1 else (c0, c1-.03)       # recessed mortar backing, outer face at the wall's outside
+    mk = (lambda x0, y0, z0, x1, y1, z1, c: box(x0, y0, z0, x1, y1, z1, c)) if along == 'x' else (lambda x0, y0, z0, x1, y1, z1, c: box(y0, x0, z0, y1, x1, z1, c))
+    mk(a0, inner[0], .2, a1, inner[1], .7, "#8d8373")
+    for row in range(2):
+        z0 = .2 + .25*row + .005; x = a0
+        for wd in course(n, L, row):
+            mk(x+.005, c0, z0, x+wd-.005, c1, z0+.24, MT[mr.integers(3)]); x += wd
+plinth(-HX, DR[0], -HY, -HY+.25, 'x'); plinth(DR[1], HX, -HY, -HY+.25, 'x'); plinth(-HX, HX, HY-.25, HY, 'x')
+plinth(-HY, HY, -HX, -HX+.25, 'y'); plinth(-HY, HY, HX-.25, HX, 'y')
 for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cross, shutters, sill
     box(a0, -HY+.08, z0, a1, -HY+.16, z1, GLASS)
     for (p0, p1, q0, q1) in [(a0-.1, a0, z0-.1, z1+.1), (a1, a1+.1, z0-.1, z1+.1), (a0-.1, a1+.1, z0-.1, z0), (a0-.1, a1+.1, z1, z1+.1)]:
@@ -271,7 +286,9 @@ def tex_stone(base):                                  # coursed ashlar: 8 rows, 
     a *= (1 + fine + big)[..., None]
     a[::1] *= 1.0
     return a.clip(0, 255).astype(np.uint8)
-FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
+def tex_rock(base):                                   # weathered stone face: soft mottling + fine grain, no joints
+    return tint(base, (noise(N, 3) - .5) * .28 + (noise(N, 1) - .5) * .10 + (rng.random((N, N)) - .5) * .08)
+FLAT = {"#2e2016", "#8d8373", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
 SPECIAL = {"#dccaa2": ("plasterin", tex_plaster, 2.0), "#6a4a30": ("wain", tex_boards, 2.0), "#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
