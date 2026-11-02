@@ -58,8 +58,8 @@ box(-7.5, -4.5, .2, -6.5, -4.2, 3.4, WALL); box(6.5, -4.5, .2, 7.5, -4.2, 3.4, W
 box(-6.5, -4.42, .2, -1.2, -4.3, 3.4, "#8fd3f4"); box(1.2, -4.42, .2, 6.5, -4.3, 3.4, "#8fd3f4")   # glass wall with a doorway
 for i in (-3, -2, -1, 1, 2, 3): box(i*1.8-.05, -4.46, .2, i*1.8+.05, -4.28, 3.4, TRIM)
 box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4, TRIM)   # door posts
-box(-7.8, -4.8, 4.4, 7.8, 4.8, 4.7, "#3a3f4b")                            # roof slab
-box(-7.8, -4.8, 4.7, 7.8, -4.6, 5.0, "#3a3f4b")
+hullp([(-7.8, -4.8, 4.4), (7.8, -4.8, 4.4), (-7.8, 4.8, 4.4), (7.8, 4.8, 4.4), (-7.8, 0, 7.0), (7.8, 0, 7.0)], "#a8472f")   # gable roof (ridge along x)
+box(-1.0, -4.8, 4.4, 1.0, -4.5, 4.7, "#a8472f") if False else None
 # sign: plain blue band with white plate
 box(-6.5, -4.9, 4.7, 6.5, -4.6, 6.4, "#1b4f9c"); box(-6.2, -4.95, 5.0, 6.2, -4.62, 6.1, "#f6f6f6")
 # awning over entrance
@@ -84,7 +84,6 @@ scene = tm.util.concatenate(P)
 scene.apply_transform(RM(-np.pi/2, [1, 0, 0]))                              # Z-up -> Y-up
 # ---------------- textures (procedural, tileable) ----------------
 from PIL import Image, ImageDraw, ImageFont
-SIGN_TEXT = "АВТО · ЛОДКИ"
 rng = np.random.default_rng(7)
 def noise(n, k=1):                                   # tileable smooth noise 0..1
     a = rng.random((n, n))
@@ -128,17 +127,48 @@ def tex_wood(base):
 def tex_sign_blue(base):
     y = np.linspace(0, 1, N)[:, None] * np.ones((1, N))
     return tint(base, (0.1 - y * .25) + (noise(N, 2) - .5) * .03)
+def icon_car(d, x, y, sc, c):          # (x, y) = bottom-left, sc ~ height 100*sc
+    u = lambda px, py: (x + px*sc, y - py*sc)
+    d.rounded_rectangle([*u(0, 40), *u(190, 10)], radius=12*sc, fill=c)
+    d.polygon([u(35, 40), u(62, 78), u(130, 78), u(160, 40)], fill=c)
+    d.polygon([u(48, 44), u(68, 72), u(95, 72), u(95, 44)], fill="#f6f6f6"); d.polygon([u(102, 44), u(102, 72), u(125, 72), u(146, 44)], fill="#f6f6f6")
+    for cx in (45, 148):
+        d.ellipse([*u(cx-20, 40), *u(cx+20, 0)], fill=c); d.ellipse([*u(cx-10, 30), *u(cx+10, 10)], fill="#f6f6f6")
+def icon_boat(d, x, y, sc, c):
+    u = lambda px, py: (x + px*sc, y - py*sc)
+    d.polygon([u(0, 40), u(200, 40), u(170, 6), u(30, 6)], fill=c)                       # hull
+    d.polygon([u(60, 40), u(80, 70), u(130, 70), u(145, 40)], fill=c)                    # cabin
+    d.polygon([u(88, 44), u(96, 64), u(120, 64), u(126, 44)], fill="#f6f6f6")
+    d.rectangle([*u(100, 100), *u(104, 70)], fill=c); d.polygon([u(104, 100), u(130, 90), u(104, 80)], fill=c)  # mast + flag
+    d.line([u(10, -4), u(40, 2), u(80, -4), u(120, 2), u(160, -4), u(195, 2)], fill=c, width=int(5*sc))        # waves
+def icon_heli(d, x, y, sc, c):
+    u = lambda px, py: (x + px*sc, y - py*sc)
+    d.ellipse([*u(40, 70), *u(130, 22)], fill=c)                                          # cabin
+    d.polygon([u(120, 56), u(200, 62), u(200, 52), u(125, 38)], fill=c)                   # tail boom
+    d.polygon([u(192, 52), u(206, 84), u(214, 80), u(204, 52)], fill=c)                   # fin
+    d.polygon([u(52, 62), u(80, 62), u(80, 36), u(48, 34)], fill="#f6f6f6")               # window
+    d.rectangle([*u(82, 80), *u(88, 70)], fill=c); d.rectangle([*u(0, 88), *u(190, 82)], fill=c)  # mast + rotor
+    d.line([u(46, 14), u(130, 14)], fill=c, width=int(6*sc)); d.line([u(66, 24), u(64, 14)], fill=c, width=int(5*sc)); d.line([u(112, 24), u(114, 14)], fill=c, width=int(5*sc))
 def tex_plate():
     W, H = 2048, 182
     im = Image.new("RGB", (W, H), "#f6f6f6"); dr = ImageDraw.Draw(im)
     dr.rectangle([0, 0, W-1, H-1], outline="#c9ced6", width=6)
-    try: f = ImageFont.truetype("arialbd.ttf", 128)
-    except Exception: f = ImageFont.load_default()
-    tw = dr.textlength(SIGN_TEXT, font=f)
-    dr.text(((W-tw)/2, 22), SIGN_TEXT, font=f, fill="#1b4f9c")
-    dr.rectangle([(W-tw)/2, 160, (W+tw)/2, 170], fill="#d8262c")
+    c, sc = "#1b4f9c", 1.45                      # icons at both edges, centre left free
+    icon_car(dr, 40, 150, sc, c);   icon_boat(dr, 340, 150, sc, c)
+    icon_heli(dr, 1440, 150, sc, c); icon_car(dr, 1760, 150, sc, c)
     return np.asarray(im)
-SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#4a4f5c": ("roof", tex_roof, 1.5), "#b9a98d": ("floor", tex_floor, 1.0),
+def tex_tiles(base):
+    a = np.zeros((N, N, 3), float); h = np.array([int(base[i:i+2], 16) for i in (1, 3, 5)], float)
+    r, w = 8, N // 8                                           # 8 tile rows, 8 tiles per row, odd rows shifted
+    for row in range(r):
+        for k in range(8):
+            x0 = (k * w + (w // 2 if row % 2 else 0)) % N
+            sh = 1 + (rng.random() - .5) * .22
+            for xx in range(w):
+                a[row*w:(row+1)*w, (x0 + xx) % N] = h * sh * (0.78 + .22 * (np.arange(w)/w)[:, None])
+    a[:, ::w // 1, :] *= .8; a[::w, :, :] *= .7
+    return (a * (1 + (rng.random((N, N, 1)) - .5) * .06)).clip(0, 255).astype(np.uint8)
+SPECIAL = {"#a8472f": ("tiles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#4a4f5c": ("roof", tex_roof, 1.5), "#b9a98d": ("floor", tex_floor, 1.0),
            "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#1b4f9c": ("blue", tex_sign_blue, 2.0),
            "#d8262c": ("fabric", tex_fabric, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#eceae4": ("plaster", tex_plaster, 2.0),
            "#5b4636": ("wood", tex_wood, 1.0), "#8a6a4a": ("wood", tex_wood, 1.0), "#c8b79a": ("wood", tex_wood, 1.0)}
@@ -148,7 +178,10 @@ def uvs(m, scale, plate=False):
     uv = np.zeros((len(v), 2))
     for fi in range(len(f)):
         ax = int(np.argmax(np.abs(n[fi]))); a, b = [(2, 1), (0, 2), (0, 1)][ax]    # Y-up world: choose plane axes
+        slope = n[fi][1] > .3 and abs(n[fi][2]) > .3
         for vi in f[fi]:
+            if slope:
+                uv[vi] = (v[vi][0] / 1.6, (v[vi][1] - 4.4) / 0.476 / 1.6); continue
             if plate:
                 uv[vi] = ((v[vi][0] + 6.2) / 12.4, (v[vi][1] - 5.0) / 1.1) if ax == 2 and n[fi][2] > 0 else (0.01, 0.01)
             else:
