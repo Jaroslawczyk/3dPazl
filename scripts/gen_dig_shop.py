@@ -56,7 +56,7 @@ for sx in (-1, 1):
     box(x0, -HY, .2, x1, HY, .7, STONE); box(x0, -HY, .7, x1, HY, H+.12, WOODW)
     hullp([(x, y, z) for x in (x0, x1) for (y, z) in ((-HY, H+.12), (HY, H+.12), (0, H+1.55))], WOODW)     # gable end
 for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cross, shutters, sill
-    box(a0, -HY+.08, z0, a1, -HY+.16, z1, GLASS)
+    box(a0, -HY+.11, z0, a1, -HY+.13, z1, GLASS)
     for (p0, p1, q0, q1) in [(a0-.1, a0, z0-.1, z1+.1), (a1, a1+.1, z0-.1, z1+.1), (a0-.1, a1+.1, z0-.1, z0), (a0-.1, a1+.1, z1, z1+.1)]:
         box(p0, -HY-.05, q0, p1, -HY+.25, q1, DK)
     mx = (a0+a1)/2; box(mx-.03, -HY-.03, z0, mx+.03, -HY+.2, z1, DK); box(a0, -HY-.03, (z0+z1)/2-.03, a1, -HY+.2, (z0+z1)/2+.03, DK)
@@ -332,7 +332,7 @@ for cc in np.unique(fc, axis=0):
     elif hx in SPECIAL:
         nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
         pb = PROC_PBR[hx](hx) if hx in PROC_PBR else load_pbr(hx)
-        m = shape_mesh(m, nm + hx[1:], np.asarray(pb[0]) if hx in PROC_PBR else fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0, pbr=pb)
+        m = shape_mesh(m, nm + hx[1:], np.asarray(pb[0]) if hx in PROC_PBR else fn(hx), uv, alpha=1.0, pbr=pb)
     else:
         pb = load_pbr(hx); m, uv = uvs(m, 2.0 if PBR.get(hx, ("",))[0] == "wall_plaster" else 1.0)
         m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv, pbr=pb)
