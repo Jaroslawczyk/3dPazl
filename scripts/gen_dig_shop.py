@@ -43,10 +43,17 @@ def strip(p0, p1, w, z, h, c):
 def mound(x, y, r, hh, c):
     pts = [(x+r*np.cos(a), y+r*np.sin(a), 0) for a in np.linspace(0, 6.283, 11)[:-1]] + [(x+.3*r*np.cos(a), y+.3*r*np.sin(a), hh) for a in np.linspace(0, 6.283, 7)[:-1]]
     return hullp(pts, c)
-FLOOR = "#4a3322"
-box(-HX, -HY-1.6, 0, HX, HY, .14, "#2e2016")             # plain dark base: edge shows no plank pattern
-box(-HX, -HY, .14, HX, HY, .2, FLOOR)             # floor + porch: thin plank layer on top only
-box(-HX, -HY-1.6, .14, HX, -HY, .2, FLOOR)
+TONES = ["#4a3322", "#4f3724", "#45301f", "#523a27"]
+fr = np.random.default_rng(11)
+box(-HX+.04, -HY-1.6+.04, 0, HX-.04, HY-.04, .1, "#2e2016")      # dark joist layer (shows in the thin gaps)
+y = -HY-1.6
+while y < HY-.01:                                  # real boards: 0.2 m wide rows, staggered butt joints, flush ends
+    x, row_w = -HX, min(.2, HY-y)
+    while x < HX-.01:
+        L = fr.uniform(1.8, 3.6); x1 = min(HX, x+L) if HX-(x+L) > .8 else HX
+        box(x+.006, y+.006, .1, x1-.006, y+row_w-.006, .2, TONES[fr.integers(4)])
+        x = x1
+    y += .2
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
     if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
@@ -214,8 +221,16 @@ def tex_dirt(base):                                   # packed sand/earth with p
         a[d < r] = a[d < r] * (1 + t) * .9 + 12
         a[(d >= r) & (d < r + 2)] *= .82
     return a.clip(0, 255).astype(np.uint8)
+def tex_grain(base):                                  # long grain streaks along u, fine pores, a few dark growth rings
+    r = np.random.default_rng(abs(hash(base)) % 9999)
+    row = r.random(N); row = (row + np.roll(row, 1) + np.roll(row, -1)) / 3
+    st = np.tile(row[:, None], (1, N)) * .7 + (r.random((N, N)) - .5) * .06
+    sl = noise(N, 3)
+    st += (sl - .5) * .5
+    a = tint(base, (st - .35) * .55).astype(float)
+    return a.clip(0, 255).astype(np.uint8)
 FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
-SPECIAL = {"#4a3322": ("floorw", tex_floorboards, 1.5), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
+SPECIAL = {"#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
