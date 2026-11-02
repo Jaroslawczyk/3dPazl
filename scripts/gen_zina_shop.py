@@ -47,10 +47,6 @@ box(DOOR[0]-.14, -HY-.1, 2.2, DOOR[1]+.14, -HY, 2.3, PALE)                      
 # porch: two steps + small lamp
 box(-2.2, -HY-.6, 0, -.4, -HY, .1, WOOD); box(-2.1, -HY-.35, .1, -.5, -HY, .2, PALE)
 box(-.55, -HY-.18, 2.35, -.35, -HY, 2.55, "#ffd23f")
-# sign board over the front: 7 x 0.65 m
-box(-3.5, -HY-.08, 2.5, 3.5, -HY, 3.15, "#f6f6f6")
-for sx in (-3.5, 3.5): box(sx-.05, -HY-.1, 2.45, sx+.05, -HY, 3.2, TEAL)
-box(-3.55, -HY-.1, 2.45, 3.55, -HY, 2.5, TEAL); box(-3.55, -HY-.1, 3.15, 3.55, -HY, 3.2, TEAL)
 # striped awning over the big window
 for k in range(6):
     x0 = .1 + k*.55; cc = RED if k % 2 == 0 else WHITE
