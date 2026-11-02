@@ -53,7 +53,7 @@ BM("rail", [-3.0, .0, 1.1], [-1.4, .0, 1.1], DKG, .05)
 for k, x in enumerate((-2.7, -2.2, -1.7)):
     C(f"dd{k}d", x, -.55, .29, .2, .04, "#222426"); C(f"dd{k}c", x, -.55, .33, .06, .08, STL)
     BM(f"dd{k}r", [x, -.55, .35], [x, -.12, 1.55], STL, .04)
-    B(f"dd{k}h", x, -.12, 1.45, .1, .3, .08, BLK); BM(f"dd{k}g", [x, -.12, 1.5], [x, -.12, 1.15], RED, .05)
+    B(f"dd{k}h", x, -.12, 1.45, .1, .3, .08, BLK)
 # ---- cutters pegboard (right) and drones table
 M("t2", 4.5, -1.6, .2, 2.4, 1.0, .8, "wood_boards#8a6a4a"); B("t2c", 4.5, -1.6, 1.0, 2.5, 1.1, .06, "#3d4a2a")
 def drone(i, x, y, z, big=1):
