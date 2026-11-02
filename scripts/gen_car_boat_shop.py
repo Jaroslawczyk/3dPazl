@@ -201,9 +201,9 @@ def uvs(m, scale, plate=False):
                 uv[vi] = (v[vi][a] / scale, v[vi][b] / scale)
     return m, uv
 TEXDIR = pathlib.Path("textures/car_boat_shop")           # Cursor-made set: <n>.png, <n>_normal.png, <n>_orm.png
-PBR = {"#8fd3f4": ("glass", "#7fe8ff"), "#a8472f": ("roof_tiles", "#2f80ff"), "#b9a98d": ("floor_tiles", "#ffe3a8"),
+PBR = {"#8fd3f4": ("glass", "#7fe8ff"), "#a8472f": ("roof_shingles", None), "#b9a98d": ("floor_planks", None),
        "#2b2f3a": ("metal_dark", "#ff6b2c"), "#3a3f4b": ("metal_dark", "#ff6b2c"), "#1b4f9c": ("sign_blue", "#ff4f9a"),
-       "#eceae4": ("wall_plaster", "#ffcf3f"), "#1fb8a8": ("wall_plaster", "#1fb8a8"), "#ff7a1a": ("wall_plaster", "#ff7a1a"),
+       "#eceae4": ("wall_brick", None), "#1fb8a8": ("wall_plaster", "#1fb8a8"), "#ff7a1a": ("wall_plaster", "#ff7a1a"),
        "#5b4636": ("wood", "#c97b3a"), "#8a6a4a": ("wood", "#e0a050"), "#c8b79a": ("wood", "#f0c070"), "#e8743b": ("wood", "#e8743b")}
 for _h in ["#ff3b3b", "#ffd23f", "#2ecc71", "#3498db", "#ff8a1f", "#a855f7"]: PBR[_h] = ("awning_fabric", _h)
 def tint_img(img, hx):                                   # recolour a texture: keep its light/dark detail, replace the hue
@@ -214,7 +214,7 @@ def load_pbr(hx):
     n, tc = PBR.get(hx, (None, None))
     if not n or not (TEXDIR / f"{n}.png").exists(): return None
     g = lambda suf: Image.open(TEXDIR / f"{n}{suf}.png").convert("RGB")
-    return tint_img(g(""), tc), (g("_normal") if (TEXDIR / f"{n}_normal.png").exists() else None), (g("_orm") if (TEXDIR / f"{n}_orm.png").exists() else None)
+    return (tint_img(g(""), tc) if tc else g("")), (g("_normal") if (TEXDIR / f"{n}_normal.png").exists() else None), (g("_orm") if (TEXDIR / f"{n}_orm.png").exists() else None)
 def shape_mesh(m, name, img, uv, alpha=1.0, pbr=None):
     mat = tm.visual.material.PBRMaterial(baseColorTexture=Image.fromarray(img), baseColorFactor=[255, 255, 255, int(alpha * 255)],
                                           metallicFactor=0.0, roughnessFactor=0.85)
