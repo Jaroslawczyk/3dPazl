@@ -161,28 +161,34 @@ def tex_brick(base):                                  # running-bond bricks with
     a = tint(base, (rng.random((N, N)) - .5) * .12 + (noise(N, 2) - .5) * .1).astype(float)
     m = (y % bh < 3) | (xs < 3); a[m] = [200, 190, 175]
     return a.clip(0, 255).astype(np.uint8)
-def pbr_boards(base):                                  # realistic painted planks: colour + normal + ORM (1024 px, tileable)
-    n = 1024; nb = 8; w = n // nb
-    y, x = np.mgrid[0:n, 0:n]; bi = x // w; u = (x % w) / w
-    tone = (rng.random(nb) - .5) * .14
-    st = np.tile(rng.random((1, n)), (n, 1)); st = (st + np.roll(st, 1, 1) + np.roll(st, -1, 1)) / 3     # vertical grain streaks
+def pbr_boards(base):                                  # horizontal cut boards with staggered butt joints: colour + normal + ORM (1024 px, tileable)
+    n = 1024; nr = 8; hr = n // nr
+    y, x = np.mgrid[0:n, 0:n]; ri = y // hr; v = (y % hr) / hr
+    d = np.zeros((n, n)); tone = np.zeros((n, n))
+    for r in range(nr):
+        cuts = (rng.integers(0, n) + np.array([0, rng.integers(380, 640)])) % n    # 2 long boards per row, uneven
+        xs = np.arange(n)[:, None]; rel = (xs - cuts[None, :]) % n
+        k = rel.argmin(1); nxt = (cuts[None, :] - xs) % n; dd = np.minimum(rel.min(1), nxt.min(1))
+        tv = (rng.random(len(cuts)) - .5) * .16
+        d[r*hr:(r+1)*hr, :] = dd[None, :]; tone[r*hr:(r+1)*hr, :] = tv[k][None, :]
+    st = np.tile(rng.random((n, 1)), (1, n)); st = (st + np.roll(st, 1, 0) + np.roll(st, -1, 0)) / 3     # horizontal grain streaks
     st = st * .6 + noise(n, 3) * .4
-    h = np.clip(np.minimum(u, 1 - u) / .07, 0, 1) ** .6 * .7 + st * .25
+    e = np.minimum(np.minimum(v, 1 - v) * hr, d)                                                          # px to nearest board edge
+    h = np.clip(e / 9, 0, 1) ** .6 * .7 + st * .25
     dark = np.zeros((n, n))
     for _ in range(9):                                                                                       # knots
         cx, cy, r = rng.integers(0, n), rng.integers(0, n), rng.integers(14, 30)
-        d = np.hypot((x - cx + n/2) % n - n/2, ((y - cy + n/2) % n - n/2) * .7)
-        h += np.exp(-(d / r) ** 2) * .25 * np.sin(d / 2.5); dark += np.exp(-(d / (r * .6)) ** 2) * .35
-    a = tint(base, tone[bi] + (st - .5) * .22 + (noise(n, 2) - .5) * .12 - dark).astype(float)
-    a *= (.35 + .65 * np.clip(np.minimum(u, 1 - u) / .05, 0, 1))[..., None]                                 # dark gaps
+        dk = np.hypot((x - cx + n/2) % n - n/2, ((y - cy + n/2) % n - n/2)) 
+        h += np.exp(-(dk / r) ** 2) * .25 * np.sin(dk / 2.5); dark += np.exp(-(dk / (r * .6)) ** 2) * .35
+    a = tint(base, tone + (st - .5) * .22 + (noise(n, 2) - .5) * .12 - dark).astype(float)
+    a *= (.55 + .45 * np.clip(e / 4, 0, 1))[..., None]                                                      # dark gaps
     wear = (noise(n, 4) > .72) * (noise(n, 1) * .5)                                                         # paint wear -> bare wood
     a = a * (1 - wear[..., None]) + wear[..., None] * np.array([170, 130, 85.])
-    s_ = 7.0; hh = h * 1.0
-    nx = -(np.roll(hh, -1, 1) - np.roll(hh, 1, 1)) * s_; ny = (np.roll(hh, -1, 0) - np.roll(hh, 1, 0)) * s_
+    s_ = 7.0
+    nx = -(np.roll(h, -1, 1) - np.roll(h, 1, 1)) * s_; ny = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * s_
     nz = np.ones_like(nx); l = np.sqrt(nx**2 + ny**2 + nz**2)
     nrm = np.stack([nx / l, ny / l, nz / l], -1) * .5 + .5
     orm = np.stack([.55 + .45 * np.clip(h, 0, 1), np.clip(.78 + wear * .2 - st * .1, 0, 1), np.zeros((n, n))], -1)
-    im = lambda arr: Image.fromarray((np.clip(arr, 0, 255 if arr.max() > 1.5 else 1) * (1 if arr.max() > 1.5 else 255)).astype(np.uint8))
     return Image.fromarray(a.clip(0, 255).astype(np.uint8)), Image.fromarray((nrm * 255).astype(np.uint8)), Image.fromarray((orm * 255).astype(np.uint8))
 PROC_PBR = {"#f0cf8a": pbr_boards}
 SPECIAL = {"#b5532f": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#9c4a38": ("brick", tex_brick, 1.5),
