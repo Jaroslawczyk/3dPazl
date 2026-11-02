@@ -61,7 +61,7 @@ box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4,
 box(-7.8, -4.8, 4.4, 7.8, 4.8, 4.7, "#3a3f4b")                            # roof slab
 box(-7.8, -4.8, 4.7, 7.8, -4.6, 5.0, "#3a3f4b")
 # sign: plain blue band with white plate
-box(-6.5, -4.9, 4.7, 6.5, -4.6, 6.4, "#1b4f9c"); box(-6.2, -4.95, 5.0, 6.2, -4.62, 6.1, "#f5f5f5")
+box(-6.5, -4.9, 4.7, 6.5, -4.6, 6.4, "#1b4f9c"); box(-6.2, -4.95, 5.0, 6.2, -4.62, 6.1, "#f6f6f6")
 # awning over entrance
 for k in range(6): box(-2.4+k*.8, -6.0, 3.2, -1.6+k*.8, -4.3, 3.35, "#d8262c" if k % 2 == 0 else "#f5f5f5")
 # interior: counter, lounge
@@ -82,14 +82,97 @@ for m in reversed(P):
 P[:] = solid
 scene = tm.util.concatenate(P)
 scene.apply_transform(RM(-np.pi/2, [1, 0, 0]))                              # Z-up -> Y-up
+# ---------------- textures (procedural, tileable) ----------------
+from PIL import Image, ImageDraw, ImageFont
+SIGN_TEXT = "АВТО · ЛОДКИ"
+rng = np.random.default_rng(7)
+def noise(n, k=1):                                   # tileable smooth noise 0..1
+    a = rng.random((n, n))
+    for _ in range(k):
+        a = (a + np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1)) / 5
+    a -= a.min(); return a / a.max()
+def tint(base, n):                                   # base hex * (1 + noise)
+    h = base.lstrip('#'); c = np.array([int(h[i:i+2], 16) for i in (0, 2, 4)], float)
+    return np.clip(c[None, None, :] * (1 + n[..., None]), 0, 255).astype(np.uint8)
+N = 512
+def tex_plaster(base):
+    n = (noise(N, 3) - .5) * .10 + (noise(N, 1) - .5) * .04
+    a = tint(base, n).astype(float)
+    a[::128, :, :] *= .93                              # faint panel seams every 128 px
+    a[:, ::128, :] *= .93
+    return a.clip(0, 255).astype(np.uint8)
+def tex_glass(base):
+    y, x = np.mgrid[0:N, 0:N] / N
+    d = (x + y) % 1.0
+    streak = np.exp(-((d - .3) / .05) ** 2) * .5 + np.exp(-((d - .62) / .025) ** 2) * .3
+    g = np.stack([np.full((N, N), v) for v in (120, 185, 225)], -1) * (0.85 + .15 * (1 - y)[..., None])
+    return np.clip(g + streak[..., None] * 120, 0, 255).astype(np.uint8)
+def tex_roof(base):
+    n = (noise(N, 1) - .5) * .5 + (rng.random((N, N)) - .5) * .25
+    return tint(base, n)
+def tex_floor(base):
+    a = tint(base, (noise(N, 2) - .5) * .12).astype(float)
+    a[:6, :, :] *= .65; a[:, :6, :] *= .65                    # grout, 1 tile per texture
+    return a.clip(0, 255).astype(np.uint8)
+def tex_metal(base):
+    n = (rng.random((N, N)) - .5) * .06 + (noise(N, 2) - .5) * .12
+    return tint(base, np.tile(n[:, :1], (1, N)) * .6 + n * .4)
+def tex_fabric(base):
+    y, x = np.mgrid[0:N, 0:N]
+    w = ((x // 4 + y // 4) % 2) * .06 + (rng.random((N, N)) - .5) * .05
+    return tint(base, w - .03)
+def tex_wood(base):
+    y, x = np.mgrid[0:N, 0:N] / N
+    g = np.sin((x * 14 + noise(N, 3) * 3) * 2 * np.pi) * .05 + (rng.random((N, N)) - .5) * .04
+    return tint(base, g)
+def tex_sign_blue(base):
+    y = np.linspace(0, 1, N)[:, None] * np.ones((1, N))
+    return tint(base, (0.1 - y * .25) + (noise(N, 2) - .5) * .03)
+def tex_plate():
+    W, H = 2048, 182
+    im = Image.new("RGB", (W, H), "#f6f6f6"); dr = ImageDraw.Draw(im)
+    dr.rectangle([0, 0, W-1, H-1], outline="#c9ced6", width=6)
+    try: f = ImageFont.truetype("arialbd.ttf", 128)
+    except Exception: f = ImageFont.load_default()
+    tw = dr.textlength(SIGN_TEXT, font=f)
+    dr.text(((W-tw)/2, 22), SIGN_TEXT, font=f, fill="#1b4f9c")
+    dr.rectangle([(W-tw)/2, 160, (W+tw)/2, 170], fill="#d8262c")
+    return np.asarray(im)
+SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#4a4f5c": ("roof", tex_roof, 1.5), "#b9a98d": ("floor", tex_floor, 1.0),
+           "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#1b4f9c": ("blue", tex_sign_blue, 2.0),
+           "#d8262c": ("fabric", tex_fabric, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#eceae4": ("plaster", tex_plaster, 2.0),
+           "#5b4636": ("wood", tex_wood, 1.0), "#8a6a4a": ("wood", tex_wood, 1.0), "#c8b79a": ("wood", tex_wood, 1.0)}
+def uvs(m, scale, plate=False):
+    m = m.copy(); m.unmerge_vertices()
+    f, n, v = m.faces, m.face_normals, m.vertices
+    uv = np.zeros((len(v), 2))
+    for fi in range(len(f)):
+        ax = int(np.argmax(np.abs(n[fi]))); a, b = [(2, 1), (0, 2), (0, 1)][ax]    # Y-up world: choose plane axes
+        for vi in f[fi]:
+            if plate:
+                uv[vi] = ((v[vi][0] + 6.2) / 12.4, (v[vi][1] - 5.0) / 1.1) if ax == 2 and n[fi][2] > 0 else (0.01, 0.01)
+            else:
+                uv[vi] = (v[vi][a] / scale, v[vi][b] / scale)
+    return m, uv
+def shape_mesh(m, name, img, uv, alpha=1.0):
+    mat = tm.visual.material.PBRMaterial(baseColorTexture=Image.fromarray(img), baseColorFactor=[255, 255, 255, int(alpha * 255)],
+                                          metallicFactor=0.0, roughnessFactor=0.85)
+    if alpha < 1: mat.alphaMode = "BLEND"
+    m.visual = tm.visual.TextureVisuals(uv=uv, material=mat); m.metadata["name"] = name; return m
 fc = scene.visual.face_colors[:, :3]
 sc = tm.Scene()
-for cc in np.unique(fc, axis=0):                                            # one material per colour (Roblox/GLB friendly)
+for cc in np.unique(fc, axis=0):
+    hx = "#%02x%02x%02x" % tuple(cc)
     sel = np.where((fc == cc).all(1))[0]
     m = scene.submesh([sel], append=True)
-    lin = ((cc / 255.0) ** 2.2).tolist() + [1.0]                             # glTF factors are linear
-    m.visual = tm.visual.TextureVisuals(material=tm.visual.material.PBRMaterial(baseColorFactor=lin, metallicFactor=0.0, roughnessFactor=0.9))
-    sc.add_geometry(m, geom_name="mat_%02x%02x%02x" % tuple(cc))
+    if hx == "#f6f6f6":
+        m, uv = uvs(m, 1, plate=True); m = shape_mesh(m, "sign", tex_plate(), uv)
+    elif hx in SPECIAL:
+        nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
+        m = shape_mesh(m, nm + hx[1:], fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0)
+    else:
+        m, uv = uvs(m, 1.0); m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv)
+    sc.add_geometry(m, geom_name=m.metadata["name"])
 out = pathlib.Path("projects/car_boat_shop/export"); out.mkdir(parents=True, exist_ok=True)
 sc.export(out/"car_boat_shop.glb"); sc.export(out/"car_boat_shop.obj")
-print(len(scene.faces), "tris", scene.bounds.round(1).tolist())
+print(len(scene.faces), "tris", len(sc.geometry), "materials")
