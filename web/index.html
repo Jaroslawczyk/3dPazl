@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3dPazl — конструктор зданий</title>
 <link rel="stylesheet" href="style.css">
+<script>  /* theme before first paint (no flash) */
+  try { document.documentElement.dataset.theme = localStorage.getItem('pazl.theme') || 'graphite'; } catch (e) {}
+</script>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
 </script>
@@ -55,8 +58,14 @@
     </select>
     <select id="selExport" title="Экспорт цельной модели">
       <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
-      <option value="obj">OBJ</option><option value="stl">STL (цельный меш)</option><option value="lod">GLB LOD (меньше треугольников)</option>
+      <option value="gltf">glTF (JSON + буферы)</option><option value="obj">OBJ (почти везде, Roblox Studio)</option>
+      <option value="stl">STL (цельный меш)</option><option value="ply">PLY (с цветами)</option><option value="off">OFF (простой меш)</option>
+      <option value="3mf">3MF (3D-печать)</option><option value="dae">DAE / Collada (SketchUp, старые движки)</option>
+      <option value="lod">GLB LOD (меньше треугольников)</option><option value="open">📂 Открыть папку экспорта</option>
     </select>
+    <label title="Экспортировать только выбранный элемент (и всё, что к нему прикреплено)"><input type="checkbox" id="chkExpSel"> Только выбранное</label>
+    <select id="selAutosave" title="Каждое изменение сразу сохраняется; здесь — снимки проекта, к которым можно вернуться."><option value="">🕘 Автосохранения…</option></select>
+    <button id="btnSettings" title="Настройки">⚙</button>
   </div>
 </header>
 
@@ -162,6 +171,18 @@
 </footer>
 
 <div id="lightbox" hidden><img alt=""></div>
+<div id="settings" class="modal" hidden><div class="about-card">
+  <h2>Настройки</h2>
+  <label class="row">Язык <select id="setLang"></select></label>
+  <label class="row">Тема <select id="setTheme">
+    <optgroup label="Тёмные"><option value="graphite">Графит</option><option value="midnight">Полночь</option><option value="forest">Лес</option>
+      <option value="aubergine">Баклажан</option><option value="amber">Уголь и янтарь</option></optgroup>
+    <optgroup label="Светлые"><option value="paper">Бумага</option><option value="sky">Небо</option><option value="mint">Мята</option>
+      <option value="sand">Песок</option><option value="rose">Роза</option></optgroup>
+  </select></label>
+  <p class="hint">Язык и тема сохраняются на этом компьютере.</p>
+  <button id="settingsClose">Закрыть</button>
+</div></div>
 <div id="about" hidden><div class="about-card">
   <h2>3d<b>Pazl</b> <span id="aboutVer"></span></h2>
   <p>Конструктор цельных 3D-зданий.</p>

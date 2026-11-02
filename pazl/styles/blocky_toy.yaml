@@ -1,0 +1,43 @@
+id: blocky_toy
+name: Blocky toy (Roblox-like)
+name_ru: Блочный игровой (в духе Roblox)
+era: game
+region: games
+detail: lowpoly
+materials: {wall: plastic_grey, plinth: plastic_black, roof: plastic_red, trim: plastic_white, frame: plastic_white, glass: glass, door: plastic_blue, stairs: plastic_grey}
+defaults:
+  roof: {type: flat, parapet_h: 0.4, overhang: 0.25}
+  windows: {trim: none, mullions: [0, 0], sill_ledge: false, frame_w: 0.14}
+  door: {trim: none}
+  game_house: {roof: flat, studs: true}
+  house: {roof: flat, chimney: false, trim: none}
+macros: [game_house, house, castle_keep, glass_tower]
+tips: Blocky toy-brick games look - chunky volumes, bright plastic colours, flat roofs with studs, big square windows,
+  no trims. Export OBJ or glTF for game studios. Sub-styles - classic (studs, primary colours), modern (smooth houses),
+  neon (obby / night), city (towers).
+years: [2006, 2100]
+regions: [games]
+palette: {wall: ['#a3a2a5', '#f2f3f3', '#f5cd30', '#0d69ac'], trim: ['#f2f3f3'], roof: ['#c4281c', '#287f47', '#0d69ac']}
+variants:
+  classic:
+    name: Classic studs
+    name_ru: Классический (шипы, яркие цвета)
+    materials: {wall: plastic_yellow, roof: plastic_red, trim: plastic_white, frame: plastic_white, door: plastic_blue}
+    palette: {wall: ['#f5cd30', '#c4281c', '#0d69ac', '#287f47'], roof: ['#c4281c', '#0d69ac'], trim: ['#f2f3f3']}
+  modern:
+    name: Modern smooth
+    name_ru: Современный (гладкий)
+    materials: {wall: plastic_white, roof: plastic_grey, trim: plastic_black, frame: plastic_black, glass: glass_dark}
+    defaults: {roof: {type: gable, pitch: 30}, game_house: {roof: gable, studs: false}, house: {roof: gable}}
+    palette: {wall: ['#f2f3f3', '#e8e2d6', '#9fb8c8'], roof: ['#a3a2a5', '#1b2a35'], trim: ['#1b2a35']}
+  neon:
+    name: Neon obby
+    name_ru: Неоновый (обби, ночь)
+    materials: {wall: plastic_black, roof: plastic_black, trim: neon_cyan, frame: neon_pink, door: neon_green, plinth: neon_pink}
+    palette: {wall: ['#1b2a35', '#2a1b35'], trim: ['#14e6ff', '#ff2daa', '#50ff5a'], roof: ['#1b2a35']}
+  city:
+    name: City blocks
+    name_ru: Город (башни и кварталы)
+    materials: {wall: plastic_grey, roof: plastic_black, trim: plastic_white, glass: glass_dark}
+    defaults: {game_house: {floors: 5, studs: false}}
+    macros: [glass_tower, game_house, panel_building]

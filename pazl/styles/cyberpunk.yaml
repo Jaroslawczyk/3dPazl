@@ -1,0 +1,28 @@
+id: cyberpunk
+name: Cyberpunk
+name_ru: Киберпанк
+era: game
+region: games
+materials: {wall: concrete_raw, plinth: metal_dark, roof: metal_dark, trim: neon_pink, frame: aluminium, glass: glass_dark, door: metal_dark}
+defaults:
+  roof: {type: flat, parapet_h: 1.0}
+  windows: {trim: none, frame_material: aluminium, kind: ribbon}
+macros: [glass_tower, panel_building, art_deco_tower, factory, game_house]
+tips: Neon-lit megacity - dark concrete and metal, neon trims, dark glass, flat roofs. Sub-styles - neon (night street),
+  corporate (glass towers), slums (rust and corrugated metal, random boarded windows).
+years: [2050, 2200]
+regions: [games]
+palette: {wall: ['#2f3b45', '#3a3c40', '#1b2a35'], trim: ['#ff2daa', '#14e6ff'], roof: ['#1b1d22']}
+variants:
+  neon: {name: Neon street, name_ru: Неоновая улица, materials: {trim: neon_cyan, frame: neon_pink}}
+  corporate:
+    name: Corporate towers
+    name_ru: Корпоративные башни
+    materials: {wall: glass_dark, trim: aluminium, frame: aluminium}
+    macros: [glass_tower, art_deco_tower]
+  slums:
+    name: Slums
+    name_ru: Трущобы
+    materials: {wall: corrugated_metal, plinth: concrete_raw, roof: metal_rust, trim: neon_green}
+    defaults: {windows: {fill: random, fill_other: boarded, fill_share: 0.6, kind: rect}}
+    macros: [panel_building, factory, game_house]

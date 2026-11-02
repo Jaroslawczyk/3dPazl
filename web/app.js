@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { LANG, LANGS, initI18n, setLang } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -34,8 +35,9 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.autoUpdate = false; // shadows are static: re-rendered only when the model/light changes
 vp.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9fb4c8);
-scene.fog = new THREE.Fog(0x9fb4c8, 300, 1200);
+const cssVar = (n, d) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d;
+scene.background = new THREE.Color(cssVar('--sky', '#9fb4c8'));
+scene.fog = new THREE.Fog(scene.background.getHex(), 300, 1200);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
 camera.position.set(30, 22, 30);
 const orbit = new OrbitControls(camera, renderer.domElement);
@@ -47,7 +49,7 @@ sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; // no shadow acne (striped flicker on walls)
 Object.assign(sun.shadow.camera, { left: -120, right: 120, top: 120, bottom: -120, far: 500 });
 scene.add(sun); scene.add(sun.target);
-const ground = new THREE.Mesh(new THREE.CircleGeometry(800, 64), new THREE.MeshStandardMaterial({ color: 0x77806f, roughness: 1 }));
+const ground = new THREE.Mesh(new THREE.CircleGeometry(800, 64), new THREE.MeshStandardMaterial({ color: cssVar('--ground', '#77806f'), roughness: 1 }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
 scene.add(ground);
 const grid = new THREE.GridHelper(400, 400, 0x5c6455, 0x6a7362);
@@ -633,18 +635,18 @@ function renderLib() {
     (groups[c.category] ||= []).push(c);
   });
   $('#lib').innerHTML = Object.keys(CAT_RU).filter((k) => groups[k]).map((k) => `<div class="cat">${CAT_RU[k]}</div>`
-    + groups[k].map((c) => `<div class="lib-item" data-t="${c.type}"><b>${esc(c.title_ru || c.type)}</b> <span class="t">${c.type}</span><small>${esc(c.desc.slice(0, 110))}</small></div>`).join('')).join('');
+    + groups[k].map((c) => `<div class="lib-item" data-t="${c.type}"><b>${esc(ttl(c))}</b> <span class="t">${c.type}</span><small>${esc(c.desc.slice(0, 110))}</small></div>`).join('')).join('');
   $$('#lib .lib-item').forEach((d) => d.onclick = () => showAdd(d.dataset.t));
 }
 function renderStyles(selects = true) {
   if (selects) {
-    const opts = S.styles.map((s) => `<option value="${s.id}">${esc(s.name_ru || s.name)}</option>`).join('');
+    const opts = styleOptions();
     $('#selStyle').innerHTML = opts;
     $('#selStyle2').innerHTML = '<option value="">—</option>' + opts;
   }
   const yrs = (s) => s.years ? `${s.years[0] < 0 ? -s.years[0] + ' до н.э.' : s.years[0]}–${s.years[1] > 2025 ? 'н.в.' : s.years[1]}` : '';
   $('#styles').innerHTML = (S.periodSel.size || $('#regionSel').value ? '<div class="hint">Фильтр: эпоха / территория (вкладка «Библиотека»)</div>' : '')
-    + stylesFiltered().map((s) => `<div class="style-card"><h4>${esc(s.name_ru || s.name)}</h4><small>${esc(yrs(s))} · ${esc(s.region || '')}</small>`
+    + stylesFiltered().map((s) => `<div class="style-card"><h4>${esc(nm(s))}</h4><small>${esc(yrs(s))} · ${esc(s.region || '')}</small>`
     + `<div class="hint">${esc(s.tips || '')}</div><div class="row">${(s.macros || []).map((m) => `<button data-m="${m}" data-s="${s.id}">+ ${m}</button>`).join('')}`
     + `<button data-apply="${s.id}">Применить стиль</button><button data-mixin="${s.id}" title="Добавить к текущему стилю как второй">+ к миксу</button></div></div>`).join('');
   $$('#styles [data-mixin]').forEach((b) => b.onclick = () => {
@@ -714,11 +716,16 @@ $('#btnValidate').onclick = () => api('validate', {}).then(showCheck);
 $('#btnRender').onclick = async () => { $('#busy').hidden = false; try { await api('render', {}); } finally { $('#busy').hidden = true; } };
 $('#selExport').onchange = async (e) => {
   const v = e.target.value; e.target.value = ''; if (!v) return;
+  if (v === 'open') return api('export/open', {}).catch((er) => feedLine({ type: 'error', agent: 'ui', note: er.message }));
   let body = { format: v };
-  if (v === 'lod') { const n = Number(prompt('Целевое число треугольников:', '20000')); if (!n) return; body = { format: 'glb', lod_tris: n }; }
+  if ($('#chkExpSel').checked) {
+    if (!S.selected) return alert('Сначала выберите элемент в сцене или в дереве.');
+    body.only = [S.selected];
+  }
+  if (v === 'lod') { const n = Number(prompt('Целевое число треугольников:', '20000')); if (!n) return; body = { ...body, format: 'glb', lod_tris: n }; }
   let r = await api('export', body).catch((er) => ({ error: er.message }));
   if (r.error && confirm('Есть проблемы:\n' + JSON.stringify(r.problems || r.error).slice(0, 600) + '\n\nЭкспортировать всё равно?')) r = await api('export', { ...body, force: true });
-  if (r.path) feedLine({ type: 'exported', agent: 'ui', note: r.path });
+  if (r.path) feedLine({ type: 'exported', agent: 'ui', note: 'Сохранено: ' + r.path + ` (${r.triangles} △)` });
 };
 $('#chkWelded').onchange = () => reloadModel();
 $('#chkWire').onchange = () => reloadModel();
@@ -824,7 +831,7 @@ function renderFace() {
     ${f.a.kind === 'face' ? `<label class="row">Окна <select id="faceWin"><option value="">—</option><option value="none">убрать окна</option>
       <option value="all">все окна</option><option value="random">случайно (часть заложена)</option><option value="symmetric">случайно, симметрично</option>
       <option value="checker">шахматка</option><option value="alternate">через одно</option><option value="formula">по формуле…</option></select></label>` : ''}
-    <div class="row"><select id="faceAddType">${faceTypes.map((c) => `<option value="${c.type}">${esc(c.title_ru || c.type)}</option>`).join('')}</select>
+    <div class="row"><select id="faceAddType">${faceTypes.map((c) => `<option value="${c.type}">${esc(ttl(c))}</option>`).join('')}</select>
       <button id="faceAdd" title="Добавить на эту грань в место клика">+ сюда</button></div>
     <div class="row"><button id="faceAsk" class="act" title="Пометка на этой грани: ИИ поменяет только её">💬 ИИ: изменить эту грань</button>
       <button id="faceClose" title="Снять выделение грани">✕</button></div>`;
@@ -1081,6 +1088,43 @@ $('#brand').onclick = showAbout;
 $('#aboutClose').onclick = () => { $('#about').hidden = true; };
 $('#about').onclick = (e) => { if (e.target.id === 'about') $('#about').hidden = true; };
 
+// ---------------------------------------------------------------- language, theme, names
+function nm(s) { return LANG === 'ru' ? (s.name_ru || s.name || s.id) : (s.name || s.name_ru || s.id); }
+function ttl(c) { return LANG === 'ru' ? (c.title_ru || c.type) : c.type.replace(/_/g, ' '); }
+function styleOptions() {  // sub-styles (variants) grouped under their parent style
+  const kids = {};
+  S.styles.filter((s) => s.parent).forEach((s) => (kids[s.parent] = kids[s.parent] || []).push(s));
+  return S.styles.filter((s) => !s.parent).map((s) => kids[s.id]
+    ? `<optgroup label="${esc(nm(s))}"><option value="${s.id}">${esc(nm(s))}</option>${kids[s.id].map((k) => `<option value="${k.id}">↳ ${esc(nm(k))}</option>`).join('')}</optgroup>`
+    : `<option value="${s.id}">${esc(nm(s))}</option>`).join('');
+}
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('pazl.theme', t); } catch { /* not saved */ }
+  scene.background.set(cssVar('--sky', '#9fb4c8')); scene.fog.color.copy(scene.background);
+  ground.material.color.set(cssVar('--ground', '#77806f'));
+  invalidate();
+}
+$('#setLang').innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === LANG ? 'selected' : ''}>${v}</option>`).join('');
+$('#setLang').onchange = (e) => setLang(e.target.value);
+$('#setTheme').value = document.documentElement.dataset.theme || 'graphite';
+$('#setTheme').onchange = (e) => applyTheme(e.target.value);
+$('#btnSettings').onclick = () => { $('#settings').hidden = false; };
+$('#settingsClose').onclick = () => { $('#settings').hidden = true; };
+$('#settings').onclick = (e) => { if (e.target.id === 'settings') $('#settings').hidden = true; };
+
+// ---------------------------------------------------------------- autosaves
+$('#selAutosave').onfocus = $('#selAutosave').onmousedown = async () => {
+  const list = await api('autosaves').catch(() => []);
+  $('#selAutosave').innerHTML = '<option value="">🕘 Автосохранения…</option>' + (list.length
+    ? list.map((a) => `<option value="${esc(a.file)}">${esc(a.time)} · v${a.version} · ${a.elements} эл.</option>`).join('')
+    : '<option value="" disabled>нет автосохранений</option>');
+};
+$('#selAutosave').onchange = async (e) => {
+  const f = e.target.value; e.target.value = '';
+  if (f && confirm('Вернуть проект к этому автосохранению?')) await api('autosaves/restore', { file: f }).then(() => refreshAll(true));
+};
+
 function showTab(where, tab) {
   $$(`.tabs[data-for="${where}"] button`).forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   const parent = where === 'left' ? $('#left') : $('#bottom');
@@ -1154,3 +1198,4 @@ function connect() {
   await refreshAll(true);
   connect();
 })();
+initI18n();

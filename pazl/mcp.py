@@ -192,9 +192,11 @@ def note(text: str) -> str:
 
 
 @tool
-def export(format: str = "glb", lod_tris: int | None = None, force: bool = False) -> str:
-    """Export the welded, watertight model (glb/gltf/obj/stl). lod_tris = decimate to N triangles (LOD)."""
-    return _j(_call("POST", "/api/export", {"format": format, "lod_tris": lod_tris, "force": force}))
+def export(format: str = "glb", lod_tris: int | None = None, force: bool = False, only: list | None = None) -> str:
+    """Export the welded, watertight model: glb, gltf, obj (+mtl+textures), dae, 3mf, stl, ply (colours), off.
+    lod_tris = decimate to N triangles (LOD). only = element ids to export just them (with their children and
+    everything attached), e.g. ["d/h1"]."""
+    return _j(_call("POST", "/api/export", {"format": format, "lod_tris": lod_tris, "force": force, "only": only}))
 
 
 @tool

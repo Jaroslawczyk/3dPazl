@@ -258,7 +258,32 @@ def model_glb():
 
 @app.post("/api/export")
 def export(body: dict = Body(default={}), x_agent: str = Header("user")):
-    return _run(P.export, body.get("format", "glb"), body.get("lod_tris"), body.get("force", False), x_agent, body.get("path"))
+    return _run(P.export, body.get("format", "glb"), body.get("lod_tris"), body.get("force", False), x_agent, body.get("path"),
+                body.get("only"))
+
+
+@app.post("/api/export/open")
+def export_open():
+    """Open the project's export folder in the file manager (desktop app)."""
+    import os
+    import subprocess
+    d = P.dir / "export"
+    d.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        os.startfile(d)  # noqa: S606 - our own folder
+    else:
+        subprocess.Popen(["xdg-open", str(d)])
+    return {"path": str(d)}
+
+
+@app.get("/api/autosaves")
+def autosaves():
+    return _run(P.autosaves)
+
+
+@app.post("/api/autosaves/restore")
+def autosave_restore(body: dict = Body(...), x_agent: str = Header("user")):
+    return _run(P.restore_autosave, body.get("file", ""), x_agent)
 
 
 @app.post("/api/textures/manifest")

@@ -1,0 +1,23 @@
+id: post_apocalyptic
+name: Post-apocalyptic
+name_ru: Постапокалипсис
+era: game
+region: games
+materials: {wall: concrete_raw, plinth: concrete_raw, roof: metal_rust, trim: metal_rust, frame: iron, door: metal_rust}
+defaults:
+  windows: {fill: random, fill_share: 0.45, fill_other: mix}
+  roof: {type: flat, parapet_h: 0.6}
+  weathering: {amount: 1.0, graffiti: "yes"}
+macros: [panel_building, factory, bunker, game_house]
+tips: Abandoned, damaged buildings - bricked-up and boarded windows (random fill), rust, heavy weathering (use 🧱 Weather).
+  Sub-styles - ruins (city), wasteland (desert scrap).
+years: [2030, 2200]
+regions: [games]
+palette: {wall: ['#7d7a72', '#5f5a50', '#8a7e6a'], roof: ['#80482c'], trim: ['#5a3a28']}
+variants:
+  ruins: {name: City ruins, name_ru: Руины города, materials: {wall: brick_red, trim: concrete_raw}}
+  wasteland:
+    name: Wasteland
+    name_ru: Пустошь
+    materials: {wall: corrugated_metal, plinth: adobe, roof: metal_rust}
+    defaults: {windows: {fill_other: boarded, fill_share: 0.3}}

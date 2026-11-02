@@ -5,6 +5,7 @@ russian_orthodox, russian_wooden, lithuanian, german_fachwerk, medieval_castle, 
 stalinist, constructivism, modern, egyptian, mesopotamian, mesoamerican, byzantine, caucasian, ottoman, persian,
 moorish, mughal, hindu, chinese, japanese, scandinavian, dutch, victorian, alpine, art_deco, brutalism, industrial,
 military.
+Game styles (with sub-styles): blocky_toy, voxel, fantasy_rpg, cyberpunk, post_apocalyptic, cartoon, scifi.
 
 Next packs (same pattern: YAML with materials/defaults/tips + optional macro + missing generators):
 - Ancient: minoan, etruscan, persian achaemenid (apadana), nabataean rock-cut facades.

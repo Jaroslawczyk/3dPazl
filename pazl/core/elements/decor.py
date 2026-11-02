@@ -443,3 +443,38 @@ def pediment(p, ctx):
     else:
         part.add(g.prism_xz(g.offset2(shp, -0.22), -0.05, dp * 0.3), m)
     return part
+
+
+def _inside(x, y, fp):
+    """Point in polygon (ray casting)."""
+    ins = False
+    for i in range(len(fp)):
+        (x0, y0), (x1, y1) = fp[i], fp[(i + 1) % len(fp)]
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            ins = not ins
+    return ins
+
+
+@element("studs", "decor", "Toy-brick studs (round bumps) on a flat top: blocky toy / brick-game look. "
+         "Attach to a `top` anchor (flat roof top, block top, platform).",
+         {"spacing": P(0.8, "distance between studs (m)"), "r": P(0.24, "stud radius"), "h": P(0.17, "stud height"),
+          "margin": P(0.3, "free border"), "material": P("roof", "")},
+         attach="top", title_ru="Шипы игрушечного кирпича")
+def studs(p, ctx):
+    a = ctx.anchor
+    fp = a.footprint if a and a.footprint else [(-2, -2), (2, -2), (2, 2), (-2, 2)]
+    s, r, h, m = float(p["spacing"]), float(p["r"]), float(p["h"]), float(p["margin"])
+    xs, ys = [q[0] for q in fp], [q[1] for q in fp]
+    nx, ny = int((max(xs) - min(xs) - 2 * m) // s) + 1, int((max(ys) - min(ys) - 2 * m) // s) + 1
+    if nx * ny > 900:  # a huge roof: wider spacing instead of thousands of studs
+        s *= math.sqrt(nx * ny / 900)
+        nx, ny = int((max(xs) - min(xs) - 2 * m) // s) + 1, int((max(ys) - min(ys) - 2 * m) // s) + 1
+    x0 = (min(xs) + max(xs)) / 2 - (nx - 1) * s / 2
+    y0 = (min(ys) + max(ys)) / 2 - (ny - 1) * s / 2
+    pts = [(x0 + i * s, y0 + j * s) for i in range(nx) for j in range(ny)]
+    pts = [q for q in pts if all(_inside(q[0] + dx, q[1] + dy, fp) for dx, dy in ((r + m, 0), (-r - m, 0), (0, r + m), (0, -r - m)))]
+    part = Part()
+    if pts:
+        seg = 8 if ctx.low else 14
+        part.add(g.union([g.cyl(r, h + 0.02, seg, -0.02, None, x, y) for x, y in pts]), ctx.mat(p["material"]))
+    return part

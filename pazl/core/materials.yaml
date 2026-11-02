@@ -83,3 +83,29 @@ bronze:         {color: [150, 110, 60], rough: 0.4, metal: 1.0, tile: 1, prompt:
 wood_tar:       {color: [55, 40, 30], rough: 0.85, tile: 1.5, prompt: "tarred black-brown wooden planks, norwegian stave church"}
 clapboard:      {color: [210, 200, 170], rough: 0.7, tile: 1.5, prompt: "painted horizontal wooden clapboard siding, victorian house, cream color"}
 corrugated_metal: {color: [140, 145, 150], rough: 0.5, metal: 0.7, tile: 2, prompt: "corrugated galvanized metal sheet"}
+
+# --- game looks: smooth plastic, voxel blocks, neon, sci-fi panels
+plastic_red:    {color: [196, 40, 28], rough: 0.35, tile: 2, prompt: "smooth glossy red plastic toy brick surface"}
+plastic_blue:   {color: [13, 105, 172], rough: 0.35, tile: 2, prompt: "smooth glossy blue plastic toy brick surface"}
+plastic_yellow: {color: [245, 205, 48], rough: 0.35, tile: 2, prompt: "smooth glossy yellow plastic toy brick surface"}
+plastic_green:  {color: [40, 127, 71], rough: 0.35, tile: 2, prompt: "smooth glossy green plastic toy brick surface"}
+plastic_white:  {color: [242, 243, 243], rough: 0.35, tile: 2, prompt: "smooth glossy white plastic toy brick surface"}
+plastic_grey:   {color: [163, 162, 165], rough: 0.4, tile: 2, prompt: "smooth medium stone grey plastic toy surface"}
+plastic_black:  {color: [27, 42, 53], rough: 0.4, tile: 2, prompt: "smooth dark plastic toy surface"}
+plastic_orange: {color: [218, 133, 65], rough: 0.35, tile: 2, prompt: "smooth glossy orange plastic toy surface"}
+neon_pink:      {color: [255, 45, 170], rough: 0.2, tile: 1, prompt: "glowing hot pink neon tube light strip"}
+neon_cyan:      {color: [20, 230, 255], rough: 0.2, tile: 1, prompt: "glowing cyan neon light strip"}
+neon_green:     {color: [80, 255, 90], rough: 0.2, tile: 1, prompt: "glowing acid green neon light strip"}
+voxel_planks:   {color: [162, 130, 78], rough: 0.9, tile: 1, prompt: "pixel art 16x16 oak wooden planks block texture, blocky voxel game, nearest-neighbour"}
+voxel_cobble:   {color: [122, 122, 122], rough: 0.95, tile: 1, prompt: "pixel art 16x16 cobblestone block texture, blocky voxel game"}
+voxel_sand:     {color: [219, 207, 163], rough: 0.95, tile: 1, prompt: "pixel art 16x16 sandstone block texture, blocky voxel game"}
+voxel_snow:     {color: [240, 250, 250], rough: 0.9, tile: 1, prompt: "pixel art 16x16 snow block texture, blocky voxel game"}
+voxel_log:      {color: [104, 83, 50], rough: 0.9, tile: 1, prompt: "pixel art 16x16 spruce log bark block texture, blocky voxel game"}
+voxel_brick:    {color: [150, 97, 83], rough: 0.95, tile: 1, prompt: "pixel art 16x16 red brick block texture, blocky voxel game"}
+panel_white:    {color: [228, 232, 236], rough: 0.4, metal: 0.1, tile: 3, prompt: "white sci-fi hull panels with thin seams and small vents"}
+metal_dark:     {color: [52, 56, 62], rough: 0.5, metal: 0.6, tile: 2, prompt: "dark gunmetal sci-fi plating with seams"}
+metal_rust:     {color: [128, 72, 44], rough: 0.85, metal: 0.4, tile: 2, prompt: "heavily rusted corroded steel sheet, post-apocalyptic"}
+candy_pink:     {color: [255, 168, 200], rough: 0.5, tile: 2, prompt: "pastel pink cartoon frosting surface"}
+candy_mint:     {color: [160, 235, 205], rough: 0.5, tile: 2, prompt: "pastel mint cartoon surface"}
+toon_purple:    {color: [96, 60, 140], rough: 0.7, tile: 2, prompt: "cartoon spooky purple painted wood"}
+toon_orange:    {color: [240, 130, 30], rough: 0.6, tile: 2, prompt: "cartoon pumpkin orange painted surface"}

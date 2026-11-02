@@ -127,7 +127,46 @@ class Project:
         p = Path(path) if path else self.dir / "recipe.json"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(self.recipe, ensure_ascii=False, indent=1), "utf-8")
+        if path is None:
+            self._autosave()
         return str(p)
+
+    # ------------------------------------------------------------ autosave snapshots (every change is saved anyway)
+    AUTOSAVE_GAP, AUTOSAVE_KEEP = 30.0, 40
+
+    def _autosave(self):
+        """A snapshot of the recipe at most every 30 s while it changes; the newest 40 are kept."""
+        d = self.dir / "autosave"
+        now = time.time()
+        if now - getattr(self, "_last_autosave", 0.0) < self.AUTOSAVE_GAP:
+            return
+        self._last_autosave = now
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{time.strftime('%Y%m%d-%H%M%S')}_v{self.version}.json").write_text(
+            json.dumps(self.recipe, ensure_ascii=False), "utf-8")
+        for old in sorted(d.glob("*.json"))[:-self.AUTOSAVE_KEEP]:
+            old.unlink(missing_ok=True)
+
+    def autosaves(self):
+        out = []
+        for f in sorted((self.dir / "autosave").glob("*.json"), reverse=True):
+            stamp, _, ver = f.stem.partition("_v")
+            try:
+                n = len(json.loads(f.read_text("utf-8")).get("elements", []))
+            except (OSError, ValueError):
+                continue
+            t = time.strptime(stamp, "%Y%m%d-%H%M%S")
+            out.append({"file": f.name, "time": time.strftime("%d.%m %H:%M:%S", t), "version": ver, "elements": n})
+        return out
+
+    def restore_autosave(self, name, agent="?"):
+        f = self.dir / "autosave" / Path(name).name  # a file name only: nothing outside the folder
+        if not f.exists():
+            raise KeyError(name)
+        with self.lock:
+            self._push_undo()  # restoring can be undone
+            self.recipe = json.loads(f.read_text("utf-8"))
+            return self._changed(agent, f"restored autosave {f.name}")
 
     def _push_undo(self):
         self.undo_stack.append(copy.deepcopy(self.recipe))
@@ -159,12 +198,13 @@ class Project:
         return None, None
 
     # ------------------------------------------------------------ scope lock (marks -> AI changes only those elements)
-    def _in_scope(self, eid: str) -> bool:
+    def _in_scope(self, eid: str, scope=None) -> bool:
         """A marked element, its macro children ("m/x") and everything attached to it (host chain)."""
+        scope = self.scope if scope is None else scope
         els = self._res.elements if self._res is not None else {}
         seen = set()
         while eid and eid not in seen:
-            if any(eid == s or eid.startswith(s + "/") for s in self.scope):
+            if any(eid == s or eid.startswith(s + "/") for s in scope):
                 return True
             seen.add(eid)
             eid = getattr(els.get(eid), "host", None)
@@ -531,16 +571,27 @@ class Project:
             res = self.result()
             return to_scene(self.final(), self.tex_dir, textured=res.detail == "realistic", result=res).export(file_type="glb")
 
-    def export(self, fmt="glb", lod_tris=None, force=False, agent="?", path=None):
+    def export(self, fmt="glb", lod_tris=None, force=False, agent="?", path=None, only=None):
+        """Whole model, or `only` = element ids: those elements with their macro children and everything attached."""
         with self.lock:
-            rep = validate(self.result())
-            if not rep["ok"] and not force:
-                return {"error": "model has problems; fix them or pass force=true", "problems": rep["errors"][:20]}
+            res = self.result()
             name = slug(self.recipe.get("name", "model"))
+            ids = None
+            if only:
+                ids = {eid for eid in res.order if self._in_scope(eid, set(only))}
+                solids = [m for eid in ids for m, _ in res.elements[eid].solids]
+                if not solids:
+                    return {"error": f"nothing to export in {only}"}
+                model = optimize(g.union(solids))
+                name += "_" + slug("_".join(only).replace("/", "-"))
+            else:
+                rep = validate(res)
+                if not rep["ok"] and not force:
+                    return {"error": "model has problems; fix them or pass force=true", "problems": rep["errors"][:20]}
+                model = self.final()
             suffix = f"_lod{lod_tris}" if lod_tris else ""
             out = Path(path) if path else self.dir / "export" / f"{name}{suffix}.{fmt}"
-            res = self.result()
-            _, ntri = export_mesh(self.final(), out, fmt, self.tex_dir, lod_tris, textured=res.detail == "realistic", result=res)
+            _, ntri = export_mesh(model, out, fmt, self.tex_dir, lod_tris, textured=res.detail == "realistic", result=res, only=ids)
             self.event("exported", agent, f"{out.name} ({ntri} tris)", path=str(out))
             return {"path": str(out), "triangles": ntri, "format": fmt,
                     "materials": self.used_materials()}

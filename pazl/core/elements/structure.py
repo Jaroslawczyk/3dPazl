@@ -121,7 +121,8 @@ def ngon(n, r, rot=0.0):
 def tower(p, ctx):
     r, H, t = float(p["r"]), float(p["h"]), float(p["wall_t"])
     shape = p["shape"]
-    n = {"square": 4, "octagon": 8, "hexagon": 6}.get(shape, ctx.seg(r, 10, 64))
+    # round: >= 24 sides even in low-poly, so windows on the tangent faces sit on the wall (gap < 1-2 cm)
+    n = {"square": 4, "octagon": 8, "hexagon": 6}.get(shape, max(24, ctx.seg(r, 10, 64)))
     fp = ngon(n, r if shape != "square" else r * math.sqrt(2))
     mat = ctx.mat(p["material"])
     cs = g.poly(fp)

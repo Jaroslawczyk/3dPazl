@@ -140,11 +140,14 @@ def _window(p, ctx, w, h, depth, kind, part: Part, u, v):
     if p.get("sill_ledge", True) and kind not in ("round", "rose", "slit"):
         part.add(g.xf(g.box(-w / 2 - 0.06, -recess - 0.02, -0.06, w / 2 + 0.06, 0.07, 0.0), T), trim_mat)
     _trim(p, ctx, w, h, kind, shape, part, T, trim_mat)
-    if p.get("shutters") and kind in ("rect", "arch", "segmental"):
+    W_face = ctx.anchor.w if ctx.anchor and ctx.anchor.kind == "face" else None
+    fits = W_face is None or (u - w - 0.1 >= 0 and u + w + 0.1 <= W_face)  # open shutters need wall on both sides
+    if p.get("shutters") and kind in ("rect", "arch", "segmental") and fits:
         sh_mat = ctx.mat(p.get("shutter_material", "shutter"))
         for sx in (-1, 1):
             x0 = sx * (w / 2 + 0.05)
-            part.add(g.xf(g.box(min(x0, x0 + sx * w / 2), 0.0, 0.0, max(x0, x0 + sx * w / 2), 0.04, h * 0.98), T), sh_mat)
+            # 2 cm into the wall: a shutter only touching the surface would be a separate (floating) piece
+            part.add(g.xf(g.box(min(x0, x0 + sx * w / 2), -0.02, 0.0, max(x0, x0 + sx * w / 2), 0.04, h * 0.98), T), sh_mat)
 
 
 def _fake_interior(part, ctx, w, h, depth, behind, T):

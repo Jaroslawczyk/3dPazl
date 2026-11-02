@@ -1,0 +1,36 @@
+id: voxel
+name: Voxel world
+name_ru: Воксельный мир (кубики)
+era: game
+region: games
+detail: lowpoly
+materials: {wall: voxel_planks, plinth: voxel_cobble, roof: voxel_log, trim: voxel_log, frame: voxel_log, door: voxel_planks, stairs: voxel_cobble}
+defaults:
+  roof: {type: gable, pitch: 45, overhang: 0.5}
+  windows: {trim: none, mullions: [0, 0], sill_ledge: false, w: 1.0, h: 1.0}
+  door: {trim: none, w: 1.0, h: 2.0}
+  game_house: {roof: gable, pitch: 45, studs: false, window_w: 1.0, window_h: 1.0}
+  house: {roof: gable, pitch: 45, trim: none}
+macros: [game_house, house, castle_keep]
+tips: Cube-block sandbox look - whole-metre sizes, planks and cobblestone, square 1x1 windows, steep simple roofs.
+  For the classic pixel look download/generate 16x16 textures (texture prompts are pixel-art).
+years: [2009, 2100]
+regions: [games]
+palette: {wall: ['#a2824e', '#7a7a7a'], roof: ['#68533a'], trim: ['#68533a']}
+variants:
+  plains: {name: Plains village, name_ru: Деревня на равнине}
+  desert:
+    name: Desert
+    name_ru: Пустыня (песчаник)
+    materials: {wall: voxel_sand, plinth: voxel_sand, roof: voxel_sand, trim: voxel_planks}
+    defaults: {roof: {type: flat, parapet_h: 0.5}, game_house: {roof: flat}, house: {roof: flat}}
+  snow:
+    name: Snowy taiga
+    name_ru: Снежная тайга
+    materials: {wall: voxel_log, roof: voxel_snow, trim: voxel_planks, plinth: voxel_cobble}
+    defaults: {roof: {pitch: 50}}
+  stone:
+    name: Stone fort
+    name_ru: Каменная крепость
+    materials: {wall: voxel_cobble, plinth: voxel_cobble, roof: voxel_brick, trim: voxel_log}
+    macros: [castle_keep, game_house]

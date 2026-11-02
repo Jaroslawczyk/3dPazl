@@ -1,0 +1,38 @@
+id: fantasy_rpg
+name: Fantasy RPG
+name_ru: Фэнтези RPG
+era: game
+region: games
+materials: {wall: plaster_white, plinth: stone_rubble, roof: thatch, trim: timber_dark, frame: frame_brown, door: wood_door}
+defaults:
+  roof: {type: gable, pitch: 52, overhang: 0.6}
+  windows: {kind: arch, trim: rustic, shutters: true}
+  house: {roof: gable, pitch: 52, window: arch, shutters: true, porch: true}
+macros: [house, fachwerk_house, castle_keep, stave_church]
+tips: Storybook RPG towns - steep roofs, timber, round-top windows. Sub-styles - elven (white stone, green roofs, slender),
+  dwarven (dark stone, heavy and low), village (thatch and timber), dark (black stone, gothic).
+years: [2000, 2100]
+regions: [games]
+palette: {wall: ['#efe1c0', '#d9c7a1', '#f4efe4'], roof: ['#9c7a3c', '#6b4f2a'], trim: ['#3a2a20']}
+variants:
+  elven:
+    name: Elven
+    name_ru: Эльфийский
+    materials: {wall: marble, plinth: marble, roof: copper_green, trim: gold, frame: frame_white}
+    defaults: {roof: {type: cone, pitch: 60}, block: {shape: round}, windows: {kind: lancet, trim: gothic_hood, shutters: false}}
+  dwarven:
+    name: Dwarven
+    name_ru: Дварфийский (гномы)
+    materials: {wall: stone_dark, plinth: granite, roof: slate, trim: bronze, frame: iron}
+    defaults: {roof: {type: hip, pitch: 25}, windows: {kind: rect, trim: rustic, shutters: false, w: 0.9, h: 1.0},
+               block: {shape: octagon, wall_t: 0.9}}
+  village:
+    name: Village
+    name_ru: Деревня (солома и брус)
+    materials: {wall: plaster_ochre, roof: thatch, trim: timber_dark}
+  dark:
+    name: Dark lands
+    name_ru: Тёмные земли
+    materials: {wall: stone_dark, plinth: stone_dark, roof: lead_roof, trim: iron, frame: iron, glass: stained_glass}
+    defaults: {windows: {kind: lancet, trim: gothic_hood, shutters: false}, roof: {pitch: 65}}
+    macros: [castle_keep, gothic_cathedral, house]

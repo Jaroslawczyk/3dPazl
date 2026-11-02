@@ -1,0 +1,30 @@
+id: cartoon
+name: Cartoon
+name_ru: Мультяшный
+era: game
+region: games
+detail: lowpoly
+materials: {wall: plaster_pink, plinth: plaster_blue, roof: red_paint, trim: wood_painted_white, frame: wood_painted_white, door: plaster_green}
+defaults:
+  roof: {type: gable, pitch: 55, overhang: 0.7}
+  windows: {kind: round, trim: simple, shutters: true}
+  block: {shape: rounded, shape_k: 0.45}
+  house: {roof: gable, pitch: 55, window: arch, shutters: true}
+  game_house: {roof: gable, pitch: 55, studs: false, window: arch}
+macros: [game_house, house, victorian_house]
+tips: Toon / storybook houses - soft rounded corners, saturated colours, oversized steep roofs, round windows.
+  Sub-styles - candy (pastels), village (bright cottages), spooky (halloween).
+years: [1990, 2100]
+regions: [games]
+palette: {wall: ['#ffa8c8', '#a0ebcd', '#ffe08a', '#a8d8ff'], roof: ['#e0503c', '#6b4fd8'], trim: ['#ffffff']}
+variants:
+  candy:
+    name: Candy
+    name_ru: Конфетный (пастель)
+    materials: {wall: candy_pink, roof: candy_mint, trim: plastic_white, door: candy_mint}
+  village: {name: Bright village, name_ru: Яркая деревня, materials: {wall: plaster_ochre, roof: red_paint}}
+  spooky:
+    name: Spooky
+    name_ru: Жуткий (хэллоуин)
+    materials: {wall: toon_purple, roof: plastic_black, trim: toon_orange, frame: toon_orange, door: toon_orange}
+    defaults: {roof: {pitch: 65}, block: {shape: trapezoid, shape_k: 0.25}, windows: {kind: lancet}}

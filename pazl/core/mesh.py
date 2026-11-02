@@ -253,11 +253,13 @@ def material_for(name: str, tex_dir: Path | None, textured: bool, swap: dict | N
     return trimesh.visual.material.PBRMaterial(**kw)
 
 
-def overlay_meshes(result, kinds=None, y_up=True):
+def overlay_meshes(result, kinds=None, y_up=True, only=None):
     """Decal / fake-interior quads as separate (non-welded) meshes grouped by material: [(name, Trimesh)]."""
     groups: dict[str, list] = {}
     off = set(result.recipe.get("decals_off") or [])  # decal kinds switched off: graffiti, moss, ...
     for eid, d in result.overlay(kinds):
+        if only is not None and eid not in only:  # exporting a selection: its own decals / interiors only
+            continue
         if d["mat"].startswith("decal_") and d["mat"][6:].rsplit("_", 1)[0] in off:
             continue
         groups.setdefault(d["mat"], []).append(d)
@@ -292,7 +294,7 @@ def overlay_kinds(recipe: dict):
     return kinds
 
 
-def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured=True, result=None) -> trimesh.Scene:
+def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured=True, result=None, only=None) -> trimesh.Scene:
     V, F, oid = manifold_to_arrays(final)
     mats, _ = tri_materials(oid)
     scene = trimesh.Scene()
@@ -307,7 +309,7 @@ def to_scene(final, tex_dir: Path | None = None, flat=False, y_up=True, textured
             tm2.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
         scene.add_geometry(tm2, node_name=name, geom_name=name)
     if result is not None:  # overlay layer: separate meshes, never welded into the shell
-        for name, tm in overlay_meshes(result, overlay_kinds(result.recipe), y_up):
+        for name, tm in overlay_meshes(result, overlay_kinds(result.recipe), y_up, only):
             tm.visual.material = material_for(name, tex_dir, textured)
             scene.add_geometry(tm, node_name=f"overlay|{name}", geom_name=f"overlay|{name}")
     return scene
@@ -341,20 +343,51 @@ def preview_scene(result, textured=False) -> trimesh.Scene:
     return scene
 
 
-def export(final, path: Path, fmt="glb", tex_dir=None, decimate_to=None, textured=True, result=None):
+EXPORT_FORMATS = ("glb", "gltf", "obj", "dae", "3mf", "stl", "ply", "off")
+
+
+def export(final, path: Path, fmt="glb", tex_dir=None, decimate_to=None, textured=True, result=None, only=None):
+    """glb / gltf / obj / dae: Y-up scenes with materials (glb/gltf/obj with textures, OBJ + .mtl + images);
+    3mf / stl / ply / off: Z-up (3D printing, CAD); ply carries face colours. `only` = element ids whose decals and
+    fake interiors go with a partial export."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     m = final
     if decimate_to and m.num_tri() > decimate_to:
         m = decimate(m, decimate_to)
-    if fmt in ("glb", "gltf", "obj"):
-        sc = to_scene(m, tex_dir, y_up=fmt != "obj", textured=textured, result=result)
-        sc.export(str(path), file_type=fmt)
-    elif fmt == "stl":
-        V, F, _ = manifold_to_arrays(m)
-        trimesh.Trimesh(V, F).export(str(path))
+    if fmt not in EXPORT_FORMATS:
+        raise ValueError(f"unknown format {fmt}; use one of {', '.join(EXPORT_FORMATS)}")
+    if fmt in ("glb", "gltf", "obj", "dae", "3mf"):
+        sc = to_scene(m, tex_dir, y_up=fmt != "3mf", textured=textured and fmt in ("glb", "gltf", "obj"), result=result, only=only)
+        if fmt == "dae":  # the collada writer takes one mesh: merge, keep per-face colours
+            parts = []
+            for g_ in sc.geometry.values():
+                g2 = g_.copy()
+                col = getattr(getattr(g_.visual, "material", None), "baseColorFactor", None)
+                if col is not None:
+                    c = np.asarray(col, float)
+                    c = (c * 255 if c.max() <= 1.0 else c).astype(np.uint8)
+                    g2.visual = trimesh.visual.ColorVisuals(g2, face_colors=np.tile(c[:4], (len(g2.faces), 1)))
+                parts.append(g2)
+            trimesh.util.concatenate(parts).export(str(path), file_type="dae")
+        elif fmt == "obj":  # .obj + .mtl + texture images next to it
+            from trimesh.exchange.obj import export_obj
+            text, files = export_obj(sc, include_texture=True, return_texture=True, mtl_name=path.stem + ".mtl")
+            path.write_text(text, "utf-8")
+            for name, data in files.items():
+                (path.parent / name).write_bytes(data)
+        elif fmt == "gltf":  # one self-contained .gltf (buffers and images embedded)
+            path.write_bytes(trimesh.exchange.gltf.export_gltf(sc, embed_buffers=True)["model.gltf"])
+        else:
+            sc.export(str(path), file_type=fmt)
     else:
-        raise ValueError(f"unknown format {fmt}")
+        V, F, oid = manifold_to_arrays(m)
+        tm = trimesh.Trimesh(V, F, process=False)
+        if fmt == "ply":
+            mats, _ = tri_materials(oid)
+            tm.visual = trimesh.visual.ColorVisuals(tm, face_colors=np.array(
+                [list(MATS.get(n).get("color", [200, 200, 200])) + [255] for n in mats], dtype=np.uint8))
+        tm.export(str(path), file_type=fmt)
     return path, m.num_tri()
 
 

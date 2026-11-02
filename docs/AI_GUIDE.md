@@ -85,6 +85,15 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
   (bricked up) | shutters | boarded | none. Bulk: `{"op":"windows_fill","fill":"random"}`.
 - A window grid never puts a window where a door / single window / bay already is on the same face.
 
+## Game styles, export
+- Game looks (region `games`): `blocky_toy` (Roblox-like toy bricks; `game_house` macro + `studs` on flat roofs),
+  `voxel`, `fantasy_rpg`, `cyberpunk`, `post_apocalyptic`, `cartoon`, `scifi`. Each has sub-styles with id
+  `<style>_<variant>`, e.g. `blocky_toy_classic`, `blocky_toy_neon`, `voxel_desert`, `fantasy_rpg_elven`,
+  `cyberpunk_slums`, `scifi_station` (`list_styles` shows them with `parent`).
+- `export(format, only=[ids])`: glb, gltf (self-contained), obj (+mtl+textures), dae, 3mf, stl, ply, off.
+  `only` exports just those elements with their children and everything attached. Y-up for glb/gltf/obj/dae
+  (game engines, Roblox Studio: obj or gltf), Z-up for 3mf/stl/ply/off.
+
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
 degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,

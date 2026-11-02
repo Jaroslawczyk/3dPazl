@@ -189,6 +189,8 @@ def _local_matrix(e: dict, anchor: Anchor | None, u_override=None) -> np.ndarray
         v = pct(at[1], anchor.h) if len(at) > 1 else 0.0
         if u_override is not None:
             u = u_override
+        elif e.get("type") in ("door", "window") and not -0.01 <= u <= anchor.w + 0.01:
+            u = anchor.w / 2  # placed for a wider wall (e.g. a macro on a round footprint): keep it on this face
         T = g.mat_t(u, 0, v)
     else:
         W = anchor.w if anchor else 0

@@ -17,6 +17,14 @@ def load_styles(force=False) -> dict[str, dict]:
         data = yaml.safe_load(f.read_text("utf-8")) or {}
         data.setdefault("id", f.stem)
         _STYLES[data["id"]] = data
+        for vid, v in (data.get("variants") or {}).items():  # sub-styles: parent + overrides, id "parent_variant"
+            child = {k: val for k, val in data.items() if k != "variants"}
+            child.update({k: val for k, val in v.items() if k not in ("materials", "defaults")})
+            child["materials"] = {**data.get("materials", {}), **v.get("materials", {})}
+            child["defaults"] = {et: {**data.get("defaults", {}).get(et, {}), **v.get("defaults", {}).get(et, {})}
+                                 for et in {*data.get("defaults", {}), *v.get("defaults", {})}}
+            child["id"], child["parent"] = f"{data['id']}_{vid}", data["id"]
+            _STYLES[child["id"]] = child
     _STYLES.setdefault("generic", {"id": "generic", "name": "Generic", "materials": {}, "defaults": {}})
     return _STYLES
 
@@ -52,14 +60,15 @@ PERIODS = [("ancient", "Древность", -4000, 500), ("medieval", "Сред
 REGIONS = {"europe_west": "Западная Европа", "europe_north": "Северная Европа", "europe_east": "Восточная Европа",
            "russia": "Россия / СССР", "mediterranean": "Средиземноморье", "caucasus": "Кавказ",
            "middle_east": "Ближний Восток", "north_africa": "Северная Африка", "central_asia": "Центральная Азия",
-           "south_asia": "Южная Азия", "east_asia": "Восточная Азия", "americas": "Америка", "global": "Весь мир"}
+           "south_asia": "Южная Азия", "east_asia": "Восточная Азия", "americas": "Америка", "global": "Весь мир",
+           "games": "Игры"}
 
 
 def summary() -> list[dict]:
     return [{"id": s["id"], "name": s.get("name"), "name_ru": s.get("name_ru"), "era": s.get("era"),
              "region": s.get("region"), "years": s.get("years"), "regions": s.get("regions", []),
              "periods": periods_of(s), "macros": s.get("macros", []), "tips": s.get("tips", ""),
-             "palette": s.get("palette")}
+             "palette": s.get("palette"), "parent": s.get("parent"), "detail": s.get("detail")}
             for s in load_styles().values()]
 
 

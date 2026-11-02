@@ -590,3 +590,24 @@ def roman_pantheon(p, ctx):
         E("door", "door", "porch:left", ["50%", 1.2], w=6, h=10, double=True, trim="classic"),
         E("cor", "cornice", "drum:top", kind="dentil", h=1.2, out=0.8),
     ])
+
+
+@element("game_house", "macros", "Chunky game-style house: thick walls, big square windows without trim, flat or gable roof, "
+         "optional toy-brick studs on a flat roof. Takes colours and roof type from game styles (blocky_toy, voxel, cartoon ...).",
+         {"w": P(9.0, ""), "d": P(8.0, ""), "floors": P(2, ""), "floor_h": P(3.2, ""), "roof": P("flat", "", ["flat", "gable", "hip", "dome"]),
+          "pitch": P(30.0, ""), "studs": P(True, "toy-brick studs on a flat roof"), "window_w": P(1.6, ""), "window_h": P(1.6, ""),
+          "window": P("rect", ""), "trim": P("none", "")},
+         macro=True, title_ru="Игровой домик")
+def game_house(p, ctx):
+    w, d = float(p["w"]), float(p["d"])
+    win = dict(kind=p["window"], w=p["window_w"], h=p["window_h"], trim=p["trim"], mullions=[1, 1], sill_ledge=False, margin=1.2)
+    c = [E("main", "block", w=w, d=d, floors=ctx.pick(p["floors"]), floor_h=p["floor_h"], wall_t=0.4, plinth_h=0.3, plinth_out=0.12),
+         E("win_f", "windows", "main:front", **win),
+         E("win_b", "windows", "main:back", **win),
+         E("win_l", "windows", "main:left", cols=max(1, int(d / 4)), **{k: v for k, v in win.items() if k != "margin"}),
+         E("win_r", "windows", "main:right", cols=max(1, int(d / 4)), **{k: v for k, v in win.items() if k != "margin"}),
+         E("door", "door", "main:front", ["50%", 0.3], w=1.4, h=2.4, trim=p["trim"], steps=2),
+         E("roof", "roof", "main:top", type=p["roof"], pitch=p["pitch"], overhang=0.3, parapet_h=0.5)]
+    if p["roof"] == "flat" and p["studs"]:
+        c.append(E("studs", "studs", "roof:top", material="roof"))
+    return _part(c)

@@ -1,0 +1,25 @@
+id: scifi
+name: Sci-fi
+name_ru: Научная фантастика
+era: game
+region: games
+materials: {wall: panel_white, plinth: metal_dark, roof: panel_white, trim: metal_dark, frame: aluminium, glass: glass_dark, door: metal_dark}
+defaults:
+  block: {shape: round}
+  roof: {type: dome}
+  house: {roof: dome, chimney: false, trim: none, window: round}
+  game_house: {roof: dome, studs: false, window: round}
+  windows: {kind: round, trim: none, frame_material: aluminium}
+macros: [game_house, house, glass_tower]
+tips: Space colonies and stations - round modules with domes, white panels, dark glass. Sub-styles - colony (domes),
+  station (dark metal, octagonal modules).
+years: [2100, 3000]
+regions: [games]
+palette: {wall: ['#e4e8ec', '#c9d2da'], trim: ['#34383e'], roof: ['#e4e8ec']}
+variants:
+  colony: {name: Colony domes, name_ru: Колония (купола)}
+  station:
+    name: Station
+    name_ru: Станция (тёмный металл)
+    materials: {wall: metal_dark, roof: metal_dark, trim: neon_cyan, frame: neon_cyan}
+    defaults: {block: {shape: octagon}, roof: {type: flat, parapet_h: 0.5}, house: {roof: flat}, game_house: {roof: flat}}
