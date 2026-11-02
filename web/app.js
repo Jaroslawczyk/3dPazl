@@ -178,6 +178,13 @@ async function viewGlb(path) {
     });
     root.add(gltf.scene);
     const box = modelBox.setFromObject(root);
+    if (!box.isEmpty()) {  // same fitted shadow frustum as the project view: the default 240 m one gave jagged shadow dashes on small models
+      const c = box.getCenter(new THREE.Vector3()), r = Math.max(10, box.getSize(new THREE.Vector3()).length() / 2 + 2);
+      sun.target.position.copy(c);
+      sun.position.copy(c).add(new THREE.Vector3(-60, 100, 50).normalize().multiplyScalar(r * 2));
+      Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 0.5, far: r * 4 });
+      sun.shadow.camera.updateProjectionMatrix();
+    }
     invalidate(true); fitView(box, 'iso'); S.lastCenter = box.getCenter(new THREE.Vector3());
     $('#status').textContent = `просмотр GLB: ${path} · треугольников ${countTris().toLocaleString('ru')} · только просмотр (вернуться: выберите проект)`;
   } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); }
