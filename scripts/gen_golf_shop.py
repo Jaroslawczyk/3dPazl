@@ -50,6 +50,15 @@ for (a0, a1, z0, z1) in (WIN, WIN2):                                            
     n = max(1, int((a1-a0)/1.0))
     for k in range(1, n): mx = a0+(a1-a0)*k/n; box(mx-.03, -HY-.02, z0, mx+.03, -HY+.2, z1, TRIM)
     hz = z0+(z1-z0)*.6; box(a0, -HY-.02, hz-.03, a1, -HY+.2, hz+.03, TRIM)
+# doorway: white frame, stone threshold + wide step, corner posts hiding wall ends
+for (p0, p1, q0, q1) in [(DR[0]-.15, DR[0], .2, DR[3]+.15), (DR[1], DR[1]+.15, .2, DR[3]+.15), (DR[0]-.15, DR[1]+.15, DR[3], DR[3]+.15)]:
+    box(p0, -HY-.08, q0, p1, -HY+.27, q1, TRIM)
+box(DR[0]-.15, -HY-.1, .2, DR[1]+.15, -HY+.27, .26, STONE)                              # threshold
+box(DR[0]-.5, -HY-.75, 0, DR[1]+.5, -HY, .13, STONE); box(DR[0]-.3, -HY-.4, .13, DR[1]+.3, -HY, .2, STONE)   # two-step porch
+for cx in (-1, 1):
+    for cy in (-1, 1):
+        xa, xb = sorted((cx*(HX-.2), cx*HX + cx*.06)); ya, yb = sorted((cy*(HY-.2), cy*HY + cy*.06))
+        box(xa, ya, 0, xb, yb, H, TRIM)
 # gable roof (ridge along X): two slabs, ridge cap, gable triangles, ceiling, brick chimney
 RZ, RIDGE, OV, EV, TH = 3.15, 1.9, 5.6, 4.2, .25
 for sy in (-1, 1):
@@ -98,8 +107,6 @@ N = 512
 def tex_plaster(base):
     n = (noise(N, 3) - .5) * .10 + (noise(N, 1) - .5) * .04
     a = tint(base, n).astype(float)
-    a[::128, :, :] *= .93                              # faint panel seams every 128 px
-    a[:, ::128, :] *= .93
     return a.clip(0, 255).astype(np.uint8)
 def tex_glass(base):
     y, x = np.mgrid[0:N, 0:N] / N
