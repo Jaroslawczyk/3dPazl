@@ -30,3 +30,11 @@
 2. Compare per-mesh min/size of the big parts (core, piers frame, disc) with the ref lines.
 3. Screenshot in the viewer (wait 10 s twice); check logo/text readable, no black/transparent faces, nothing floating.
 4. Regenerate from scratch (delete old glb) so no stale file is judged.
+
+## Case 4 notes (jungle stilt house, AI/Tripo scan 132k tris, one baked 4k atlas)
+- No photos given: `scripts/glb_preview.py ref.glb out.png` (headless vertex-splat render) showed the shape; browser viewer was
+  denied on the first navigate - fall back to that. Baked atlas is NOT tileable: keep only as colour reference
+  (textures/library/ref_jungle_house/).
+- Built in pazl (1.1k tris): 8 posts + floor slab, rear enclosed block, gable roof on a thin helper block (`rb`) sized to the
+  whole footprint, porch posts/rails, ladder beams, rock sphere. Ref ratios W:L:H = .77:1:.67 -> mine .84:1:.59 (check again).
+- Pitfall: a sphere centred at z=0 is half underground; offset z by its radius. `info separate_grounded_parts` for a rock is fine.
