@@ -43,8 +43,9 @@ def strip(p0, p1, w, z, h, c):
 def mound(x, y, r, hh, c):
     pts = [(x+r*np.cos(a), y+r*np.sin(a), 0) for a in np.linspace(0, 6.283, 11)[:-1]] + [(x+.3*r*np.cos(a), y+.3*r*np.sin(a), hh) for a in np.linspace(0, 6.283, 7)[:-1]]
     return hullp(pts, c)
-box(-HX, -HY, 0, HX, HY, .2, WOOD)             # floor + porch (planks)
-box(-HX, -HY-1.6, 0, HX, -HY, .2, WOOD)
+FLOOR = "#85796a"
+box(-HX, -HY, 0, HX, HY, .2, FLOOR)             # floor + porch (stone tiles)
+box(-HX, -HY-1.6, 0, HX, -HY, .2, FLOOR)
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
     if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
@@ -74,9 +75,6 @@ ox, yE, zr, t = HX+.45, HY+.6, H+1.7, .16        # gable roof
 for s in (-1, 1):
     hullp([(sx_*ox, s*yE, H) for sx_ in (-1, 1)] + [(sx_*ox, s*yE, H-t) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr-t) for sx_ in (-1, 1)], ROOF)
 box(-ox, -.16, zr-.02, ox, .16, zr+.1, DK)
-# sign board
-box(-1.9, -HY-.12, 2.55, 1.9, -HY, 3.75, SIGN)
-for px in (-1.8, 1.8): box(px-.05, -HY-.14, 2.5, px+.05, -HY, 3.8, DK)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
@@ -206,7 +204,7 @@ def tex_grass(base):
     n = (noise(N, 2) - .5) * .18 + (rng.random((N, N)) - .5) * .12
     return tint(base, n)
 FLAT = {"#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
-SPECIAL = {"#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
+SPECIAL = {"#85796a": ("floort", tex_floor, 1.2), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
