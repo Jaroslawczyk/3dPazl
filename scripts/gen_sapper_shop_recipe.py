@@ -21,21 +21,21 @@ def M(i, x, y, z, w, d, h, mat): E.append({"id": i, "type": "box", "params": {"w
 M("found", 0, 4, 0, 12.4, 8.4, .2, "concrete_tile#a8a69a")
 M("porch", 0, -1.3, 0, 12.4, 2.6, .2, "wood_boards#b08a5a")
 M("fl", 0, 4, .15, 11, 7, .06, "wood_floor#c8a070")
-E.append({"id": "shop", "type": "block", "params": {"w": 12, "d": 8, "floors": 1, "floor_h": 3.8, "hollow": True, "material": "brick_silicate#c9c19a", "plinth_material": "granite#8a8472", "plinth_h": 0, "slab_t": .2, "plinth_out": 0}, "offset": [0, 4, 0]})
+E.append({"id": "shop", "type": "block", "params": {"w": 12, "d": 8, "floors": 1, "floor_h": 3.8, "hollow": True, "material": pl(KH), "plinth_material": "granite#8a8472", "plinth_h": 0, "slab_t": .2, "plinth_out": 0}, "offset": [0, 4, 0]})
 E.append({"id": "roof", "type": "roof", "params": {"type": "gable", "pitch": 28, "overhang": .6, "ridge": "x", "material": "corrugated_metal#7f8a68", "gable_material": pl(KH)}, "on": "shop:top"})
 E.append({"id": "door", "type": "door", "params": {"w": 2.2, "h": 2.6, "open": True, "trim": "none", "steps": 0, "canopy": "none", "trim_w": .15, "trim_material": pl(OL)}, "on": "shop:front", "at": ["50%", 0]})
-WINS = [("front", u, 1.0, 1.6) for u in (1.2, 8.3, 10.4)] + [(f, u, 1.0, 1.6) for f in ("left", "right") for u in (2.2, 5.8)] + [("back", u, 1.0, 1.6) for u in (2.5, 5.0, 7.0, 9.5)]
+WINS = [("front", u, 1.0, 1.6) for u in (1.2, 8.3, 10.4)] + [(f, u, 1.0, 1.6) for f in ("left", "right") for u in (2.2, 5.8)] + [("back", u, 1.0, 1.6) for u in (2.5, 9.5)]
 for k, (f, u, v, w) in enumerate(WINS):
     E.append({"id": f"win{k}", "type": "window", "params": {"w": w, "h": 1.5, "mullions": [1, 1], "shutters": False, "trim_w": .15, "sill_ledge": False, "trim": "none", "frame_material": "frame#2f3a22", "trim_material": pl(OL)}, "on": f"shop:{f}", "at": [u, v]})
 # ---- awning + sign
-B("awn", 0, -1.25, 3.6, 12.6, 2.7, .2, OL)
-B("awn_f", 0, -2.62, 3.6, 12.6, .05, .2, YEL)
-for k in range(10): B(f"awn_s{k}", -5.9 + k * 1.3, -2.66, 3.6, .62, .05, .2, BLK)
-for s in (-1, 1): BM(f"post{s}", [s * 5.9, -2.3, .2], [s * 5.9, -2.3, 3.65], DKG, .18, rnd=False)
-B("sign", 0, -1.0, 3.8, 8.6, .25, 1.5, "#2c3320")
-B("sg_t", 0, -1.15, 5.2, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.8, 8.6, .06, .1, YEL)
-B("sg_l", -4.25, -1.15, 3.9, .1, .06, 1.3, YEL); B("sg_r", 4.25, -1.15, 3.9, .1, .06, 1.3, YEL)
-SY, SZ = -1.14, 4.55
+B("awn", 0, -1.25, 3.35, 12.6, 2.7, .2, OL)
+B("awn_f", 0, -2.62, 3.35, 12.6, .05, .2, YEL)
+for k in range(10): B(f"awn_s{k}", -5.9 + k * 1.3, -2.66, 3.35, .62, .05, .2, BLK)
+for s in (-1, 1): BM(f"post{s}", [s * 5.9, -2.3, .2], [s * 5.9, -2.3, 3.4], DKG, .18, rnd=False)
+B("sign", 0, -1.0, 3.55, 8.6, .25, 1.5, "#2c3320")
+B("sg_t", 0, -1.15, 4.95, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.55, 8.6, .06, .1, YEL)
+B("sg_l", -4.25, -1.15, 3.65, .1, .06, 1.3, YEL); B("sg_r", 4.25, -1.15, 3.65, .1, .06, 1.3, YEL)
+SY, SZ = -1.14, 4.3
 for k, x in enumerate((-3.0, -1.0, 1.0, 3.0)): B(f"ic{k}", x, SY, SZ - .6, 1.2, .08, 1.2, YEL)
 # ---- mines table (left)
 TT = 1.06
@@ -64,8 +64,8 @@ def drone(i, x, y, z, big=1):
     for k, (dx, dy) in enumerate(((-1, -1), (1, 1), (-1, 1), (1, -1))):
         C(f"{i}m{k}", x + dx * .4 * s, y + dy * .4 * s, z + .1 * s, .05 * s, .1 * s, BLK); C(f"{i}p{k}", x + dx * .4 * s, y + dy * .4 * s, z + .2 * s, .2 * s, .015 * s, "#555a60")
 drone("d1", 3.8, -1.6, TT - .01); drone("d2", 5.2, -1.6, TT - .01)
-BM("hang1", [-.2, -1.6, 3.65], [-.2, -1.6, 3.25], BLK, .03); BM("hang2", [.2, -1.6, 3.65], [.2, -1.6, 3.25], BLK, .03)
-drone("dh", 0, -1.6, 3.15)
+BM("hang1", [-.2, -1.6, 3.4], [-.2, -1.6, 3.0], BLK, .03); BM("hang2", [.2, -1.6, 3.4], [.2, -1.6, 3.0], BLK, .03)
+drone("dh", 0, -1.6, 2.9)
 r = {"name": "sapper_shop", "style": "generic", "detail": "realistic", "interiors": False, "elements": E}
 p = pathlib.Path("projects/sapper_shop"); p.mkdir(parents=True, exist_ok=True)
 (p / "recipe.json").write_text(json.dumps(r, indent=1), encoding="utf-8"); print(len(E), "elements")
