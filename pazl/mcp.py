@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -41,22 +42,27 @@ def tool(fn):
     return fn
 
 
-def _ensure():
+def _alive() -> bool:
+    # a busy server (long render/export) answers HTTP late but still holds the port: check the port, not a request,
+    # or every slow call spawns one more app window + console
+    u = httpx.URL(BASE)
     try:
-        httpx.get(BASE + "/api/state", timeout=2)
+        socket.create_connection((u.host, u.port or 80), timeout=1).close()
+        return True
+    except OSError:
+        return False
+
+
+def _ensure():
+    if _alive():
         return
-    except Exception:
-        pass
     args = [sys.executable, "-m", "pazl.server" if os.environ.get("PAZL_HEADLESS") else "pazl"]
     flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0  # DETACHED_PROCESS | NEW_PROCESS_GROUP
     subprocess.Popen(args, cwd=str(ROOT), creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(150):
         time.sleep(0.2)
-        try:
-            httpx.get(BASE + "/api/state", timeout=1)
+        if _alive():
             return
-        except Exception:
-            pass
     raise RuntimeError("3dPazl server did not start")
 
 
