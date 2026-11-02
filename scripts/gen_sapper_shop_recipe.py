@@ -31,6 +31,7 @@ for k, (f, u, v, w) in enumerate(WINS):
 # ---- awning + sign
 B("awn", 0, -1.25, 3.35, 12.6, 2.7, .2, OL)
 M("awn_f", 0, -2.62, 3.35, 12.6, .05, .2, "wood_painted_white#ffffff")
+for sx in (-1, 1): M(f"awn_e{sx}", sx * 6.31, -1.25, 3.35, .06, 2.7, .2, "wood_painted_white#ffffff")
 for s in (-1, 1): BM(f"post{s}", [s * 5.9, -2.3, .2], [s * 5.9, -2.3, 3.4], DKG, .18, rnd=False)
 B("sign", 0, -1.0, 3.55, 8.6, .25, 1.5, "#2c3320")
 B("sg_t", 0, -1.15, 4.95, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.55, 8.6, .06, .1, YEL)
