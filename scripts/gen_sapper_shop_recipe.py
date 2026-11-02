@@ -29,14 +29,14 @@ WINS = [("front", u, 1.0, 1.6) for u in (1.2, 8.3, 10.4)] + [(f, u, 1.0, 1.6) fo
 for k, (f, u, v, w) in enumerate(WINS):
     E.append({"id": f"win{k}", "type": "window", "params": {"w": w, "h": 1.5, "mullions": [1, 1], "shutters": False, "trim_w": .15, "sill_ledge": False, "trim": "none", "frame_material": "frame#2f3a22", "trim_material": pl(OL)}, "on": f"shop:{f}", "at": [u, v]})
 # ---- awning + sign
-B("awn", 0, -1.25, 3.35, 12.6, 2.7, .2, OL)
-M("awn_f", 0, -2.62, 3.35, 12.6, .05, .2, "wood_painted_white#ffffff")
-for sx in (-1, 1): M(f"awn_e{sx}", sx * 6.31, -1.25, 3.35, .06, 2.7, .2, "wood_painted_white#ffffff")
-for s in (-1, 1): E.append({"id": f"post{s}", "type": "beam", "params": {"p0": [s * 5.9, -2.3, .2], "p1": [s * 5.9, -2.3, 3.4], "w": .18, "h": .18, "round": False, "material": "wood_boards#7fb050"}})
-B("sign", 0, -1.0, 3.55, 8.6, .25, 1.5, "#2c3320")
-B("sg_t", 0, -1.15, 4.95, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.55, 8.6, .06, .1, YEL)
-B("sg_l", -4.25, -1.15, 3.65, .1, .06, 1.3, YEL); B("sg_r", 4.25, -1.15, 3.65, .1, .06, 1.3, YEL)
-SY, SZ = -1.14, 4.3
+B("awn", 0, -1.25, 3.2, 12.6, 2.7, .2, OL)
+M("awn_f", 0, -2.62, 3.2, 12.6, .05, .2, "wood_painted_white#ffffff")
+for sx in (-1, 1): M(f"awn_e{sx}", sx * 6.31, -1.25, 3.2, .06, 2.7, .2, "wood_painted_white#ffffff")
+for s in (-1, 1): E.append({"id": f"post{s}", "type": "beam", "params": {"p0": [s * 5.9, -2.3, .2], "p1": [s * 5.9, -2.3, 3.25], "w": .18, "h": .18, "round": False, "material": "wood_boards#7fb050"}})
+B("sign", 0, -1.0, 3.4, 8.6, .25, 1.5, "#2c3320")
+B("sg_t", 0, -1.15, 4.8, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.4, 8.6, .06, .1, YEL)
+B("sg_l", -4.25, -1.15, 3.5, .1, .06, 1.3, YEL); B("sg_r", 4.25, -1.15, 3.5, .1, .06, 1.3, YEL)
+SY, SZ = -1.14, 4.15
 for k, x in enumerate((-3.0, -1.0, 1.0, 3.0)): B(f"ic{k}", x, SY, SZ - .6, 1.2, .08, 1.2, YEL)
 # ---- mines table (left)
 TT = 1.06
@@ -65,8 +65,8 @@ def drone(i, x, y, z, big=1):
     for k, (dx, dy) in enumerate(((-1, -1), (1, 1), (-1, 1), (1, -1))):
         C(f"{i}m{k}", x + dx * .4 * s, y + dy * .4 * s, z + .1 * s, .05 * s, .1 * s, BLK); C(f"{i}p{k}", x + dx * .4 * s, y + dy * .4 * s, z + .2 * s, .2 * s, .015 * s, "#555a60")
 drone("d1", 3.8, -1.6, TT - .01); drone("d2", 5.2, -1.6, TT - .01)
-BM("hang1", [-.2, -1.6, 3.4], [-.2, -1.6, 3.0], BLK, .03); BM("hang2", [.2, -1.6, 3.4], [.2, -1.6, 3.0], BLK, .03)
-drone("dh", 0, -1.6, 2.9)
+BM("hang1", [-.2, -1.6, 3.25], [-.2, -1.6, 2.85], BLK, .03); BM("hang2", [.2, -1.6, 3.25], [.2, -1.6, 2.85], BLK, .03)
+drone("dh", 0, -1.6, 2.75)
 r = {"name": "sapper_shop", "style": "generic", "detail": "realistic", "interiors": False, "elements": E}
 p = pathlib.Path("projects/sapper_shop"); p.mkdir(parents=True, exist_ok=True)
 (p / "recipe.json").write_text(json.dumps(r, indent=1), encoding="utf-8"); print(len(E), "elements")
