@@ -229,19 +229,34 @@ def tex_grain(base):                                  # long grain streaks along
     st += (sl - .5) * .5
     a = tint(base, (st - .35) * .55).astype(float)
     return a.clip(0, 255).astype(np.uint8)
-def tex_stone(base):                                  # rough fieldstone: voronoi blocks, per-stone tone, dark mortar
-    r = np.random.default_rng(5); k = 18
-    pts = r.random((k, 2)) * N; tone = 1 + (r.random(k) - .5) * .35
-    yy, xx = np.mgrid[0:N, 0:N]
-    d = np.full((k * 9, N, N), 1e9, np.float32); i = 0
-    for ox in (-N, 0, N):
-        for oy in (-N, 0, N):
-            for j in range(k):
-                d[i] = np.hypot(xx - pts[j, 0] - ox, yy - pts[j, 1] - oy); i += 1
-    o = np.argsort(d, 0)[:2]; d1 = np.take_along_axis(d, o[:1], 0)[0]; d2 = np.take_along_axis(d, o[1:2], 0)[0]
-    t = tone[o[0] % k]; edge = np.clip((d2 - d1) / 7, 0, 1)
-    a = tint(base, (noise(N, 2) - .5) * .18 + (r.random((N, N)) - .5) * .06).astype(float) * t[..., None]
-    a *= (.35 + .65 * edge)[..., None] * (.9 + .1 * np.clip(d1 / 40, 0, 1))[..., None]
+def tex_stone(base):                                  # coursed ashlar: 8 rows, random block lengths, bevelled blocks, light mortar joints
+    r = np.random.default_rng(5); rows = 8; rh = N // rows
+    a = np.zeros((N, N, 3)); mort = np.array([150., 142., 128.])
+    fine = (noise(N, 1) - .5) * .10 + (r.random((N, N)) - .5) * .07; big = (noise(N, 4) - .5) * .25
+    h = np.array([int(base[i:i+2], 16) for i in (1, 3, 5)], float)
+    for ro in range(rows):
+        cuts, x = [], int(r.integers(0, 90))
+        while x < N + 90:
+            cuts.append(x); x += int(r.integers(95, 220))
+        cuts = [c for c in cuts if c < N + 0]
+        edges = sorted(set(cuts))
+        if edges[0] > 0: edges.insert(0, edges[0] - 150)
+        edges.append(edges[0] + N)
+        for e0, e1 in zip(edges, edges[1:]):
+            tone = 1 + (r.random() - .5) * .30; warm = np.array([1 + (r.random() - .5) * .08, 1, 1 - (r.random() - .5) * .10])
+            for yy in range(rh):
+                y = ro * rh + yy
+                bev = 1.0
+                if yy < 3: mix = 0.0
+                elif yy < 6: bev = 1.18
+                elif yy > rh - 8: bev = .78 + .22 * (rh - yy) / 8
+                for xx in range(e0, e1):
+                    xm = xx % N; dx = min(xx - e0, e1 - 1 - xx)
+                    if yy < 3 or dx < 2: a[y, xm] = mort; continue
+                    f = bev * (1.12 if dx < 5 else 1.0) if dx < 5 and xx - e0 < 5 else bev * (.85 if dx < 5 else 1.0)
+                    a[y, xm] = h * tone * warm * f
+    a *= (1 + fine + big)[..., None]
+    a[::1] *= 1.0
     return a.clip(0, 255).astype(np.uint8)
 FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
 SPECIAL = {"#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
