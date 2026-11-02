@@ -375,7 +375,9 @@ class Chat:
             args = [exe, "exec", "--json", "--skip-git-repo-check", "-s", "read-only",
                     "-c", f"mcp_servers.pazl.command={toml(cmd)}", "-c", f"mcp_servers.pazl.args={toml(cargs)}",
                     "-c", "mcp_servers.pazl.env={PAZL_AGENT=" + toml(env["PAZL_AGENT"]) + "}",
-                    "-c", 'approval_policy="never"']
+                    "-c", 'approval_policy="never"',
+                    # with approvals off Codex declines MCP calls unless the server's tools are pre-approved
+                    "-c", 'mcp_servers.pazl.default_tools_approval_mode="approve"']
             args += ["-m", model] if model else []
             args += ["-i", str(self.image)] if self.image else []
             args += ["resume", self.cli_session] if self.cli_session else []
