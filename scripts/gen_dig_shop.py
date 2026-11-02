@@ -82,6 +82,19 @@ ox, yE, zr, t = HX+.45, HY+.6, H+1.7, .16        # gable roof
 for s in (-1, 1):
     hullp([(sx_*ox, s*yE, H) for sx_ in (-1, 1)] + [(sx_*ox, s*yE, H-t) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr) for sx_ in (-1, 1)] + [(sx_*ox, 0, zr-t) for sx_ in (-1, 1)], ROOF)
 box(-ox, -.16, zr-.02, ox, .16, zr+.1, DK)
+# --- interior lining: light plaster above a dark panelled wainscot (inner faces only) ---
+PLAS, WAIN, T_ = "#dccaa2", "#6a4a30", .03
+WS = .95
+def lin(x0, y0, x1, y1, a, b):                      # a,b = z range, split into wainscot / plaster
+    if a < WS: box(x0, y0, a, x1, y1, min(b, WS), WAIN)
+    if b > WS: box(x0, y0, max(a, WS), x1, y1, b, PLAS)
+fy, by_, sx_ = -HY+.25, HY-.25, HX-.25
+wall(lambda a, b, z0, z1: lin(a, fy, b, fy+T_, z0, z1), -sx_, sx_, [WIN, WIN2, DR], z1=H)
+lin(-sx_, by_-T_, sx_, by_, .2, H)
+lin(-sx_, fy, -sx_+T_, by_, .2, H); lin(sx_-T_, fy, sx_, by_, .2, H)
+for sgn in (-1, 1):                                  # gable triangles inside
+    xa, xb = sorted((sgn*sx_, sgn*(sx_-T_)))
+    hullp([(x, y, z) for x in (xa, xb) for (y, z) in ((fy, H), (by_, H), (0, H+1.4))], PLAS)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
@@ -259,7 +272,7 @@ def tex_stone(base):                                  # coursed ashlar: 8 rows, 
     a[::1] *= 1.0
     return a.clip(0, 255).astype(np.uint8)
 FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
-SPECIAL = {"#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
+SPECIAL = {"#dccaa2": ("plasterin", tex_plaster, 2.0), "#6a4a30": ("wain", tex_boards, 2.0), "#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
