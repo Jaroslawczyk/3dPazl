@@ -18,8 +18,8 @@ PX = 50
 PL, HT, HL, PAR = 1.1, 10.5, 5.5, 0.5            # plinth, tall wall top, low wall top, parapet
 XT0, XT1, XL1 = -11.5, 2.5, 11.5                  # tall block x range, low block end
 ZF, ZB = 5.5, -5.5
-GLASS, FRAME, TRIM = (38, 40, 52), (96, 54, 34), (168, 102, 63)
-PLINTH, METAL, ROOF = (92, 58, 36), (92, 84, 92), (190, 140, 105)
+GLASS, FRAME, TRIM = (22, 24, 32), (54, 38, 30), (90, 56, 38)
+PLINTH, METAL, ROOF = (62, 38, 26), (150, 146, 150), (205, 160, 125)
 
 
 def orange_tile():
@@ -47,7 +47,10 @@ def canvas(w, h):
     for x in range(0, img.size[0], 256):
         for y in range(0, img.size[1], 256):
             img.paste(TILE, (x, y))
-    return img.filter(ImageFilter.GaussianBlur(1))
+    mean = np.asarray(img, float).reshape(-1, 3).mean(0)
+    a = 0.35 * np.asarray(img, float) + 0.65 * mean
+    a += np.random.default_rng(3).normal(0, 4, a.shape[:2])[..., None]
+    return Image.fromarray(np.clip(a, 0, 255).astype("uint8")).filter(ImageFilter.GaussianBlur(2))
 
 
 def window(img, cx, v0, w, h):
@@ -59,6 +62,7 @@ def window(img, cx, v0, w, h):
     d.rectangle([x0 - b, y0 - b, x1 + b, y1 + b], fill=FRAME)
     d.rectangle([x0, y0, x1, y1], fill=GLASS)
     d.line([(x0 + x1) // 2, y0, (x0 + x1) // 2, y1], fill=FRAME, width=3)
+    d.rectangle([x0 - b - 3, y1 + b, x1 + b + 3, y1 + b + 5], fill=(190, 150, 110))
 
 
 def band(img, v, h=0.25):
