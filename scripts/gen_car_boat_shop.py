@@ -74,8 +74,6 @@ for k in range(14):
     box(x0, -6.0, 3.2, x0+0.9, -4.3, 3.35, cc); box(x0, -6.06, 2.85, x0+0.9, -5.98, 3.35, cc)
 # teal wainscot, orange band, bunting under the sign, flower planters
 TEAL = "#1fb8a8"
-box(-7.56, -4.56, .2, -7.2, 4.56, 1.0, TEAL); box(7.2, -4.56, .2, 7.56, 4.56, 1.0, TEAL)
-box(-7.56, -4.56, .2, -6.5, -4.5, 1.0, TEAL); box(6.5, -4.56, .2, 7.56, -4.5, 1.0, TEAL)
 box(-7.56, -4.56, 3.4, 7.56, -4.5, 3.6, "#ff7a1a")
 for k in range(14):
     x = -6.0 + k*0.92; cc = RAIN[(k+2) % 6]
