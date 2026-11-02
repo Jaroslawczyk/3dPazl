@@ -1,4 +1,4 @@
-"""Golf shop (Roblox-ready: ~2k tris, tileable textured materials, empty interior, like zina/tech shop). Z-up metres, exported Y-up. Run: .venv/Scripts/python.exe scripts/gen_golf_shop.py"""
+"""Golf shop v2 (Roblox-ready, textured, ~2.5k tris, empty interior, like zina/tech shop): brick-base cottage with gable roof, striped awning, sign, putting green, cart. Z-up metres, exported Y-up. Run: .venv/Scripts/python.exe scripts/gen_golf_shop.py"""
 import numpy as np, trimesh as tm, pathlib
 from trimesh.transformations import rotation_matrix as RM, translation_matrix as TM
 P = []
@@ -8,46 +8,94 @@ def col(m, hexc):
 def box(x0, y0, z0, x1, y1, z1, c):
     m = tm.creation.box([x1-x0, y1-y0, z1-z0]); m.apply_translation([(x0+x1)/2, (y0+y1)/2, (z0+z1)/2]); return col(m, c)
 def hullp(pts, c): return col(tm.convex.convex_hull(np.array(pts, float)), c)
-def cyl(x, y, z0, z1, r, c, n=12):
+def cyl(x, y, z0, z1, r, c, n=10):
     m = tm.creation.cylinder(radius=r, height=z1-z0, sections=n); m.apply_translation([x, y, (z0+z1)/2]); return col(m, c)
+def ball(x, y, z, r, c, sub=1):
+    m = tm.creation.icosphere(subdivisions=sub, radius=r); m.apply_translation([x, y, z]); return col(m, c)
+def wall(mk, a0, a1, ops, z0=0.2, z1=3.4):          # wall along one axis with openings [(a0, a1, z0, z1)]
+    cuts = sorted({a0, a1, *[o[i] for o in ops for i in (0, 1)]})
+    for s, e in zip(cuts, cuts[1:]):
+        o = next((o for o in ops if o[0] <= s and e <= o[1]), None)
+        if o is None: mk(s, e, z0, z1)
+        else:
+            if o[2] > z0: mk(s, e, z0, o[2])
+            if o[3] < z1: mk(s, e, o[3], z1)
 
-WALL, TRIM, GREEN, DGREEN, GLASS, WOOD, STONE, GRASS, SAND = "#f3efe2", "#fafafa", "#2e8b3d", "#1f5f2b", "#8fd3f4", "#8a6a4a", "#c9c4b8", "#3aa14a", "#e8d9a0"
-HX, HY, H = 6.0, 4.5, 3.8                      # shop 12 x 9 m, walls 3.8 m, front = -Y
-box(-HX-.3, -HY-.3, 0, HX+.3, HY+.3, .2, "#a8763e")                              # floor slab (wood planks)
-box(-HX, HY-.25, .2, HX, HY, H, WALL)                                            # back wall
-box(-HX, -HY, .2, -HX+.25, HY, H, WALL); box(HX-.25, -HY, .2, HX, HY, H, WALL)   # side walls
-box(-HX, -HY, .2, HX, -HY+.25, .9, WALL); box(-HX, -HY, 2.9, HX, -HY+.25, H, WALL)   # front knee wall + header
-box(-HX, -HY-.05, .9, -HX+.4, -HY+.3, 2.9, WALL); box(HX-.4, -HY-.05, .9, HX, -HY+.3, 2.9, WALL)
-box(-HX+.4, -HY+.08, .9, HX-.4, -HY+.14, 2.9, GLASS)                             # shopfront glass
-for x in np.linspace(-HX+.4, HX-.4, 7): box(x-.05, -HY-.02, .9, x+.05, -HY+.3, 2.9, TRIM)   # mullions
-box(-HX+.4, -HY-.02, 1.9, HX-.4, -HY+.3, 1.97, TRIM)                             # transom
-box(-.7, -HY-.04, .2, .7, -HY+.3, 2.9, GLASS)                                    # glass door + frame
-box(-.75, -HY-.06, .2, -.65, -HY+.32, 2.9, TRIM); box(.65, -HY-.06, .2, .75, -HY+.32, 2.9, TRIM)
-box(-.75, -HY-.06, 2.85, .75, -HY+.32, 2.95, TRIM); box(-.04, -HY-.08, .2, .04, -HY+.34, 2.9, TRIM)
-box(-.55, -HY-.1, 1.0, -.45, -HY-.05, 1.15, "#2b2f3a")                           # door handles
-box(.45, -HY-.1, 1.0, .55, -HY-.05, 1.15, "#2b2f3a")
-box(-HX-.2, -HY-.2, H, HX+.2, HY+.2, H+.25, DGREEN)                              # flat roof, green parapet, white cap
-box(-HX-.2, -HY-.2, H+.25, HX+.2, -HY-.1, H+.7, GREEN); box(-HX-.2, HY+.1, H+.25, HX+.2, HY+.2, H+.7, GREEN)
-box(-HX-.2, -HY-.2, H+.25, -HX-.1, HY+.2, H+.7, GREEN); box(HX+.1, -HY-.2, H+.25, HX+.2, HY+.2, H+.7, GREEN)
-box(-HX-.25, -HY-.25, H+.7, HX+.25, HY+.25, H+.78, TRIM)
-box(-HX-.25, -HY-.25, 3.0, HX+.25, -HY-.15, H, GREEN)                            # front fascia band
-box(-3.0, -HY-.3, H+.8, 3.0, -HY-.1, H+2.0, "#f6f6f6")                           # sign board ("sign" texture on the front face)
-box(-3.1, -HY-.35, H+.78, 3.1, -HY-.05, H+.85, DGREEN); box(-3.1, -HY-.35, H+2.0, 3.1, -HY-.05, H+2.07, DGREEN)
-box(-3.1, -HY-.35, H+.85, -3.0, -HY-.05, H+2.0, DGREEN); box(3.0, -HY-.35, H+.85, 3.1, -HY-.05, H+2.0, DGREEN)
-cyl(4.8, 0, H+.78, H+1.2, .06, "#ffcc33", 8); m = tm.creation.icosphere(subdivisions=1, radius=.38); m.apply_translation([4.8, 0, H+1.55]); col(m, "#f2f2f2")   # ball on a tee
-for k in range(10):                                                              # green/white striped awning, gap at the door
-    x0 = -HX + k*1.2
-    if x0+1.2 > -.9 and x0 < .9: continue
-    hullp([(x0, -HY, 3.0), (x0+1.2, -HY, 3.0), (x0, -HY-1.1, 2.55), (x0+1.2, -HY-1.1, 2.55),
-           (x0, -HY, 2.95), (x0+1.2, -HY, 2.95), (x0, -HY-1.1, 2.5), (x0+1.2, -HY-1.1, 2.5)], GREEN if k % 2 == 0 else "#f5f5f5")
-box(-HX, -HY-1.4, 0, HX, -HY, .12, STONE); box(-1.2, -HY-2.0, 0, 1.2, -HY-1.4, .06, STONE)   # porch + step
-box(-HX, -HY-6.5, 0, HX, -HY-1.4, .1, GRASS); box(-HX, -HY-6.5, .1, HX, -HY-6.4, .14, STONE)   # putting green + kerb
-cyl(2.5, -HY-4.2, .1, .14, .22, "#1a1a1a", 16); cyl(2.5, -HY-4.2, .1, 2.3, .025, "#eeeeee", 6)   # hole + flag
-box(2.5, -HY-4.2, 1.8, 3.2, -HY-4.18, 2.3, "#e03030")
-cyl(-3.2, -HY-3.8, .1, .14, 1.3, SAND, 20)                                       # bunker
-for bx, bc in ((-2.2, "#c0392b"), (-1.6, "#2f5fa8")):                            # golf bags by the door
-    cyl(bx, -HY-1.0, .12, 1.0, .18, bc, 8); cyl(bx, -HY-1.0, 1.0, 1.05, .2, "#2b2f3a", 8)
-    for k in range(3): cyl(bx-.07+k*.07, -HY-1.0, 1.05, 1.5+k*.08, .02, "#cccccc", 4)
+WALL, BRICK, ROOF, TRIM, DOOR, WOOD, DECK, STONE, GRASS, GREEN2, SAND, GLASS, DARK = "#f3efe2", "#9c4a38", "#2f6b3a", "#fafafa", "#2e8b3d", "#8a6a4a", "#a8763e", "#c9c4b8", "#3f9142", "#5cc760", "#e8d9a0", "#8fd3f4", "#2b2f3a"
+HX, HY, H = 5.0, 3.5, 3.4                      # shop 10 x 7 m, walls 3.4 m, front = -Y
+box(-HX, -HY, 0, HX, HY, .2, DECK)                                                # floor
+BW = 1.0                                                                          # brick plinth height
+WIN = (-4.0, -0.9, 1.1, 2.6); DR = (1.0, 2.2, 0.2, 2.6); WIN2 = (3.0, 4.2, 1.1, 2.4)
+def fw(a, b, z0, z1):                                                             # front wall piece: brick below BW, plaster above
+    if z0 < BW: box(a, -HY, z0, b, -HY+.25, min(z1, BW), BRICK)
+    if z1 > BW: box(a, -HY, max(z0, BW), b, -HY+.25, z1, WALL)
+wall(fw, -HX, HX, [WIN, DR, WIN2])
+box(-HX, HY-.25, .2, HX, HY, BW, BRICK); box(-HX, HY-.25, BW, HX, HY, H, WALL)    # back wall
+SWN = [(-1.2, 1.2, 1.1, 2.4)]
+for sx in (-1, 1):                                                                # side walls with one window each
+    def sw(a, b, z0, z1, sx=sx):
+        x0, x1 = (sx*HX-.25, sx*HX) if sx > 0 else (sx*HX, sx*HX+.25)
+        if z0 < BW: box(x0, a, z0, x1, b, min(z1, BW), BRICK)
+        if z1 > BW: box(x0, a, max(z0, BW), x1, b, z1, WALL)
+    wall(sw, -HY, HY, SWN)
+    gx = sx*HX - (.12 if sx > 0 else -.12)
+    box(gx-.04, -1.2, 1.1, gx+.04, 1.2, 2.4, GLASS)
+    for y0, y1, z0, z1 in [(-1.3, -1.2, 1.0, 2.5), (1.2, 1.3, 1.0, 2.5), (-1.3, 1.3, 1.0, 1.1), (-1.3, 1.3, 2.4, 2.5), (-.03, .03, 1.1, 2.4)]:
+        box(sx*HX-(.2 if sx > 0 else 0), y0, z0, sx*HX+(0 if sx > 0 else .2), y1, z1, TRIM)
+for (a0, a1, z0, z1) in (WIN, WIN2):                                              # front windows: glass, white frame, mullions, sill
+    box(a0, -HY+.08, z0, a1, -HY+.16, z1, GLASS)
+    for (p0, p1, q0, q1) in [(a0-.1, a0, z0-.1, z1+.1), (a1, a1+.1, z0-.1, z1+.1), (a0-.1, a1+.1, z0-.1, z0), (a0-.1, a1+.1, z1, z1+.1)]:
+        box(p0, -HY-.06, q0, p1, -HY+.25, q1, TRIM)
+    box(a0-.15, -HY-.2, z0-.14, a1+.15, -HY, z0-.04, TRIM)
+    n = max(1, int((a1-a0)/1.0))
+    for k in range(1, n): mx = a0+(a1-a0)*k/n; box(mx-.03, -HY-.02, z0, mx+.03, -HY+.2, z1, TRIM)
+    hz = z0+(z1-z0)*.6; box(a0, -HY-.02, hz-.03, a1, -HY+.2, hz+.03, TRIM)
+box(DR[0]+.1, -HY+.05, DR[2], DR[1]-.1, -HY+.2, DR[3]-.1, DOOR)                   # green door, glazed top, white frame
+box(DR[0]+.3, -HY-.01, 1.5, DR[1]-.3, -HY+.22, 2.3, GLASS)
+for (p0, p1, q0, q1) in [(DR[0]-.12, DR[0]+.1, .2, DR[3]+.12), (DR[1]-.1, DR[1]+.12, .2, DR[3]+.12), (DR[0]-.12, DR[1]+.12, DR[3]-.1, DR[3]+.12)]:
+    box(p0, -HY-.06, q0, p1, -HY+.25, q1, TRIM)
+box(DR[1]-.3, -HY-.08, 1.1, DR[1]-.2, -HY-.02, 1.35, DARK)                        # handle
+box(DR[0]-.3, -HY-.3, 2.7, DR[1]+.3, -HY, 2.78, TRIM)                             # door canopy ledge
+box(-4.6, -HY-.9, 0, 4.6, -HY, .15, STONE); box(.7, -HY-1.3, 0, 2.5, -HY-.9, .08, STONE)   # porch + step
+for k in range(7):                                                                # striped awning over the big window
+    x0 = -4.1 + k*.5; cc = ROOF if k % 2 == 0 else "#f5f5f5"
+    hullp([(x0, -HY, 2.85), (x0+.5, -HY, 2.85), (x0, -HY-1.0, 2.4), (x0+.5, -HY-1.0, 2.4),
+           (x0, -HY, 2.8), (x0+.5, -HY, 2.8), (x0, -HY-1.0, 2.35), (x0+.5, -HY-1.0, 2.35)], cc)
+# gable roof (ridge along X): two slabs, ridge cap, gable triangles, ceiling, brick chimney
+RZ, RIDGE, OV, EV, TH = 3.15, 1.9, 5.6, 4.2, .25
+for sy in (-1, 1):
+    hullp([(-OV, sy*EV, RZ), (OV, sy*EV, RZ), (-OV, 0, RZ+RIDGE), (OV, 0, RZ+RIDGE),
+           (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], ROOF)
+hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+RIDGE-.2), (OV+.05, -.5, RZ+RIDGE-.2), (-OV-.05, .5, RZ+RIDGE-.2), (OV+.05, .5, RZ+RIDGE-.2)], "#1f4a28")
+for gx in (-HX, HX-.25):
+    hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
+box(-HX, -HY, H-.2, HX, HY, H, WALL)
+box(-3.8, .8, H, -3.2, 1.4, 5.6, BRICK); box(-3.9, .7, 5.6, -3.1, 1.5, 5.75, DARK)  # chimney
+cyl(3.8, 0, RZ+RIDGE+.1, RZ+RIDGE+.6, .07, "#ffcc33", 8); ball(3.8, 0, RZ+RIDGE+1.0, .42, "#f4f4f4", 1)   # giant golf ball on a tee
+cyl(-4.4, 0, RZ+RIDGE, RZ+RIDGE+1.9, .03, "#eeeeee", 6); box(-4.4, 0, RZ+RIDGE+1.35, -3.6, .02, RZ+RIDGE+1.85, "#e03030")   # flag
+# lot: grass, path, putting green with flag + bunker, sign, fence, cart, trees, bags
+box(-8, -HY-8.5, 0, 8, -HY-.9, .06, GRASS); box(-8, HY, 0, 8, HY+3, .06, GRASS); box(-8, -HY-.9, 0, -HX, HY, .06, GRASS); box(HX, -HY-.9, 0, 8, HY, .06, GRASS)
+box(1.0, -HY-5.5, .06, 2.2, -HY-1.3, .09, STONE)
+cyl(-3.8, -HY-5.0, .06, .1, 2.6, GREEN2, 28)
+cyl(-3.8, -HY-5.0, .1, .14, .2, "#1a1a1a", 14); cyl(-3.8, -HY-5.0, .1, 2.2, .025, "#eeeeee", 6); box(-3.8, -HY-5.0, 1.7, -3.1, -HY-4.98, 2.2, "#e03030")
+cyl(-0.2, -HY-6.2, .06, .1, 1.1, SAND, 20)
+box(-3.0, -HY-2.6, 1.9, 0.0, -HY-2.5, 2.9, "#f6f6f6")                              # sign board on posts (front face = -Y)
+box(-3.1, -HY-2.65, 1.85, 0.1, -HY-2.45, 1.9, DARK); box(-3.1, -HY-2.65, 2.9, 0.1, -HY-2.45, 2.95, DARK)
+box(-3.1, -HY-2.65, 1.9, -3.0, -HY-2.45, 2.9, DARK); box(0.0, -HY-2.65, 1.9, 0.1, -HY-2.45, 2.9, DARK)
+box(-2.7, -HY-2.58, 0, -2.55, -HY-2.52, 1.9, WOOD); box(-.45, -HY-2.58, 0, -.3, -HY-2.52, 1.9, WOOD)
+for x in np.linspace(-7.6, 7.6, 7): box(x-.06, -HY-8.4, .06, x+.06, -HY-8.3, .9, TRIM)   # white fence
+box(-7.65, -HY-8.38, .65, 7.65, -HY-8.32, .72, TRIM)
+cx, cy = 5.2, -HY-4.2                                                              # golf cart
+box(cx-.9, cy-.55, .35, cx+.9, cy+.55, .7, TRIM); box(cx-.9, cy-.55, .7, cx-.1, cy+.55, 1.2, TRIM); box(cx-1.0, cy-.6, 1.9, cx+.25, cy+.6, 1.98, ROOF)
+for px in (cx-.95, cx+.15): box(px, cy-.58, 1.2, px+.05, cy-.52, 1.9, DARK); box(px, cy+.52, 1.2, px+.05, cy+.58, 1.9, DARK)
+box(cx+.2, cy-.5, .7, cx+.85, cy+.5, .76, DARK)
+for wx in (cx-.6, cx+.6):
+    for wy in (cy-.58, cy+.58): m = tm.creation.cylinder(radius=.28, height=.12, sections=8); m.apply_transform(RM(np.pi/2, [1, 0, 0])); m.apply_translation([wx, wy, .28]); col(m, DARK)
+for tx, ty, tr in [(-6.8, -HY-1.6, 1.0), (6.8, -HY-1.2, 1.1), (-6.5, 1.5, 1.2)]:      # trees
+    cyl(tx, ty, 0, 1.6, .18, WOOD, 8); ball(tx, ty, 2.7, tr*1.15, "#2e7d32")
+for bx, bc in ((-4.8, "#c0392b"), (-4.3, "#2f5fa8")):                                # golf bags by the wall
+    cyl(bx, -HY-.5, .15, .95, .17, bc, 8); cyl(bx, -HY-.5, .95, 1.0, .19, DARK, 8)
+    for k in range(3): cyl(bx-.07+k*.07, -HY-.5, 1.0, 1.45+k*.08, .02, "#cccccc", 4)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
@@ -105,13 +153,16 @@ def tex_sign_blue(base):
     y = np.linspace(0, 1, N)[:, None] * np.ones((1, N))
     return tint(base, (0.1 - y * .25) + (noise(N, 2) - .5) * .03)
 def tex_plate():
-    W, H = 2048, 410
+    W, H = 2048, 680
     im = Image.new("RGB", (W, H), "#1f5f2b"); dr = ImageDraw.Draw(im)
-    dr.rectangle([0, 0, W-1, H-1], outline="#ffffff", width=14); dr.rectangle([30, 30, W-31, H-31], outline="#e8c34a", width=6)
-    f = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 230); t = "GOLF SHOP"
-    bb = dr.textbbox((0, 0), t, font=f); x, y = (W-(bb[2]-bb[0]))//2 - bb[0], (H-(bb[3]-bb[1]))//2 - bb[1]
-    dr.text((x+7, y+7), t, font=f, fill="#0f3a18"); dr.text((x, y), t, font=f, fill="#ffffff")
-    for cx in (170, W-170): dr.ellipse([cx-60, 150, cx+60, 270], fill="#f4f4f4", outline="#bbbbbb", width=4); dr.polygon([(cx-6, 270), (cx+6, 270), (cx, 340)], fill="#e8c34a")
+    dr.rectangle([0, 0, W-1, H-1], outline="#ffffff", width=22); dr.rectangle([46, 46, W-47, H-47], outline="#e8c34a", width=8)
+    f = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 330); t = "GOLF"
+    bb = dr.textbbox((0, 0), t, font=f); x, y = (W-(bb[2]-bb[0]))//2 - bb[0], 60 - bb[1]
+    dr.text((x+8, y+8), t, font=f, fill="#0f3a18"); dr.text((x, y), t, font=f, fill="#ffffff")
+    f2 = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 150); t2 = "PRO SHOP"
+    bb = dr.textbbox((0, 0), t2, font=f2); x = (W-(bb[2]-bb[0]))//2 - bb[0]
+    dr.text((x, 440-bb[1]), t2, font=f2, fill="#e8c34a")
+    for cx in (200, W-200): dr.ellipse([cx-90, 250, cx+90, 430], fill="#f4f4f4", outline="#bbbbbb", width=5); dr.polygon([(cx-9, 430), (cx+9, 430), (cx, 530)], fill="#e8c34a")
     return np.asarray(im)
 def tex_tiles(base):
     a = np.zeros((N, N, 3), float); h = np.array([int(base[i:i+2], 16) for i in (1, 3, 5)], float)
@@ -176,20 +227,21 @@ PROC_PBR = {}
 def tex_grass(base):
     n = (noise(N, 2) - .5) * .18 + (rng.random((N, N)) - .5) * .12
     return tint(base, n)
-SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#2b2f3a": ("metal", tex_metal, 1.5),
-           "#f3efe2": ("plaster", tex_plaster, 2.0), "#fafafa": ("plaster", tex_plaster, 2.0), "#1f5f2b": ("plaster", tex_plaster, 2.0),
-           "#2e8b3d": ("fabric", tex_fabric, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#c0392b": ("fabric", tex_fabric, 1.0), "#2f5fa8": ("fabric", tex_fabric, 1.0),
-           "#8a6a4a": ("wood", tex_wood, 1.0), "#c9c4b8": ("floor", tex_floor, 1.5), "#3aa14a": ("grass", tex_grass, 1.5), "#e8d9a0": ("sand", tex_roof, 1.0)}
+SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#2b2f3a": ("metal", tex_metal, 1.5), "#9c4a38": ("brick", tex_brick, 1.5),
+           "#2f6b3a": ("shingles", tex_tiles, 1.0), "#f3efe2": ("plaster", tex_plaster, 2.0), "#fafafa": ("plaster", tex_plaster, 2.0), "#1f4a28": ("plaster", tex_plaster, 2.0),
+           "#2e8b3d": ("wood", tex_wood, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#c0392b": ("fabric", tex_fabric, 1.0), "#2f5fa8": ("fabric", tex_fabric, 1.0),
+           "#8a6a4a": ("wood", tex_wood, 1.0), "#c9c4b8": ("floor", tex_floor, 1.5), "#3f9142": ("grass", tex_grass, 1.5), "#5cc760": ("grass", tex_grass, 1.5),
+           "#e8d9a0": ("sand", tex_roof, 1.0), "#2e7d32": ("grass", tex_grass, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
     f, n, v = m.faces, m.face_normals, m.vertices
     uv = np.zeros((len(v), 2)); bn = m.bounds
     for fi in range(len(f)):
         ax = int(np.argmax(np.abs(n[fi]))); a, b = [(2, 1), (0, 2), (0, 1)][ax]    # Y-up world: choose plane axes
-        slope = False
+        slope = n[fi][1] > .3 and abs(n[fi][2]) > .3
         for vi in f[fi]:
             if slope:
-                uv[vi] = (v[vi][0] / 1.6, (v[vi][1] - 3.15) / 0.438 / 1.6); continue
+                uv[vi] = (v[vi][0] / 1.6, (v[vi][1] - 3.15) * 2.2 / 1.6); continue
             if plate:
                 uv[vi] = ((v[vi][0]-bn[0][0])/(bn[1][0]-bn[0][0]), (v[vi][1]-bn[0][1])/(bn[1][1]-bn[0][1])) if ax == 2 and n[fi][2] > 0 else (0.01, 0.01)
             else:
