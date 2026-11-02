@@ -60,11 +60,8 @@ for i in (-3, -2, -1, 1, 2, 3): box(i*1.8-.05, -4.46, .2, i*1.8+.05, -4.28, 3.4,
 box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4, TRIM)   # door posts
 box(-7.8, -4.8, 4.4, 7.8, 4.8, 4.7, "#3a3f4b")                            # roof slab
 box(-7.8, -4.8, 4.7, 7.8, -4.6, 5.0, "#3a3f4b")
-# sign: blue band with white "letters" (left = AUTO, right = BOAT)
+# sign: plain blue band with white plate
 box(-6.5, -4.9, 4.7, 6.5, -4.6, 6.4, "#1b4f9c"); box(-6.2, -4.95, 5.0, 6.2, -4.62, 6.1, "#f5f5f5")
-for i in range(4): box(-5.6+i*1.1, -5.0, 5.2, -4.8+i*1.1, -4.96, 5.9, "#d8262c")
-box(-0.9, -5.0, 5.3, 0.9, -4.96, 5.8, "#1b4f9c")
-for i in range(4): box(1.4+i*1.1, -5.0, 5.2, 2.2+i*1.1, -4.96, 5.9, "#1b4f9c")
 # awning over entrance
 for k in range(6): box(-2.4+k*.8, -6.0, 3.2, -1.6+k*.8, -4.3, 3.35, "#d8262c" if k % 2 == 0 else "#f5f5f5")
 # interior: counter, lounge
@@ -73,9 +70,16 @@ box(2.5, 3.9, .2, 7.0, 4.2, 2.6, "#5b4636")                               # wall
 for i in range(6): box(2.8+i*.7, 3.85, 1.0, 3.3+i*.7, 3.9, 2.2, "#3fa7ff" if i % 2 else "#f5f5f5")
 box(-1.5, 1.5, .2, 1.5, 2.5, .8, "#c8b79a")                               # lounge table
 for sx in (-2.2, 2.2): box(sx-.5, 1.4, .2, sx+.5, 2.4, .7, "#1b4f9c")
-box(-1.2, -9.0, 0, 1.2, -4.5, .06, "#d8d2c4")                                  # entrance path
-box(-1.2, -4.5, .2, 1.2, -4.2, .26, "#b9a98d")
 
+# remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
+solid, acc = [], None
+for m in reversed(P):
+    rgb = m.visual.face_colors[0].tolist()
+    c = m if acc is None else tm.boolean.difference([m, acc], engine="manifold")
+    if len(c.faces):
+        c = c.copy(); c.visual.face_colors = rgb; solid.append(c)
+    acc = m if acc is None else tm.boolean.union([acc, m], engine="manifold")
+P[:] = solid
 scene = tm.util.concatenate(P)
 scene.apply_transform(RM(-np.pi/2, [1, 0, 0]))                              # Z-up -> Y-up
 fc = scene.visual.face_colors[:, :3]
