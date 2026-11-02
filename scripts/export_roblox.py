@@ -1,8 +1,9 @@
 """Roblox package of the shop: GLB in studs (1 stud = 0.28 m), textures <= 1024 px, split PBR maps for SurfaceAppearance.
-Run after gen_car_boat_shop.py:  .venv/Scripts/python.exe scripts/export_roblox.py"""
-import pathlib, numpy as np, trimesh as tm
+Usage: .venv/Scripts/python.exe scripts/export_roblox.py [project] [title]"""
+import sys, pathlib, numpy as np, trimesh as tm
 from PIL import Image
-SRC = pathlib.Path("projects/car_boat_shop/export/car_boat_shop.glb"); OUT = pathlib.Path("projects/car_boat_shop/roblox")
+PROJ = sys.argv[1] if len(sys.argv) > 1 else "car_boat_shop"; TITLE = sys.argv[2] if len(sys.argv) > 2 else "Магазин"
+SRC = pathlib.Path(f"projects/{PROJ}/export/{PROJ}.glb"); OUT = pathlib.Path(f"projects/{PROJ}/roblox")
 (OUT / "textures").mkdir(parents=True, exist_ok=True)
 S = 1 / 0.28
 sc = tm.load(SRC)
@@ -26,12 +27,12 @@ for name, g in sc.geometry.items():
         r, gch, bch = orm.split()
         gch.save(OUT / "textures" / f"{name}_roughness.png"); bch.save(OUT / "textures" / f"{name}_metalness.png")
     rows.append((name, base.size, m.normalTexture is not None, orm is not None))
-sc.export(OUT / "tech_shop_roblox.glb")
+sc.export(OUT / f"{PROJ}_roblox.glb")
 bb = sc.bounds; size = (bb[1] - bb[0]).round(1)
-(OUT / "README.txt").write_text(f"""Магазин для Roblox Studio
-Файл: tech_shop_roblox.glb  (в студах: 1 stud = 0.28 м), размер {size[0]} x {size[2]} x {size[1]} studs (ширина x глубина x высота), центр на полу.
+(OUT / "README.txt").write_text(f"""{TITLE} - модель для Roblox Studio
+Файл: {PROJ}_roblox.glb  (в студах: 1 stud = 0.28 м), размер {size[0]} x {size[2]} x {size[1]} studs (ширина x глубина x высота), центр на полу.
 
-Импорт: Roblox Studio -> вкладка Avatar/Home -> Import 3D (или Asset Manager -> Bulk Import) -> выбрать tech_shop_roblox.glb.
+Импорт: Roblox Studio -> вкладка Avatar/Home -> Import 3D (или Asset Manager -> Bulk Import) -> выбрать {PROJ}_roblox.glb.
 В окне импорта оставить Scale = 1, включить Import Textures (карты уже в файле).
 Получится Model из MeshPart по одному на материал ({len(rows)} шт.) с SurfaceAppearance.
 
