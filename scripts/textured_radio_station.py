@@ -136,7 +136,7 @@ def build():
                  [mx + 1.1 * s1 * b[0], y0 + yb, mz + 1.1 * s1 * b[1]], 0.05, "metal", parts)
             tube([mx + 1.1 * s0 * a[0], y0 + ya, mz + 1.1 * s0 * a[1]],
                  [mx + 1.1 * s0 * b[0], y0 + ya, mz + 1.1 * s0 * b[1]], 0.05, "metal", parts)
-    spire = trimesh.creation.cone(radius=0.3, height=24, sections=8)
+    spire = trimesh.creation.cone(radius=0.3, height=23.4, sections=8)
     spire.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
     spire.apply_translation([mx, HT + 0.7, mz])
     parts.setdefault("metal", []).append(spire)

@@ -20,7 +20,7 @@ LX0, LX1, LZ = -3.7, 7.7, 3.7            # core: long axis X, narrow faces at x 
 H, HT = 23.14, 24.0
 FLOORS, TILE_F = 27, 3
 D_NARROW = 7.4
-CONCRETE, ROOF, CREAM = (178, 173, 165), (110, 112, 124), (220, 212, 192)
+CONCRETE, ROOF, CREAM = (178, 173, 165), (150, 150, 165), (220, 212, 192)
 
 
 def tile_img(name, px):
@@ -103,8 +103,8 @@ def build():
     # ground disc
     disc = trimesh.creation.cylinder(radius=12.15, height=0.09, sections=40)
     disc.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
-    disc.apply_translation([cx, -0.045, cz])
-    uv = np.c_[(disc.vertices[:, 0] - cx) / 24.3 + 0.5, 1 - ((disc.vertices[:, 2] - cz) / 24.3 + 0.5)]
+    disc.apply_translation([1.0, -0.045, cz])   # reference disc centre x = 1.0
+    uv = np.c_[(disc.vertices[:, 0] - 1.0) / 24.3 + 0.5, 1 - ((disc.vertices[:, 2] - cz) / 24.3 + 0.5)]
     disc.visual = trimesh.visual.TextureVisuals(uv=uv, material=trimesh.visual.material.PBRMaterial(
         name="ground", baseColorTexture=ground_disc(), metallicFactor=0.0, roughnessFactor=0.9))
     sc = B.scene()

@@ -23,3 +23,10 @@
 - Facade = PIL tile of the reference tile repeated per face; logo/text drawn undistorted then resized to the face's
   px-per-unit; dark text on dark glass needs a light stroke. Brightness 0.6 on tile makes glass read dark.
 - Choose pazl recipe only for geometry you can't paint; for glass towers texture scripts are 200x cheaper.
+
+## Verification checklist (do BEFORE saying done)
+1. `python scripts/glb_inspect.py mine.glb | head -1` vs the same for the ref: bbox size must match (tower x4 scale,
+   radio 33 x 35.96 x 22.62). Fix > 2 % differences (found: spire 0.6 too tall, ground disc centre off by 1 unit).
+2. Compare per-mesh min/size of the big parts (core, piers frame, disc) with the ref lines.
+3. Screenshot in the viewer (wait 10 s twice); check logo/text readable, no black/transparent faces, nothing floating.
+4. Regenerate from scratch (delete old glb) so no stale file is judged.
