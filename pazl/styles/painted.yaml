@@ -1,0 +1,32 @@
+id: painted
+name: Painted low-poly (game)
+name_ru: Рисованный low-poly (игровой)
+era: game
+region: games
+detail: lowpoly
+painted: true        # windows and doors are pictures on flat walls (overlay quads), no holes: ~10x fewer triangles
+lit_share: 0.27      # share of lit (orange) windows
+materials: {wall: plastic_grey, plinth: plastic_red, roof: plastic_black, trim: plastic_white, frame: plastic_white, glass: glass_dark, door: plastic_blue, stairs: plastic_black}
+defaults:
+  roof: {type: flat, parapet_h: 0.8, overhang: 0.1}
+  windows: {trim: none, sill_ledge: false, frame: false, mullions: [1, 0]}
+  door: {trim: none}
+  block: {hollow: false}
+macros: [panel_building, house, game_house, stalinka, brutalist_block, glass_tower]
+tips: Game-asset look like Sketchfab low-poly city packs - simple boxes, windows / doors / stair slits painted on the
+  walls (dark or lit glass, white frames), light panel seams, flat colours. Tiny triangle counts for mobile and
+  city-builder games. Pick a sub-style for the setting.
+years: [2000, 2100]
+regions: [games]
+palette: {wall: ['#c9cbd8', '#d8d2c4', '#b9c2c9'], trim: ['#eef0e2'], roof: ['#3b404b'], plinth: ['#8e3326']}
+variants:
+  soviet:
+    name: Soviet panel block
+    name_ru: Советская панелька
+    materials: {wall: concrete_panel, plinth: plastic_red, roof: plastic_black, trim: plastic_white}
+    palette: {wall: ['#c9cbd8', '#cfd0c8'], plinth: ['#8e3326'], roof: ['#3b404b'], trim: ['#eef0e2']}
+  night:
+    name: Night city
+    name_ru: Ночной город (больше огней)
+    lit_share: 0.55
+    palette: {wall: ['#8a8fa3', '#9a9488'], trim: ['#d8dac8'], roof: ['#2a2e36']}

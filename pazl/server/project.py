@@ -18,7 +18,7 @@ from ..core.builder import build
 from ..core.materials import MATS, write_manifest
 from ..core.mesh import export as export_mesh, optimize, preview_scene, to_scene, validate
 from ..core.registry import ELEMENTS
-from ..core.render import VIEWS, render_sheet
+from ..core.render import VIEWS, painted_meshes, render_sheet
 
 from ..paths import PROJECTS, ROOT  # noqa: E402
 
@@ -699,7 +699,7 @@ class Project:
                 model = g.union([model] + [mv["m"] for _, _, mv in res_.movables()])
             info = render_sheet(model, out, views=views, tile=tile, highlight=bad,
                                 title=f"{self.recipe.get('name')} [{self.recipe.get('style')}/{self.result().detail}] v{self.version}",
-                                custom=custom)
+                                custom=custom, extra=painted_meshes(res_))
             info["url"] = f"/files/{out.relative_to(PROJECTS).as_posix()}"
             info["problems"] = bad
             self.last_render = info

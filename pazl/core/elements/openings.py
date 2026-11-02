@@ -92,8 +92,24 @@ GRID_PARAMS = {
 }
 
 
+def _painted(part: Part, mat: str, w, h, T, pad=0.0):
+    """Painted (game low-poly) opening: a picture quad 1.5 cm in front of the wall instead of a cut hole."""
+    y = 0.015
+    pts = [[-w / 2 - pad, y, -pad], [w / 2 + pad, y, -pad], [w / 2 + pad, y, h + pad], [-w / 2 - pad, y, h + pad]]
+    part.decal([(T @ [*q, 1.0])[:3] for q in pts], mat, "painted")
+
+
 def _window(p, ctx, w, h, depth, kind, part: Part, u, v):
     """Build one window at (u, v) into part (solids + cutters)."""
+    if ctx.style.get("painted"):
+        if kind in ("slit", "ribbon") or h < 0.5:
+            mat = "painted_slit"
+        else:
+            lit = ctx.rng.random() < float(ctx.style.get("lit_share", 0.27))
+            bars = ctx.rng.choice([1, 1, 2, 3]) if (p.get("mullions") or [1])[0] else 0
+            mat = f"painted_win_{'lit' if lit else 'dark'}_{bars}"
+        _painted(part, mat, w, h, g.mat_t(u, 0, v), float(p.get("trim_w", 0.12)) * 0.6)
+        return
     seg = ctx.seg(w / 2, 8, 40)
     shape = opening_shape(kind, w, h, seg)
     T = g.mat_t(u, 0, v)
@@ -264,6 +280,10 @@ def door(p, ctx):
     part = Part()
     depth = ctx.anchor.depth if ctx.anchor else 0.5
     w, h, kind = float(p["w"]), float(p["h"]), p["kind"]
+    painted = bool(ctx.style.get("painted")) and not p["open"]
+    if painted:  # picture of the door on the wall; steps and canopy below stay real geometry
+        _painted(part, "painted_door_glazed" if p["glazed"] or p["double"] else "painted_door", w, h, g.mat_t(0, 0, 0))
+        p = {**p, "orders": 0, "trim": "none", "transom": False}
     seg = ctx.seg(w / 2, 8, 40)
     shape = opening_shape(kind, w, h, seg)
     trim_mat = ctx.mat(p["trim_material"])
@@ -276,9 +296,10 @@ def door(p, ctx):
         if not ctx.low:  # small colonnettes in each order
             part.add(g.cyl(0.06, h * 0.75, 8, 0, None, -(w / 2 + k * step_o), -k * 0.15 + 0.02), trim_mat)
             part.add(g.cyl(0.06, h * 0.75, 8, 0, None, (w / 2 + k * step_o), -k * 0.15 + 0.02), trim_mat)
-    part.cut(g.prism_xz(shape, -depth - 0.05, 0.05))
+    if not painted:
+        part.cut(g.prism_xz(shape, -depth - 0.05, 0.05))
     rec = float(p["recess"]) + orders * 0.15
-    if not p["open"]:
+    if not p["open"] and not painted:
         leaf_mat = ctx.mat("glass" if p["glazed"] else p["leaf_material"])
         fw = 0.06  # door frame (jambs + head) in the opening, embedded 3 cm in the wall; the leaf turns inside it
         inner = g.offset2(shape, -fw)

@@ -302,7 +302,7 @@ def overlay_meshes(result, kinds=None, y_up=True, only=None):
 
 
 def overlay_kinds(recipe: dict):
-    kinds = set()
+    kinds = {"painted"}  # painted windows/doors of painted styles are the facade itself, never switched off
     if recipe.get("interiors", True):
         kinds.add("interior")
     if recipe.get("decals", True):

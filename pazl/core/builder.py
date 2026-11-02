@@ -382,7 +382,7 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
                                    "axis": (W[:3, :3] @ np.asarray(mv["axis"])).tolist(), "open": mv["open"] * flip})
             for d in part.decals:
                 pts = (np.c_[np.asarray(d["pts"]), np.ones(len(d["pts"]))] @ W.T)[:, :3]
-                mat = d["mat"] if d["mat"].startswith(("decal_", "interior_")) else MATS.resolve(d["mat"], est)
+                mat = d["mat"] if d["mat"].startswith(("decal_", "interior_", "painted_")) else MATS.resolve(d["mat"], est)
                 n = W[:3, :3] @ np.asarray(d.get("n", [0, 1, 0]), float)
                 n = n / (np.linalg.norm(n) or 1.0)
                 if d["kind"] == "decal":  # every decal at its own depth (0.7 mm steps) -> overlapping decals never z-fight

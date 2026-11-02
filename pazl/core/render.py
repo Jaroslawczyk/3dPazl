@@ -77,7 +77,7 @@ def _tm_from_manifold(m, highlight=()):
     return tm
 
 
-def _render_job(final, views, tile, highlight, out_path, title, custom):
+def _render_job(final, views, tile, highlight, out_path, title, custom, extra=()):
     import pyrender
     mn, mx = g.bbox(final)
     center = (mn + mx) / 2
@@ -111,6 +111,9 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
                 vr *= 0.8  # closer: rooms fill the tile
         sc = pyrender.Scene(ambient_light=[0.35, 0.35, 0.38], bg_color=[0.82, 0.88, 0.95, 1.0])
         sc.add(pyrender.Mesh.from_trimesh(tm, smooth=False))
+        if cut is None:  # painted windows / doors (textured overlay quads) on the outside views
+            for e in extra:
+                sc.add(pyrender.Mesh.from_trimesh(e, smooth=False))
         if v not in ("below",):
             sc.add(pyrender.Mesh.from_trimesh(ground, smooth=False))
         if custom and v == "custom":
@@ -149,6 +152,33 @@ def _render_job(final, views, tile, highlight, out_path, title, custom):
     return {"path": str(out_path), "views": views, "cameras": cams, "center": center.tolist(), "radius": radius}
 
 
-def render_sheet(final, out_path, views=None, tile=(384, 288), highlight=(), title="", custom=None):
+def render_sheet(final, out_path, views=None, tile=(384, 288), highlight=(), title="", custom=None, extra=()):
+    """extra = textured trimeshes (Z-up) drawn on top of the shell in uncut views, e.g. painted windows."""
     views = views or DEFAULT_VIEWS
-    return _EXEC.submit(_render_job, final, views, tile, tuple(highlight), out_path, title, custom).result()
+    return _EXEC.submit(_render_job, final, views, tile, tuple(highlight), out_path, title, custom, tuple(extra)).result()
+
+
+def painted_meshes(result, n=12) -> list:
+    """Painted windows/doors of painted styles for render_sheet(extra=...): each picture quad becomes an n x n grid of
+    flat-coloured cells (the offscreen GL here cannot upload textures), Z-up."""
+    from .decals import ensure_all, file_for
+    from .mesh import overlay_meshes
+    out = []
+    for name, tm in overlay_meshes(result, {"painted"}, y_up=False):
+        ensure_all()
+        img = np.asarray(Image.open(file_for(name)).convert("RGB").resize((n, n)))[::-1]  # row 0 = bottom
+        V, F, C = [], [], []
+        for q in range(len(tm.vertices) // 4):
+            p0, p1, _, p3 = tm.vertices[q * 4:q * 4 + 4]
+            du, dv = (p1 - p0) / n, (p3 - p0) / n
+            for j in range(n):
+                for i in range(n):
+                    k = len(V)
+                    a = p0 + du * i + dv * j
+                    V += [a, a + du, a + du + dv, a + dv]
+                    F += [[k, k + 1, k + 2], [k, k + 2, k + 3]]
+                    C += [img[j, i]] * 2
+        m = trimesh.Trimesh(np.asarray(V), np.asarray(F), process=False)
+        m.visual.face_colors = np.c_[np.asarray(C, np.uint8), np.full(len(C), 255, np.uint8)]
+        out.append(m)
+    return out

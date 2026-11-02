@@ -225,6 +225,16 @@ void main(){
 }`;
 function setupOverlay(o, mat) {
   const isDecal = mat.startsWith('decal_');
+  if (mat.startsWith('painted_')) {  // painted windows/doors of painted styles: part of the facade, always visible
+    o.userData.overlay = 'painted';
+    const pmap = tex(mat, 'albedo', true);
+    pmap.wrapS = pmap.wrapT = THREE.ClampToEdgeWrapping;
+    o.geometry.computeVertexNormals();
+    o.material = new THREE.MeshStandardMaterial({ map: pmap, roughness: 0.9, polygonOffset: true,
+      polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    o.castShadow = false; o.receiveShadow = true; o.renderOrder = 1;
+    return;
+  }
   o.userData.overlay = isDecal ? 'decal' : 'interior';
   o.castShadow = false; o.receiveShadow = !isDecal ? false : true;
   const map = tex(mat, 'albedo', true);

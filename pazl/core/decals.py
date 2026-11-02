@@ -194,9 +194,50 @@ def draw_interior(kind: str, v: int) -> Image.Image:
     return im.filter(ImageFilter.GaussianBlur(0.8))
 
 
+PAINTED_DIR = TEX_LIB / "painted"
+# painted (game low-poly) facade pictures: windows dark/lit with 0-3 glazing bars, stair slit, door
+PAINTED = [f"win_{s}_{b}" for s in ("dark", "lit") for b in range(4)] + ["slit", "door", "door_glazed"]
+P_FRAME, P_GLASS, P_LIT, P_DOOR = (244, 244, 236), (44, 41, 68), (240, 160, 80), (42, 69, 168)
+
+
+def draw_painted(kind: str) -> Image.Image:
+    """Whole opening incl. its white frame band; the quad covers the window plus the trim width."""
+    W, H = (256, 256) if kind != "slit" else (256, 48)
+    if kind.startswith("door"):
+        W, H = 192, 288
+    im = Image.new("RGB", (W, H), P_FRAME)
+    d = ImageDraw.Draw(im)
+    b = max(6, W // 18)
+    if kind.startswith("door"):
+        d.rectangle([b, b, W - b, H], fill=P_DOOR)
+        d.rectangle([W // 2 - 2, b, W // 2 + 2, H], fill=(30, 50, 120))
+        if kind == "door_glazed":
+            for x in (W // 4, 3 * W // 4):
+                d.rectangle([x - W // 9, H // 7, x + W // 9, H // 2.6], fill=P_GLASS)
+        return im
+    lit = "_lit_" in kind
+    d.rectangle([b, b, W - b, H - b], fill=P_LIT if lit else P_GLASS)
+    if kind == "slit":
+        return im
+    bars = int(kind[-1])
+    m = max(4, b // 2)
+    for i in range(1, bars + 1):
+        x = W * i // (bars + 1)
+        d.rectangle([x - m // 2, b, x + m // 2, H - b], fill=P_FRAME)
+    if bars >= 2:  # transom over the side sash (форточка)
+        y = H // 3
+        d.rectangle([W - W // (bars + 1), y - m // 2, W - b, y + m // 2], fill=P_FRAME)
+    return im
+
+
 def ensure_all() -> None:
     DECAL_DIR.mkdir(parents=True, exist_ok=True)
     INTERIOR_DIR.mkdir(parents=True, exist_ok=True)
+    PAINTED_DIR.mkdir(parents=True, exist_ok=True)
+    for k in PAINTED:
+        f = PAINTED_DIR / f"painted_{k}.png"
+        if not f.exists():
+            draw_painted(k).save(f)
     for k in DECAL_KINDS:
         for v in range(VARIANTS):
             f = DECAL_DIR / f"decal_{k}_{v}.png"
@@ -215,6 +256,8 @@ def file_for(mat: str) -> Path | None:
         return DECAL_DIR / f"{mat}.png"
     if mat.startswith("interior_"):
         return INTERIOR_DIR / f"{mat}.png"
+    if mat.startswith("painted_"):
+        return PAINTED_DIR / f"{mat}.png"
     return None
 
 
