@@ -62,14 +62,10 @@ for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
 box(-HX, -HY, H-.2, HX, HY, H, WALL)                                              # ceiling
 box(2.4, .9, H, 3.0, 1.5, 5.9, "#9c4a38"); box(2.3, .8, 5.9, 3.1, 1.6, 6.05, "#3a3f4b")  # chimney + cap
-# outside: crates with apples/cabbages, bench, barrel
+# outside: crates with apples/cabbages
 for i, (cx, cy) in enumerate([(-3.5, -3.9), (-3.5, -3.15)]):
     box(cx-.4, cy-.3, 0, cx+.4, cy+.3, .45, PALE)
     for k in range(6): box(cx-.33+(k % 3)*.23, cy-.2+(k // 3)*.22, .45, cx-.13+(k % 3)*.23, cy-.0+(k // 3)*.22, .62, ["#d8262c", "#6bbf3a", "#ff8a1f"][(k+i) % 3])
-cyl = tm.creation.cylinder(radius=.32, height=.75, sections=14); cyl.apply_translation([-.0, 0, 0]); cyl.apply_translation([3.7, -3.6, .375]); col(cyl, "#5b4636")
-box(3.38, -3.62, .72, 4.02, -3.58, .76, "#2b2f3a")
-box(1.0, -3.7, .42, 2.8, -3.3, .5, WOOD); box(1.0, -3.7, .5, 2.8, -3.62, .85, WOOD)
-for lx in (1.1, 2.6): box(lx, -3.68, 0, lx+.1, -3.32, .42, "#2b2f3a")
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
@@ -165,6 +161,30 @@ def tex_brick(base):                                  # running-bond bricks with
     a = tint(base, (rng.random((N, N)) - .5) * .12 + (noise(N, 2) - .5) * .1).astype(float)
     m = (y % bh < 3) | (xs < 3); a[m] = [200, 190, 175]
     return a.clip(0, 255).astype(np.uint8)
+def pbr_boards(base):                                  # realistic painted planks: colour + normal + ORM (1024 px, tileable)
+    n = 1024; nb = 8; w = n // nb
+    y, x = np.mgrid[0:n, 0:n]; bi = x // w; u = (x % w) / w
+    tone = (rng.random(nb) - .5) * .14
+    st = np.tile(rng.random((1, n)), (n, 1)); st = (st + np.roll(st, 1, 1) + np.roll(st, -1, 1)) / 3     # vertical grain streaks
+    st = st * .6 + noise(n, 3) * .4
+    h = np.clip(np.minimum(u, 1 - u) / .07, 0, 1) ** .6 * .7 + st * .25
+    dark = np.zeros((n, n))
+    for _ in range(9):                                                                                       # knots
+        cx, cy, r = rng.integers(0, n), rng.integers(0, n), rng.integers(14, 30)
+        d = np.hypot((x - cx + n/2) % n - n/2, ((y - cy + n/2) % n - n/2) * .7)
+        h += np.exp(-(d / r) ** 2) * .25 * np.sin(d / 2.5); dark += np.exp(-(d / (r * .6)) ** 2) * .35
+    a = tint(base, tone[bi] + (st - .5) * .22 + (noise(n, 2) - .5) * .12 - dark).astype(float)
+    a *= (.35 + .65 * np.clip(np.minimum(u, 1 - u) / .05, 0, 1))[..., None]                                 # dark gaps
+    wear = (noise(n, 4) > .72) * (noise(n, 1) * .5)                                                         # paint wear -> bare wood
+    a = a * (1 - wear[..., None]) + wear[..., None] * np.array([170, 130, 85.])
+    s_ = 7.0; hh = h * 1.0
+    nx = -(np.roll(hh, -1, 1) - np.roll(hh, 1, 1)) * s_; ny = (np.roll(hh, -1, 0) - np.roll(hh, 1, 0)) * s_
+    nz = np.ones_like(nx); l = np.sqrt(nx**2 + ny**2 + nz**2)
+    nrm = np.stack([nx / l, ny / l, nz / l], -1) * .5 + .5
+    orm = np.stack([.55 + .45 * np.clip(h, 0, 1), np.clip(.78 + wear * .2 - st * .1, 0, 1), np.zeros((n, n))], -1)
+    im = lambda arr: Image.fromarray((np.clip(arr, 0, 255 if arr.max() > 1.5 else 1) * (1 if arr.max() > 1.5 else 255)).astype(np.uint8))
+    return Image.fromarray(a.clip(0, 255).astype(np.uint8)), Image.fromarray((nrm * 255).astype(np.uint8)), Image.fromarray((orm * 255).astype(np.uint8))
+PROC_PBR = {"#f0cf8a": pbr_boards}
 SPECIAL = {"#b5532f": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#9c4a38": ("brick", tex_brick, 1.5),
            "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#2f5fa8": ("fabric", tex_fabric, 1.0),
            "#f5f5f5": ("fabric", tex_fabric, 1.0), "#f4f1e8": ("plaster", tex_plaster, 2.0), "#f0cf8a": ("boards", tex_boards, 2.0),
@@ -215,7 +235,8 @@ for cc in np.unique(fc, axis=0):
         m, uv = uvs(m, 1, plate=True); m = shape_mesh(m, "sign", tex_plate(), uv, pbr=load_pbr(hx))
     elif hx in SPECIAL:
         nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
-        m = shape_mesh(m, nm + hx[1:], fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0, pbr=load_pbr(hx))
+        pb = PROC_PBR[hx](hx) if hx in PROC_PBR else load_pbr(hx)
+        m = shape_mesh(m, nm + hx[1:], np.asarray(pb[0]) if hx in PROC_PBR else fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0, pbr=pb)
     else:
         pb = load_pbr(hx); m, uv = uvs(m, 2.0 if PBR.get(hx, ("",))[0] == "wall_plaster" else 1.0)
         m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv, pbr=pb)
