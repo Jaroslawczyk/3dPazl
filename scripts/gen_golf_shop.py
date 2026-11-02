@@ -77,8 +77,6 @@ box(-4.15, -HY-1.05, 2.3, -.85, -HY-.95, 2.4, "#ffffff")                        
 box(-HX-.05, -HY-.05, 2.75, HX+.05, -HY+.3, 2.95, "#ffd23f"); box(-HX-.05, HY-.3, 2.75, HX+.05, HY+.05, 2.95, "#ffd23f")   # gold band under the eaves
 box(-.05-HX, -HY-.05, 2.75, -HX+.3, HY+.05, 2.95, "#ffd23f"); box(HX-.3, -HY-.05, 2.75, HX+.05, HY+.05, 2.95, "#ffd23f")
 box(-3.8, .8, H, -3.2, 1.4, 5.6, BRICK); box(-3.9, .7, 5.6, -3.1, 1.5, 5.75, DARK)      # chimney
-box(-2.4, -.15, RZ+RIDGE-.1, -2.3, .15, RZ+RIDGE+.3, "#ffffff"); box(1.5, -.15, RZ+RIDGE-.1, 1.6, .15, RZ+RIDGE+.3, "#ffffff")   # roof sign posts
-box(-2.5, -.12, RZ+RIDGE+.3, 1.7, -.02, RZ+RIDGE+1.5, "#ff8a1f")                          # plain orange roof sign
 cyl(-4.4, 0, RZ+RIDGE, RZ+RIDGE+1.9, .03, "#eeeeee", 6); box(-4.4, 0, RZ+RIDGE+1.35, -3.6, .02, RZ+RIDGE+1.85, "#e03030")   # flag
 cyl(3.8, 0, RZ+RIDGE+.1, RZ+RIDGE+.7, .09, "#ffcc33", 8); ball(3.8, 0, RZ+RIDGE+1.1, .55, "#ffffff", 1)   # giant golf ball on a tee
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
@@ -210,6 +208,7 @@ PROC_PBR = {}
 def tex_grass(base):
     n = (noise(N, 2) - .5) * .18 + (rng.random((N, N)) - .5) * .12
     return tint(base, n)
+FLAT = {"#ffeaa0", "#ffffff", "#8f1f1a", "#ffd23f", "#f5f5f5"}
 SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#2b2f3a": ("metal", tex_metal, 1.5), "#c8553d": ("brick", tex_brick, 1.5),
            "#d8402f": ("shingles", tex_tiles, 1.0), "#ffeaa0": ("plaster", tex_plaster, 2.0), "#ffffff": ("plaster", tex_plaster, 2.0), "#8f1f1a": ("plaster", tex_plaster, 2.0),
            "#7ed321": ("wood", tex_wood, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#c0392b": ("fabric", tex_fabric, 1.0), "#2f5fa8": ("fabric", tex_fabric, 1.0),
@@ -259,6 +258,8 @@ for cc in np.unique(fc, axis=0):
     m = scene.submesh([sel], append=True)
     if hx == "#f6f6f6":
         m, uv = uvs(m, 1, plate=True); m = shape_mesh(m, "sign", tex_plate(), uv, pbr=load_pbr(hx))
+    elif hx in FLAT:                                   # flat-colour paint: no texture tile edges, so no visible seams
+        m, uv = uvs(m, 2.0); m = shape_mesh(m, "paint" + hx[1:], np.full((8, 8, 3), cc, np.uint8), uv)
     elif hx in SPECIAL:
         nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
         pb = PROC_PBR[hx](hx) if hx in PROC_PBR else load_pbr(hx)
