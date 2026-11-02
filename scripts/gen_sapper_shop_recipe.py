@@ -1,4 +1,5 @@
 """Sapper shop (Roblox): mines, metal detectors, drones, wire cutters. Writes a native 3dPazl recipe.
+Hazard stripes = project texture projects/sapper_shop/textures/wood_painted_white_albedo.png (slot reused, 1 m period).
 Run: python scripts/gen_sapper_shop_recipe.py ; then load_project('sapper_shop') in the app. Front = -Y, block y 0..8."""
 import json, pathlib
 E = []
@@ -29,8 +30,7 @@ for k, (f, u, v, w) in enumerate(WINS):
     E.append({"id": f"win{k}", "type": "window", "params": {"w": w, "h": 1.5, "mullions": [1, 1], "shutters": False, "trim_w": .15, "sill_ledge": False, "trim": "none", "frame_material": "frame#2f3a22", "trim_material": pl(OL)}, "on": f"shop:{f}", "at": [u, v]})
 # ---- awning + sign
 B("awn", 0, -1.25, 3.35, 12.6, 2.7, .2, OL)
-B("awn_f", 0, -2.62, 3.35, 12.6, .05, .2, YEL)
-for k in range(10): B(f"awn_s{k}", -5.9 + k * 1.3, -2.66, 3.35, .62, .05, .2, BLK)
+M("awn_f", 0, -2.62, 3.35, 12.6, .05, .2, "wood_painted_white#ffffff")
 for s in (-1, 1): BM(f"post{s}", [s * 5.9, -2.3, .2], [s * 5.9, -2.3, 3.4], DKG, .18, rnd=False)
 B("sign", 0, -1.0, 3.55, 8.6, .25, 1.5, "#2c3320")
 B("sg_t", 0, -1.15, 4.95, 8.6, .06, .1, YEL); B("sg_b", 0, -1.15, 3.55, 8.6, .06, .1, YEL)
