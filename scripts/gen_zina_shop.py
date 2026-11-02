@@ -21,7 +21,7 @@ def wall(mk, a0, a1, ops, z0=0.2, z1=H):          # wall along one axis with ope
             if o[3] < z1: mk(s, e, o[3], z1)
 def frame(mk, a0, a1, z0, z1, t=0.1, d=0.14):      # teal frame round an opening (mk(a0, a1, z0, z1, depth_out))
     mk(a0-t, a0, z0-t, z1+t); mk(a1, a1+t, z0-t, z1+t); mk(a0-t, a1+t, z0-t, z0); mk(a0-t, a1+t, z1, z1+t)
-box(-HX, -HY, 0, HX, HY, .2, "#b9a98d")                                        # floor slab (planks)
+box(-HX, -HY, 0, HX, HY, .2, "#a8763e")                                        # floor slab (wood planks)
 DOOR, WIN, WINL = (-1.9, -0.7, 0.2, 2.2), (0.3, 3.3, 0.95, 2.2), (-3.4, -2.4, 0.95, 2.2)
 wall(lambda a, b, z0, z1: box(a, -HY, z0, b, -HY+.25, z1, WALL), -HX, HX, [DOOR, WIN, WINL])      # front wall
 box(-HX, HY-.25, .2, HX, HY, H, WALL)                                                              # back wall
@@ -61,7 +61,7 @@ hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+
 for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
 box(-HX, -HY, H-.2, HX, HY, H, WALL)                                              # ceiling
-box(2.4, .9, H, 3.0, 1.5, 5.9, WALL); box(2.3, .8, 5.9, 3.1, 1.6, 6.05, "#3a3f4b")  # chimney + cap
+box(2.4, .9, H, 3.0, 1.5, 5.9, "#9c4a38"); box(2.3, .8, 5.9, 3.1, 1.6, 6.05, "#3a3f4b")  # chimney + cap
 # outside: crates with apples/cabbages, bench, barrel
 for i, (cx, cy) in enumerate([(-3.5, -3.9), (-3.5, -3.15)]):
     box(cx-.4, cy-.3, 0, cx+.4, cy+.3, .45, PALE)
@@ -153,7 +153,19 @@ def tex_boards(base):                                  # vertical painted planks
     a = tint(base, (noise(N, 2) - .5) * .10 + (rng.random((N, N)) - .5) * .04 + np.sin(x * .5 + noise(N, 3) * 6) * .02).astype(float)
     a *= (0.93 + 0.07 * ((x % w) / w))[..., None]; a[:, ::w, :] *= .55
     return a.clip(0, 255).astype(np.uint8)
-SPECIAL = {"#b5532f": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#b9a98d": ("floor", tex_floor, 1.0),
+def tex_floorboards(base):                            # horizontal wooden planks, staggered joints, grain
+    y, x = np.mgrid[0:N, 0:N]; h = N // 6
+    row = y // h; sh = ((row * 97) % N)
+    a = tint(base, (noise(N, 2) - .5) * .10 + np.sin(((x + sh) * .05) + noise(N, 3) * 5) * .05 + (row % 3 - 1) * .05).astype(float)
+    a[::h, :, :] *= .5; a[(x + sh) % N < 3] *= .6
+    return a.clip(0, 255).astype(np.uint8)
+def tex_brick(base):                                  # running-bond bricks with light mortar
+    y, x = np.mgrid[0:N, 0:N]; bh, bw = N // 8, N // 4
+    row = y // bh; xs = (x + (row % 2) * bw // 2) % bw
+    a = tint(base, (rng.random((N, N)) - .5) * .12 + (noise(N, 2) - .5) * .1).astype(float)
+    m = (y % bh < 3) | (xs < 3); a[m] = [200, 190, 175]
+    return a.clip(0, 255).astype(np.uint8)
+SPECIAL = {"#b5532f": ("shingles", tex_tiles, 1.0), "#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#9c4a38": ("brick", tex_brick, 1.5),
            "#2b2f3a": ("metal", tex_metal, 1.5), "#3a3f4b": ("metal", tex_metal, 1.5), "#2f5fa8": ("fabric", tex_fabric, 1.0),
            "#f5f5f5": ("fabric", tex_fabric, 1.0), "#f4f1e8": ("plaster", tex_plaster, 2.0), "#f0cf8a": ("boards", tex_boards, 2.0),
            "#5b4636": ("wood", tex_wood, 1.0), "#8a6a4a": ("wood", tex_wood, 1.0), "#c8b79a": ("wood", tex_wood, 1.0)}
