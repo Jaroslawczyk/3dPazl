@@ -21,7 +21,7 @@ def wall(mk, a0, a1, ops, z0=0.2, z1=3.4):          # wall along one axis with o
             if o[2] > z0: mk(s, e, z0, o[2])
             if o[3] < z1: mk(s, e, o[3], z1)
 
-WALL, BRICK, ROOF, TRIM, DOOR, WOOD, DECK, STONE, GRASS, GREEN2, SAND, GLASS, DARK = "#f3efe2", "#9c4a38", "#2f6b3a", "#fafafa", "#2e8b3d", "#8a6a4a", "#a8763e", "#c9c4b8", "#3f9142", "#5cc760", "#e8d9a0", "#8fd3f4", "#2b2f3a"
+WALL, BRICK, ROOF, TRIM, DOOR, WOOD, DECK, STONE, GRASS, GREEN2, SAND, GLASS, DARK = "#ffeaa0", "#c8553d", "#d8402f", "#ffffff", "#7ed321", "#8a6a4a", "#a8763e", "#c9c4b8", "#3f9142", "#5cc760", "#e8d9a0", "#8fd3f4", "#2b2f3a"
 HX, HY, H = 5.0, 3.5, 3.4                      # shop 10 x 7 m, walls 3.4 m, front = -Y
 box(-HX, -HY, 0, HX, HY, .2, DECK)                                                # floor
 BW = 1.0                                                                          # brick plinth height
@@ -55,11 +55,26 @@ RZ, RIDGE, OV, EV, TH = 3.15, 1.9, 5.6, 4.2, .25
 for sy in (-1, 1):
     hullp([(-OV, sy*EV, RZ), (OV, sy*EV, RZ), (-OV, 0, RZ+RIDGE), (OV, 0, RZ+RIDGE),
            (-OV, sy*EV, RZ-TH), (OV, sy*EV, RZ-TH), (-OV, 0, RZ+RIDGE-TH), (OV, 0, RZ+RIDGE-TH)], ROOF)
-hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+RIDGE-.2), (OV+.05, -.5, RZ+RIDGE-.2), (-OV-.05, .5, RZ+RIDGE-.2), (OV+.05, .5, RZ+RIDGE-.2)], "#1f4a28")
+hullp([(-OV-.05, 0, RZ+RIDGE+.14), (OV+.05, 0, RZ+RIDGE+.14), (-OV-.05, -.5, RZ+RIDGE-.2), (OV+.05, -.5, RZ+RIDGE-.2), (-OV-.05, .5, RZ+RIDGE-.2), (OV+.05, .5, RZ+RIDGE-.2)], "#8f1f1a")
 for gx in (-HX, HX-.25):
     hullp([(gx, -HY, H), (gx, HY, H), (gx, 0, RZ+RIDGE-.15), (gx+.25, -HY, H), (gx+.25, HY, H), (gx+.25, 0, RZ+RIDGE-.15)], WALL)
 box(-HX, -HY, H-.2, HX, HY, H, WALL)
-cyl(3.8, 0, RZ+RIDGE+.1, RZ+RIDGE+.6, .07, "#ffcc33", 8); ball(3.8, 0, RZ+RIDGE+1.0, .42, "#f4f4f4", 1)   # giant golf ball on a tee
+# decorations: awning, porch with posts, roof sign, flag, welcome green, tee-ball, gold band, chimney
+for k in range(7):
+    x0 = -4.1 + k*.5; cc = "#7ed321" if k % 2 == 0 else "#f5f5f5"
+    hullp([(x0, -HY, 2.85), (x0+.5, -HY, 2.85), (x0, -HY-1.0, 2.4), (x0+.5, -HY-1.0, 2.4),
+           (x0, -HY, 2.8), (x0+.5, -HY, 2.8), (x0, -HY-1.0, 2.35), (x0+.5, -HY-1.0, 2.35)], cc)
+box(-4.15, -HY-1.05, 2.3, -.85, -HY-.95, 2.4, "#ffffff")                                 # awning front valance
+box(.6, -HY-1.6, 2.7, 2.6, -HY-.1, 2.85, "#ffd23f")                                      # porch canopy over the door
+for px in (.7, 2.5): box(px-.07, -HY-1.55, .2, px+.07, -HY-1.4, 2.7, "#ffffff")
+cyl(1.6, -HY-2.2, .2, .26, 1.1, "#5cc760", 24); cyl(1.6, -HY-2.2, .26, .3, .13, "#1a1a1a", 12)   # putting-green welcome mat with hole
+box(-HX-.05, -HY-.05, 2.75, HX+.05, -HY+.3, 2.95, "#ffd23f"); box(-HX-.05, HY-.3, 2.75, HX+.05, HY+.05, 2.95, "#ffd23f")   # gold band under the eaves
+box(-.05-HX, -HY-.05, 2.75, -HX+.3, HY+.05, 2.95, "#ffd23f"); box(HX-.3, -HY-.05, 2.75, HX+.05, HY+.05, 2.95, "#ffd23f")
+box(-3.8, .8, H, -3.2, 1.4, 5.6, BRICK); box(-3.9, .7, 5.6, -3.1, 1.5, 5.75, DARK)      # chimney
+box(-2.4, -.15, RZ+RIDGE-.1, -2.3, .15, RZ+RIDGE+.3, "#ffffff"); box(1.5, -.15, RZ+RIDGE-.1, 1.6, .15, RZ+RIDGE+.3, "#ffffff")   # roof sign posts
+box(-2.5, -.12, RZ+RIDGE+.3, 1.7, -.02, RZ+RIDGE+1.5, "#f6f6f6")                          # roof sign (front face = -Y)
+cyl(-4.4, 0, RZ+RIDGE, RZ+RIDGE+1.9, .03, "#eeeeee", 6); box(-4.4, 0, RZ+RIDGE+1.35, -3.6, .02, RZ+RIDGE+1.85, "#e03030")   # flag
+cyl(3.8, 0, RZ+RIDGE+.1, RZ+RIDGE+.7, .09, "#ffcc33", 8); ball(3.8, 0, RZ+RIDGE+1.1, .55, "#ffffff", 1)   # giant golf ball on a tee
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
@@ -118,15 +133,15 @@ def tex_sign_blue(base):
     return tint(base, (0.1 - y * .25) + (noise(N, 2) - .5) * .03)
 def tex_plate():
     W, H = 2048, 680
-    im = Image.new("RGB", (W, H), "#1f5f2b"); dr = ImageDraw.Draw(im)
-    dr.rectangle([0, 0, W-1, H-1], outline="#ffffff", width=22); dr.rectangle([46, 46, W-47, H-47], outline="#e8c34a", width=8)
+    im = Image.new("RGB", (W, H), "#1b3f8f"); dr = ImageDraw.Draw(im)
+    dr.rectangle([0, 0, W-1, H-1], outline="#ffffff", width=22); dr.rectangle([46, 46, W-47, H-47], outline="#ffd23f", width=8)
     f = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 330); t = "GOLF"
     bb = dr.textbbox((0, 0), t, font=f); x, y = (W-(bb[2]-bb[0]))//2 - bb[0], 60 - bb[1]
-    dr.text((x+8, y+8), t, font=f, fill="#0f3a18"); dr.text((x, y), t, font=f, fill="#ffffff")
+    dr.text((x+8, y+8), t, font=f, fill="#0b1f55"); dr.text((x, y), t, font=f, fill="#ffffff")
     f2 = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 150); t2 = "PRO SHOP"
     bb = dr.textbbox((0, 0), t2, font=f2); x = (W-(bb[2]-bb[0]))//2 - bb[0]
-    dr.text((x, 440-bb[1]), t2, font=f2, fill="#e8c34a")
-    for cx in (200, W-200): dr.ellipse([cx-90, 250, cx+90, 430], fill="#f4f4f4", outline="#bbbbbb", width=5); dr.polygon([(cx-9, 430), (cx+9, 430), (cx, 530)], fill="#e8c34a")
+    dr.text((x, 440-bb[1]), t2, font=f2, fill="#ffd23f")
+    for cx in (200, W-200): dr.ellipse([cx-90, 250, cx+90, 430], fill="#f4f4f4", outline="#bbbbbb", width=5); dr.polygon([(cx-9, 430), (cx+9, 430), (cx, 530)], fill="#ffd23f")
     return np.asarray(im)
 def tex_tiles(base):
     a = np.zeros((N, N, 3), float); h = np.array([int(base[i:i+2], 16) for i in (1, 3, 5)], float)
@@ -191,11 +206,11 @@ PROC_PBR = {}
 def tex_grass(base):
     n = (noise(N, 2) - .5) * .18 + (rng.random((N, N)) - .5) * .12
     return tint(base, n)
-SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#2b2f3a": ("metal", tex_metal, 1.5), "#9c4a38": ("brick", tex_brick, 1.5),
-           "#2f6b3a": ("shingles", tex_tiles, 1.0), "#f3efe2": ("plaster", tex_plaster, 2.0), "#fafafa": ("plaster", tex_plaster, 2.0), "#1f4a28": ("plaster", tex_plaster, 2.0),
-           "#2e8b3d": ("wood", tex_wood, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#c0392b": ("fabric", tex_fabric, 1.0), "#2f5fa8": ("fabric", tex_fabric, 1.0),
+SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#a8763e": ("floor", tex_floorboards, 2.0), "#2b2f3a": ("metal", tex_metal, 1.5), "#c8553d": ("brick", tex_brick, 1.5),
+           "#d8402f": ("shingles", tex_tiles, 1.0), "#ffeaa0": ("plaster", tex_plaster, 2.0), "#ffffff": ("plaster", tex_plaster, 2.0), "#8f1f1a": ("plaster", tex_plaster, 2.0),
+           "#7ed321": ("wood", tex_wood, 1.0), "#f5f5f5": ("fabric", tex_fabric, 1.0), "#c0392b": ("fabric", tex_fabric, 1.0), "#2f5fa8": ("fabric", tex_fabric, 1.0),
            "#8a6a4a": ("wood", tex_wood, 1.0), "#c9c4b8": ("floor", tex_floor, 1.5), "#3f9142": ("grass", tex_grass, 1.5), "#5cc760": ("grass", tex_grass, 1.5),
-           "#e8d9a0": ("sand", tex_roof, 1.0), "#2e7d32": ("grass", tex_grass, 1.5)}
+           "#e8d9a0": ("sand", tex_roof, 1.0), "#ffd23f": ("fabric", tex_fabric, 1.0), "#5cc760": ("grass", tex_grass, 1.5), "#2e7d32": ("grass", tex_grass, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
     f, n, v = m.faces, m.face_normals, m.vertices
