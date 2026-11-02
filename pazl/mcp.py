@@ -279,6 +279,55 @@ def download_textures(which: str = "project") -> str:
     return _j(_call("POST", "/api/textures/download", {"which": which}))
 
 
+
+@tool
+def measure(element_id: str = "") -> str:
+    """Exact sizes: bbox min/max/size in metres, triangles, volume, and the faces (w x h) of an element - or of the
+    whole model when element_id is empty. Use it to place things precisely and to check proportions against a reference."""
+    return _j(_call("GET", "/api/measure?eid=" + element_id))
+
+
+@tool
+def fix_floating(remove: bool = False) -> str:
+    """Lower every floating part onto what is below it (or the ground); remove=true deletes parts that cannot be
+    lowered. Run validate after."""
+    return _j(_call("POST", "/api/patch", {"ops": [{"op": "fix_floating", "remove": remove}], "note": "fix floating"}))
+
+
+@tool
+def add_prop(kind: str, at: list | None = None, on: str = "", rot: float = 0.0, scale: float = 1.0, count: int = 1,
+             spacing: float = 3.0, ring: bool = False, radius: float = 5.0) -> str:
+    """Add decorations / small objects: bench, street_lamp, planter, trash_bin, bollard, hydrant, bike_rack, barrel, crate,
+    tree, bush, fountain, table_umbrella, flag, bus_stop, statue, well, lantern_post (ground or `top`); flower_box, ac_unit,
+    wall_lamp, sign, mailbox, awning, satellite_dish, drainpipe, clock (on a face, at=[u, v]); antenna, water_tank,
+    solar_panel, vent, rooftop_unit, chimney_pot (roofs: on="<roof>:top"). Free-standing: no `on`, at=[x, y] in metres.
+    count>1 = a row (spacing) or ring (radius)."""
+    el = {"type": "prop" if count <= 1 else "props_cluster", "id": kind,
+          "params": {"kind": kind, "scale": scale} if count <= 1 else {"kind": kind, "scale": scale, "count": count,
+                                                                      "spacing": spacing, "ring": ring, "radius": radius}}
+    if at:
+        el["at"] = at
+    if on:
+        el["on"] = on
+    if rot:
+        el["rot"] = rot
+    return _j(_call("POST", "/api/patch", {"ops": [{"op": "add", "element": el}], "note": f"+{kind}"}))
+
+
+@tool
+def props_auto(density: float = 0.6, clear: bool = False) -> str:
+    """Decorate the whole scene automatically: street lamps, benches, planters, bins in front of the buildings, trees
+    around, AC units on walls, roof equipment on flat roofs. density 0..1. clear=true removes those decorations."""
+    op = {"op": "props_clear"} if clear else {"op": "props_auto", "density": density}
+    return _j(_call("POST", "/api/patch", {"ops": [op], "note": "decorations"}))
+
+
+@tool
+def usage() -> str:
+    """Tokens and money spent by AI runs on this project (per provider)."""
+    return _j(_call("GET", "/api/usage"))
+
+
 def main():
     mcp.run()
 

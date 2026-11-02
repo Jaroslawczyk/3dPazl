@@ -106,6 +106,15 @@ Units: meters. Z is up. Facades: X along the wall, Y outward.
   "mode": "voronoi|elements"}`: exports become one object per chunk (pivot = centre of mass, break faces `rubble`,
   volumes in `.objects.json`); with bricks, chunks are groups of bricks, level "bricks" = every brick a piece.
 
+## Skyscrapers, decorations, measuring
+- `skyscraper` macro: interlocking glass volumes `[{x, y, w, d, h}]` (h = height from the ground), `podium`, open
+  `crown` frame (`crown_on`, `crown_h`), lattice `mast` (`mast_on`, `mast_h`, `mast_at`), shared `floor_h`.
+  Example 1:1 - examples/varso_tower.json (Varso Tower, Warsaw: 230 m roof + 80 m spire).
+- Decorations: `add_prop(kind, ...)` (34 kinds: street furniture, trees, wall and roof equipment), `props_auto(density)`
+  decorates the whole scene, recipe `props: false` hides all decorations.
+- `measure(element_id)` gives exact sizes and faces; `fix_floating()` lowers floating parts; `usage()` = tokens/money.
+- Window grids never go past a wall edge or into the roof; textures are mapped in each face's plane (no stretching).
+
 ## Checks
 `validate` reports floating parts, open edges, z-fighting spots (two surfaces < 2 mm apart), overlapping decals,
 degenerate triangles. `render_views` default = 16 views: 4 sides, 4 isometric, 3 eye-level from the ground, top,

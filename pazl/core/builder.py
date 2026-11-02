@@ -356,7 +356,8 @@ def build(recipe: dict, detail: str | None = None) -> BuildResult:
         r.anchors = {k: Anchor(W0 @ a.m, a.kind, a.w, a.h, a.depth, a.footprint, a.height, a.floors, a.floor_h, a.base, a.extra)
                      for k, a in part.anchors.items()}
         r.anchors["origin"] = Anchor(W0)
-        if e.get("hidden") or (e.get("type") == "interior" and recipe.get("rooms") is False):  # rooms switched off
+        if e.get("hidden") or (e.get("type") == "interior" and recipe.get("rooms") is False) or (  # rooms off
+                e.get("type") in ("prop", "props_cluster") and recipe.get("props") is False):  # decorations off
             continue
         targets = [t for t in ([host_id] if host_id else []) + list(e.get("cut", [])) if t]
         if host_id and res[host_id].type == "gable_wall" and res[host_id].host:

@@ -23,7 +23,7 @@ from ..paths import PROJECTS, ROOT  # noqa: E402
 
 
 BULK_OPS = {"reroll", "facade", "paint", "paint_random", "interior_all", "interior_clear", "weather_all", "weather_clear",
-            "shapes", "windows_fill"}
+            "shapes", "windows_fill", "fix_floating", "props_auto", "props_clear"}
 SHAPE_POOL = ["rect", "rounded", "L", "U", "T", "octagon", "hexagon", "trapezoid", "wedge", "bow", "cut_corner", "round",
               "oval", "cross"]
 PROGRAM_BY_MACRO = {
@@ -72,6 +72,8 @@ class Project:
     # ------------------------------------------------------------ events
     def event(self, kind, agent="?", note="", **data):
         ev = {"type": kind, "t": time.time(), "agent": agent, "note": note, "version": self.version, **data}
+        from .logs import log
+        log("event", project=self.recipe.get("name"), **{k: v for k, v in ev.items() if k not in ("t", "cameras")})
         self.log.append(ev)
         self.log = self.log[-500:]
         self.broadcast(ev)
@@ -465,6 +467,135 @@ class Project:
                     self._apply({"op": "update", "id": eid, "params": {"type": "cone" if chosen[r.host]["shape"] == "round" else "dome"}})
         return f"shapes {want} for {n} volumes"
 
+    def _op_fix_floating(self, op):
+        """Floating parts: each one is lowered onto what is below it (or the ground); parts that cannot be moved
+        (macro internals, nothing below in reach) are removed when remove=true."""
+        from ..core.mesh import manifold_to_arrays
+        res = self.result()
+        rep = validate(res)
+        whole = res.final()
+        moved, removed = [], []
+        for f in rep.get("floating", []):
+            if len(f["elements"]) != 1:
+                continue
+            eid = f["elements"][0]
+            r = res.elements.get(eid)
+            if r is None or not r.solids:
+                continue
+            part = g.union([m for m, _ in r.solids])
+            mn, mx = g.bbox(part)
+            rest = whole - part
+            below = rest.trim_by_plane([0, 0, -1], -float(mn[2]) + 1e-3)  # everything under the part's bottom
+            top = 0.0
+            if not below.is_empty():
+                foot = g.box(mn[0], mn[1], -1, mx[0], mx[1], mn[2])
+                under = below ^ foot
+                if not under.is_empty():
+                    top = float(g.bbox(under)[1][2])
+            drop = float(mn[2]) - top - 0.01  # 1 cm overlap so it welds
+            if drop > 0 and drop < 50:
+                self._apply({"op": "nudge", "id": eid, "world_delta": [0, 0, -round(drop, 3)], "rot_delta": 0})
+                moved.append(eid)
+            elif op.get("remove"):
+                self._apply({"op": "remove", "id": eid})
+                removed.append(eid)
+        return f"floating: lowered {moved}, removed {removed}"
+
+    def _op_props_auto(self, op):
+        """Decorations around the buildings: street lamps, benches, planters, bins in front of every free-standing
+        volume; flower boxes / AC units on walls; antennas, vents, solar panels, rooftop units on flat roofs; trees
+        around. density 0..1. All ids start with 'pa_' (props_clear removes them)."""
+        import math
+        import random as _r
+        res = self.result()
+        rng = _r.Random(f"{self.recipe.get('seed', 1)}:props:{self.version}")
+        dens = float(op.get("density", 0.6))
+        n = 0
+
+        boxes = []  # building footprints (+1.5 m): ground props never stand in or against a building
+        for x in res.order:
+            if res.elements[x].solids and res.elements[x].type not in ("prop", "props_cluster"):
+                mn, mx = g.bbox(g.union([m for m, _ in res.elements[x].solids]))
+                if mx[2] - mn[2] > 1.0:
+                    boxes.append((mn[0] - 1.5, mn[1] - 1.5, mx[0] + 1.5, mx[1] + 1.5))
+
+        def add(el):
+            nonlocal n
+            if "on" not in el and any(b[0] < el["at"][0] < b[2] and b[1] < el["at"][1] < b[3] for b in boxes):
+                return
+            n += 1
+            el["id"] = f"pa_{n}"
+            self.recipe["elements"].append(el)
+        blocks = [eid for eid in res.order if res.elements[eid].type == "block" and not (
+            res.elements[eid].host and res.elements[eid].host in res.elements and res.elements[res.elements[eid].host].type == "block")]
+        for eid in blocks:
+            r = res.elements[eid]
+            fr = r.anchors.get("front")
+            if fr is None:
+                continue
+            m = fr.m
+            o, xa, na = m[:3, 3], m[:3, 0], m[:3, 1]
+            rot = math.degrees(math.atan2(-na[0], na[1]))  # props face the street
+            k = max(1, int(fr.w / 6))
+            for i in range(k + 1):  # lamps along the front, benches / planters between them
+                p = o + xa * (fr.w * i / k) + na * 3.2
+                add({"type": "prop", "at": [round(p[0], 2), round(p[1], 2)], "rot": round(rot, 1), "params": {"kind": "street_lamp"}})
+                if i < k and rng.random() < dens:
+                    q = o + xa * (fr.w * (i + 0.5) / k) + na * 2.6
+                    add({"type": "prop", "at": [round(q[0], 2), round(q[1], 2)], "rot": round(rot + 180, 1),
+                         "params": {"kind": rng.choice(["bench", "bench", "planter", "trash_bin", "bike_rack"])}})
+            for _ in range(int(2 + 4 * dens)):  # trees around, 6-9 m out
+                side = rng.choice(["back", "left", "right"])
+                a = r.anchors.get(side)
+                if a is None:
+                    continue
+                p = a.m[:3, 3] + a.m[:3, 0] * rng.uniform(0, a.w) + a.m[:3, 1] * rng.uniform(5, 8)
+                add({"type": "prop", "at": [round(p[0], 2), round(p[1], 2)], "params": {"kind": rng.choice(["tree", "tree", "bush"])}})
+            for side in ("left", "right", "back"):  # AC units on the walls
+                a = r.anchors.get(side)
+                if a is None or rng.random() > dens or a.h < 6:
+                    continue
+                add({"type": "prop", "on": f"{eid}:{side}", "at": [round(rng.uniform(1, max(1.2, a.w - 1)), 2), round(rng.uniform(3, a.h - 2), 2)],
+                     "params": {"kind": "ac_unit"}})
+        for eid in res.order:  # flat roofs: equipment
+            r = res.elements[eid]
+            if r.type != "roof" or (r.params or {}).get("type") != "flat" or "top" not in r.anchors:
+                continue
+            fp = r.anchors["top"].footprint or []
+            if not fp:
+                continue
+            xs, ys = [q[0] for q in fp], [q[1] for q in fp]
+            for _ in range(int(1 + 3 * dens)):
+                x, y = rng.uniform(min(xs) * 0.6, max(xs) * 0.6), rng.uniform(min(ys) * 0.6, max(ys) * 0.6)
+                add({"type": "prop", "on": f"{eid}:top", "at": [round(x, 2), round(y, 2)],
+                     "params": {"kind": rng.choice(["vent", "rooftop_unit", "antenna", "satellite_dish", "solar_panel", "water_tank"])}})
+        self.recipe["props"] = True
+        return f"props_auto: {n} decorations"
+
+    def _op_props_clear(self, op):
+        before = len(self.recipe["elements"])
+        self.recipe["elements"] = [e for e in self.recipe["elements"] if not str(e.get("id", "")).startswith("pa_")]
+        return f"props_clear: {before - len(self.recipe['elements'])} removed"
+
+    def measure(self, eid=""):
+        """Sizes for the AI: bbox of the element (or the whole model), triangles, and its faces (w x h)."""
+        res = self.result()
+        if eid:
+            r = res.elements.get(eid)
+            if r is None:
+                raise KeyError(eid)
+            sol = [m for x in res.order if self._in_scope(x, {eid}) for m, _ in res.elements[x].solids]
+            m = g.union(sol) if sol else None
+            faces = {k: [round(a.w, 2), round(a.h, 2)] for k, a in r.anchors.items() if a.kind == "face" and not k.startswith("face")}
+        else:
+            m, faces = res.final(), {}
+        if m is None or m.is_empty():
+            return {"element": eid, "empty": True}
+        mn, mx = g.bbox(m)
+        return {"element": eid or "(model)", "min": [round(float(x), 2) for x in mn], "max": [round(float(x), 2) for x in mx],
+                "size": [round(float(x), 2) for x in mx - mn], "triangles": m.num_tri(), "volume_m3": round(m.volume(), 2),
+                "faces": faces}
+
     def _op_windows_fill(self, op):
         """Every window grid: which slots are real windows (fill=all/random/checker/alternate/symmetric/formula) and
         what the others get (fill_other=mix/blind/shutters/boarded/none)."""
@@ -638,5 +769,5 @@ class Project:
                 "decals_off": self.recipe.get("decals_off") or [], "tex_swap": self.recipe.get("tex_swap") or {},
                 "build_mode": self.recipe.get("build_mode", "solid"), "brick_size": self.recipe.get("brick_size", 0.5),
                 "brick_cull": self.recipe.get("brick_cull", True), "doors_separate": self.recipe.get("doors_separate", True),
-                "fracture": self.recipe.get("fracture") or {"on": False},
+                "fracture": self.recipe.get("fracture") or {"on": False}, "props": self.recipe.get("props", True),
                 "decals": self.recipe.get("decals", True), "colors": self.recipe.get("colors")}

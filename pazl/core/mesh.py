@@ -45,28 +45,34 @@ def split_by_material(V, F, mats) -> dict[str, trimesh.Trimesh]:
 
 
 def box_uv(tm: trimesh.Trimesh, tile: float) -> trimesh.Trimesh:
-    """World-space box projection: unweld by dominant normal axis, uv = coords / tile."""
+    """Planar UVs in each face's own plane (no stretching on roofs, slopes and slanted walls): faces are grouped by
+    their (rounded) normal; per group u runs horizontally along the surface, v up the slope (on flat faces u = X,
+    v = Y), in metres / tile. Texture rows stay level and bricks keep their size on every surface."""
     tile = tile or 1.0
+    if len(tm.faces) == 0:
+        return tm
     fn = tm.face_normals
-    ax = np.argmax(np.abs(fn), axis=1)
-    sign = np.sign(fn[np.arange(len(fn)), ax])
-    groups = ax * 2 + (sign > 0)
+    key = np.round(fn * 8).astype(np.int64)  # ~7 deg buckets: coplanar runs share one continuous mapping
+    _, groups = np.unique(key, axis=0, return_inverse=True)
+    groups = groups.ravel()
+    V, F = tm.vertices, tm.faces
     Vs, Fs, UVs = [], [], []
     off = 0
     for gi in np.unique(groups):
-        idx = np.where(groups == gi)[0]
-        sub = tm.submesh([idx], append=True, repair=False)
-        v = sub.vertices
-        a = gi // 2
-        if a == 0:
-            uv = np.c_[v[:, 1] * (1 if gi % 2 else -1), v[:, 2]]
-        elif a == 1:
-            uv = np.c_[v[:, 0] * (-1 if gi % 2 else 1), v[:, 2]]
+        idx = np.flatnonzero(groups == gi)
+        n = fn[idx].mean(axis=0)
+        n /= np.linalg.norm(n) or 1.0
+        u_ax = np.cross([0, 0, 1.0], n)
+        if abs(n[2]) > 0.98 or np.linalg.norm(u_ax) < 1e-6:  # floors, flat roofs, ceilings, degenerate slivers
+            u_ax, v_ax = np.array([1.0, 0, 0]), np.array([0, 1.0 if n[2] >= 0 else -1.0, 0])
         else:
-            uv = np.c_[v[:, 0], v[:, 1]]
+            u_ax /= np.linalg.norm(u_ax)
+            v_ax = np.cross(n, u_ax)  # up the surface
+        used, inv = np.unique(F[idx].ravel(), return_inverse=True)
+        v = V[used]
         Vs.append(v)
-        Fs.append(sub.faces + off)
-        UVs.append(uv / tile)
+        Fs.append(inv.reshape(-1, 3) + off)
+        UVs.append(np.c_[v @ u_ax, v @ v_ax] / tile)
         off += len(v)
     out = trimesh.Trimesh(np.vstack(Vs), np.vstack(Fs), process=False)
     out.visual = trimesh.visual.TextureVisuals(uv=np.vstack(UVs))

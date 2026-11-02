@@ -16,26 +16,29 @@
 <header id="top">
   <div class="brand" id="brand" title="О программе">3d<b>Pazl</b></div>
   <input id="projName" title="Название проекта" spellcheck="false">
-  <div class="grp">
-    <button id="btnNew" title="Новый проект">Новый</button>
+  <details class="menu"><summary title="Новый, открыть, автосохранения">Проект ▾</summary><div class="menu-pop">
+    <button id="btnNew" title="Новый проект">Новый проект</button>
     <select id="selProjects" title="Открыть сохранённый проект"><option value="">Открыть…</option></select>
-  </div>
+    <select id="selAutosave" title="Каждое изменение сразу сохраняется; здесь — снимки проекта, к которым можно вернуться."><option value="">🕘 Автосохранения…</option></select>
+    <button id="btnReport" title="Отчёт: журнал действий и ошибок, расход ИИ, рецепт — одним ZIP-файлом для анализа">📄 Скачать отчёт</button>
+  </div></details>
   <div class="grp">
-    <button id="btnUndo" title="Отменить (Ctrl+Z)">↶</button>
-    <button id="btnRedo" title="Повторить (Ctrl+Y)">↷</button>
+    <button id="btnUndo" class="icon" title="Отменить (Ctrl+Z)">↶</button>
+    <button id="btnRedo" class="icon" title="Повторить (Ctrl+Y)">↷</button>
   </div>
-  <div class="grp">
-    <label>Стиль <select id="selStyle"></select></label>
-    <label title="Смешать со вторым стилем (первый главный: материалы и пропорции, второй дополняет)">+ <select id="selStyle2"><option value="">—</option></select></label>
+  <div class="grp style-grp">
+    <select id="selStyle" title="Стиль"></select>
+    <select id="selStyle2" title="Смешать со вторым стилем (первый главный: материалы и пропорции, второй дополняет)"><option value="">+ стиль</option></select>
     <div class="seg" id="segDetail" title="Реализм — с PBR-текстурами; Low-poly — без текстур, плоские цвета">
       <button data-v="realistic">Реализм</button><button data-v="lowpoly">Low-poly</button>
     </div>
   </div>
-  <div class="grp">
+  <details class="menu"><summary title="Быстрые действия со всеми зданиями">Здание ▾</summary><div class="menu-pop">
     <button id="btnPaint" title="Случайно покрасить фасады по палитре стиля">🎲 Покрасить</button>
     <button id="btnReroll" title="Перебросить случайности (этажи-диапазоны, миксы, декали)">🎲 Сид</button>
     <button id="btnInterior" title="Сгенерировать интерьер: комнаты, лестницы, лифты, мебель">🏠 Интерьер</button>
     <button id="btnWeather" title="Состарить: грязь, подтёки, мох, граффити">🧱 Состарить</button>
+    <button id="btnFixFloat" title="Опустить висящие в воздухе части на то, что под ними">⬇ Убрать висящие части</button>
     <select id="selWinFill" title="Какие места в сетках окон — окна, а какие заложены кладкой, закрыты ставнями или досками">
       <option value="">🪟 Окна…</option><option value="all">Все окна</option><option value="random">Случайно: часть заложена</option>
       <option value="symmetric">Случайно, но симметрично</option><option value="checker">Шахматка</option>
@@ -48,40 +51,52 @@
       <option value="octagon">Восьмиугольные</option><option value="trapezoid">Трапеция</option><option value="wedge">Клин (утюг)</option>
       <option value="bow">Выпуклый фасад</option><option value="cut_corner">Срезанный угол</option><option value="cross">Крест</option>
     </select>
-  </div>
+  </div></details>
+  <details class="menu"><summary title="Украшения и мелкие объекты: фонари, скамейки, деревья, кондиционеры, антенны">Украшения ▾</summary><div class="menu-pop">
+    <label class="row"><input type="checkbox" id="chkProps" checked> Показывать украшения</label>
+    <button id="btnPropsAuto" title="Расставить фонари, скамейки, кадки, деревья, кондиционеры, оборудование на крышах">✨ Расставить автоматически</button>
+    <label class="row">Плотность <input type="range" id="rngPropsDens" min="10" max="100" value="60"></label>
+    <button id="btnPropsClear" title="Убрать автоматически расставленные украшения">Убрать расставленные</button>
+    <div class="hint">Отдельные украшения — в Библиотеке, раздел «Украшения».</div>
+  </div></details>
   <div class="grp right">
     <button id="btnValidate" class="act" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
-    <button id="btnRender" class="act" title="Скриншоты со всех 12 сторон одним листом">📷 Со всех сторон</button>
-    <select id="selTextures" title="Текстуры">
-      <option value="">🎨 Текстуры…</option><option value="dl_project">Скачать PBR для проекта (CC0)</option>
-      <option value="dl_all">Скачать все паки (~70 × 8 МБ)</option><option value="prompts">Промпты для ИИ-генерации</option>
-    </select>
-    <select id="selExport" title="Экспорт цельной модели">
-      <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
-      <option value="gltf">glTF (JSON + буферы)</option><option value="obj">OBJ (почти везде, Roblox Studio)</option>
-      <option value="stl">STL (цельный меш)</option><option value="ply">PLY (с цветами)</option><option value="off">OFF (простой меш)</option>
-      <option value="3mf">3MF (3D-печать)</option><option value="dae">DAE / Collada (SketchUp, старые движки)</option>
-      <option value="lod">GLB LOD (меньше треугольников)</option><option value="open">📂 Открыть папку экспорта</option>
-    </select>
-    <label title="Экспортировать только выбранный элемент (и всё, что к нему прикреплено)"><input type="checkbox" id="chkExpSel"> Только выбранное</label>
-    <select id="selAutosave" title="Каждое изменение сразу сохраняется; здесь — снимки проекта, к которым можно вернуться."><option value="">🕘 Автосохранения…</option></select>
-    <button id="btnSettings" title="Настройки">⚙</button>
+    <button id="btnRender" class="icon" title="Скриншоты со всех сторон одним листом">📷</button>
+    <details class="menu"><summary class="primary" title="Экспорт модели">⬇ Экспорт ▾</summary><div class="menu-pop menu-right">
+      <select id="selExport" title="Экспорт цельной модели">
+        <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
+        <option value="gltf">glTF (JSON + буферы)</option><option value="obj">OBJ (почти везде, Roblox Studio)</option>
+        <option value="stl">STL (цельный меш)</option><option value="ply">PLY (с цветами)</option><option value="off">OFF (простой меш)</option>
+        <option value="3mf">3MF (3D-печать)</option><option value="dae">DAE / Collada (SketchUp, старые движки)</option>
+        <option value="lod">GLB LOD (меньше треугольников)</option><option value="open">📂 Открыть папку экспорта</option>
+      </select>
+      <label class="row" title="Экспортировать только выбранный элемент (и всё, что к нему прикреплено)"><input type="checkbox" id="chkExpSel"> Только выбранное</label>
+      <select id="selTextures" title="Текстуры">
+        <option value="">🎨 Текстуры…</option><option value="dl_project">Скачать PBR для проекта (CC0)</option>
+        <option value="dl_all">Скачать все паки (~70 × 8 МБ)</option><option value="prompts">Промпты для ИИ-генерации</option>
+      </select>
+    </div></details>
+    <button id="btnSettings" class="icon" title="Настройки">⚙</button>
   </div>
 </header>
 
 <main>
+  <nav class="rail tabs" data-for="left">
+    <button data-tab="tree" class="on" title="Здание: элементы модели"><span>🏗</span>Здание</button>
+    <button data-tab="lib" title="Библиотека элементов"><span>📚</span>Библиотека</button>
+    <button data-tab="styles" title="Стили"><span>🎨</span>Стили</button>
+    <button data-tab="mats" title="Материалы, текстуры, декали"><span>🧱</span>Материалы</button>
+    <button data-tab="build" title="Сборка: кирпичики, двери, разрушаемость"><span>⚙</span>Сборка</button>
+  </nav>
   <aside id="left">
-    <nav class="tabs" data-for="left">
-      <button data-tab="tree" class="on">Здание</button><button data-tab="lib">Библиотека</button><button data-tab="styles">Стили</button><button data-tab="mats">Материалы</button><button data-tab="build">Сборка</button>
-    </nav>
     <section data-pane="tree" class="pane on">
       <div class="hint">Клик — выбрать. Элементы вложены по тому, к чему прикреплены.</div>
       <ul id="tree"></ul>
     </section>
     <section data-pane="lib" class="pane">
+      <input id="libSearch" placeholder="Поиск: окно, купол, колонна…">
       <div id="periodChips" class="chips" title="Эпохи"></div>
       <select id="regionSel" title="Территория"><option value="">Все территории</option></select>
-      <input id="libSearch" placeholder="Поиск: окно, купол, колонна…">
       <div id="lib"></div>
     </section>
     <section data-pane="styles" class="pane"><div id="styles"></div></section>
@@ -121,77 +136,78 @@
   <section id="center">
     <div id="viewport"></div>
     <div id="vtools">
-      <button data-mode="select" class="on" title="Выбор (Q)">⬚</button>
-      <button data-mode="translate" title="Двигать (W)">✥</button>
-      <button data-mode="rotate" title="Вращать вокруг вертикали (E)">⟳</button>
-      <span class="sep"></span>
-      <button id="btnMark" title="Пометки для ИИ: клик — точка, протянуть — нарисовать. Вращать камеру — правой кнопкой">✎ Пометки</button>
-      <span class="sep"></span>
-      <button id="vFront" title="Вид спереди">Перед</button>
-      <button id="vSide" title="Вид сбоку">Бок</button>
-      <button id="vTop" title="Вид сверху">Верх</button>
-      <button id="vIso" title="Изометрия">3/4</button>
-      <span class="sep"></span>
-      <label title="Показывать сварную (итоговую) модель вместо разборной"><input type="checkbox" id="chkWelded"> Цельная</label>
-      <label><input type="checkbox" id="chkWire"> Каркас</label>
-      <label title="Камера повторяет ракурсы, с которых ИИ проверяет модель"><input type="checkbox" id="chkFollow" checked> Камера ИИ</label>
-      <span class="sep"></span>
-      <label title="Настоящий интерьер внутри здания: комнаты, перегородки, лестницы, мебель"><input type="checkbox" id="chkRooms" checked> Интерьер</label>
-      <div class="seg" id="segWin" title="Окна: прозрачное стекло (видно, что внутри) или визуальная затычка — картинка комнаты за стеклом">
-        <button data-v="glass">Окна прозрачные</button><button data-v="plug">Затычка</button>
+      <div class="vrow">
+        <button data-mode="select" class="on icon" title="Выбор (Q)">⬚</button>
+        <button data-mode="translate" class="icon" title="Двигать (W)">✥</button>
+        <button data-mode="rotate" class="icon" title="Вращать вокруг вертикали (E)">⟳</button>
+        <button id="btnMark" title="Пометки для ИИ: клик — точка, протянуть — нарисовать. Вращать камеру — правой кнопкой">✎ Пометки</button>
+        <span class="sep"></span>
+        <button id="vFront" title="Вид спереди">Перед</button>
+        <button id="vSide" title="Вид сбоку">Бок</button>
+        <button id="vTop" title="Вид сверху">Верх</button>
+        <button id="vIso" title="Изометрия">3/4</button>
+        <span class="sep"></span>
+        <label title="Срез по высоте, чтобы заглянуть внутрь">Срез <input type="range" id="rngClip" min="0" max="100" value="100"></label>
       </div>
-      <label title="3D-иллюзия глубины комнат (interior mapping) вместо плоской картинки"><input type="checkbox" id="chkParallax" checked> 3D-иллюзия</label>
-      <label><input type="checkbox" id="chkDecals" checked> Декали</label>
-      <label title="Срез по высоте, чтобы заглянуть внутрь">Срез <input type="range" id="rngClip" min="0" max="100" value="100"></label>
+      <details class="vmore"><summary title="Что показывать в сцене">Показ ▾</summary><div class="vrow wrap">
+        <label title="Показывать сварную (итоговую) модель вместо разборной"><input type="checkbox" id="chkWelded"> Цельная</label>
+        <label><input type="checkbox" id="chkWire"> Каркас</label>
+        <label title="Камера повторяет ракурсы, с которых ИИ проверяет модель"><input type="checkbox" id="chkFollow" checked> Камера ИИ</label>
+        <label title="Настоящий интерьер внутри здания: комнаты, перегородки, лестницы, мебель"><input type="checkbox" id="chkRooms" checked> Интерьер</label>
+        <div class="seg" id="segWin" title="Окна: прозрачное стекло (видно, что внутри) или визуальная затычка — картинка комнаты за стеклом">
+          <button data-v="glass">Окна прозрачные</button><button data-v="plug">Затычка</button>
+        </div>
+        <label title="3D-иллюзия глубины комнат (interior mapping) вместо плоской картинки"><input type="checkbox" id="chkParallax" checked> 3D-иллюзия</label>
+        <label><input type="checkbox" id="chkDecals" checked> Декали</label>
+      </div></details>
     </div>
     <div id="status"></div>
     <div id="busy" hidden>сборка…</div>
   </section>
 
   <aside id="right">
-    <div id="faceBox" hidden></div>
-    <h3>Свойства</h3>
-    <div id="props"><div class="hint">Выберите элемент в сцене или в дереве.</div></div>
-  </aside>
-</main>
-
-<footer id="bottom">
-  <nav class="tabs" data-for="bottom">
-    <button data-tab="chat">💬 Чат с ИИ</button><button data-tab="feed" class="on">Лента работы ИИ</button><button data-tab="check">Проверка</button><button data-tab="shots">Скриншоты</button>
-  </nav>
-  <section data-pane="chat" class="pane">
-    <div id="chatWrap">
-      <div id="chatLog"><div class="hint">Напишите, что построить или изменить. ИИ работает теми же инструментами, что и через MCP.</div></div>
-      <div id="chatCfg">
-        <select id="chatProvider" title="Какой ИИ"></select>
-        <input id="chatModel" placeholder="модель" title="Модель" spellcheck="false">
-        <input id="chatUrl" placeholder="base URL" title="Адрес OpenAI-совместимого API" spellcheck="false">
-        <input id="chatKey" type="password" placeholder="API-ключ" title="Хранится только на этом компьютере" autocomplete="off">
-        <select id="chatEffort" title="Глубина размышлений (Claude)"><option value="low">быстро</option><option value="medium">средне</option><option value="high">тщательно</option><option value="xhigh">очень тщательно</option></select>
-        <label title="Отправлять модели скриншоты (нужна модель с поддержкой изображений)"><input type="checkbox" id="chatVision"> картинки</label>
-        <span id="chatAcct" hidden><span id="chatAcctSt"></span>
-          <button id="chatLogin" title="Открыть вход в аккаунт (откроется окно и браузер)">Войти</button>
-          <button id="chatInstall" title="Установить программу через npm (нужен Node.js)">Установить</button></span>
-        <button id="chatReset" title="Начать новый разговор">Новый чат</button>
-      </div>
-      <div id="markBar" hidden>
-        <div id="markList"></div>
-        <div class="row">
-          <button id="markRun" class="act" title="ИИ поменяет только отмеченные элементы, остальное заблокировано">▶ ИИ: переделать отмеченное</button>
-          <button id="markClear">Очистить пометки</button>
-          <span class="hint">Текст ниже — общая задача (необязательно).</span>
+    <nav class="tabs" data-for="right">
+      <button data-tab="props" class="on">Свойства</button><button data-tab="chat">💬 ИИ</button><button data-tab="feed">Журнал</button><button data-tab="check">Проверка</button><button data-tab="shots">Снимки</button>
+    </nav>
+    <section data-pane="props" class="pane on">
+      <div id="faceBox" hidden></div>
+      <div id="props"><div class="hint">Выберите элемент в сцене или в дереве.</div></div>
+    </section>
+    <section data-pane="chat" class="pane">
+      <div id="chatWrap">
+        <div id="chatCfg">
+          <select id="chatProvider" title="Какой ИИ"></select>
+          <input id="chatModel" placeholder="модель" title="Модель" spellcheck="false">
+          <input id="chatUrl" placeholder="base URL" title="Адрес OpenAI-совместимого API" spellcheck="false">
+          <input id="chatKey" type="password" placeholder="API-ключ" title="Хранится только на этом компьютере" autocomplete="off">
+          <select id="chatEffort" title="Глубина размышлений (Claude)"><option value="low">быстро</option><option value="medium">средне</option><option value="high">тщательно</option><option value="xhigh">очень тщательно</option></select>
+          <label title="Отправлять модели скриншоты (нужна модель с поддержкой изображений)"><input type="checkbox" id="chatVision"> картинки</label>
+          <span id="chatAcct" hidden><span id="chatAcctSt"></span>
+            <button id="chatLogin" title="Открыть вход в аккаунт (откроется окно и браузер)">Войти</button>
+            <button id="chatInstall" title="Установить программу через npm (нужен Node.js)">Установить</button></span>
+          <button id="chatReset" title="Начать новый разговор">Новый чат</button>
+        </div>
+        <div id="usageBar" title="Сколько токенов и денег ИИ потратил на этот проект"></div>
+        <div id="chatLog"><div class="hint">Напишите, что построить или изменить. ИИ работает теми же инструментами, что и через MCP.</div></div>
+        <div id="markBar" hidden>
+          <div id="markList"></div>
+          <div class="row">
+            <button id="markRun" class="act" title="ИИ поменяет только отмеченные элементы, остальное заблокировано">▶ ИИ: переделать отмеченное</button>
+            <button id="markClear">Очистить пометки</button>
+          </div>
+          <div class="hint">Текст ниже — общая задача (необязательно).</div>
+        </div>
+        <div id="chatInput">
+          <textarea id="chatText" rows="3" placeholder="Например: построй деревянную церковь с тремя куполами (Enter — отправить, Shift+Enter — новая строка)"></textarea>
+          <div class="chat-actions"><button id="chatSend" class="act">Отправить</button><button id="chatStop" hidden>Стоп</button></div>
         </div>
       </div>
-      <div id="chatInput">
-        <textarea id="chatText" rows="2" placeholder="Например: построй деревянную церковь с тремя куполами (Enter — отправить, Shift+Enter — новая строка)"></textarea>
-        <button id="chatSend" class="act">Отправить</button><button id="chatStop" hidden>Стоп</button>
-      </div>
-    </div>
-  </section>
-  <section data-pane="feed" class="pane on"><ul id="feed"></ul></section>
-  <section data-pane="check" class="pane"><div id="check"><div class="hint">Нажмите «Проверить».</div></div></section>
-  <section data-pane="shots" class="pane"><div id="shots"></div></section>
-</footer>
+    </section>
+    <section data-pane="feed" class="pane"><ul id="feed"></ul></section>
+    <section data-pane="check" class="pane"><div id="check"><div class="hint">Нажмите «Проверить».</div></div></section>
+    <section data-pane="shots" class="pane"><div id="shots"></div></section>
+  </aside>
+</main>
 
 <div id="lightbox" hidden><img alt=""></div>
 <div id="settings" class="modal" hidden><div class="about-card">

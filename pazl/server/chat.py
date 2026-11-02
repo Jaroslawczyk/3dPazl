@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import types
 import typing
 from pathlib import Path
@@ -26,6 +27,7 @@ from pathlib import Path
 import httpx
 
 from ..paths import DATA, FROZEN
+from .logs import log, log_exception
 
 SETTINGS_FILE = DATA / "chat_settings.json"
 MAX_STEPS = 60
@@ -48,15 +50,43 @@ PROVIDERS = {  # id: (title, base_url, needs key)
 }
 DEFAULT_MODEL = {"anthropic": "claude-opus-5-5"}
 FALLBACK_MODELS = ("claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5")
+# USD per 1M tokens: input, output (cache reads ~0.1x input, cache writes 1.25x input) - Claude API list prices
+PRICES = {"claude-fable-5-1": (10.0, 50.0), "claude-fable-5": (10.0, 50.0), "claude-opus-5-5": (4.0, 20.0), "claude-opus-5": (5.0, 25.0),
+          "claude-opus-4-8": (5.0, 25.0), "claude-opus-4-7": (5.0, 25.0), "claude-opus-4-6": (5.0, 25.0),
+          "claude-sonnet-5-5": (2.0, 10.0), "claude-sonnet-5": (2.0, 10.0), "claude-sonnet-4-6": (3.0, 15.0),
+          "claude-haiku-5-5": (0.10, 0.50), "claude-haiku-4-5": (1.0, 5.0)}
+
+
+def price_of(model, inp, out, cache_read=0, cache_write=0):
+    pr = PRICES.get(model)
+    if not pr:
+        return None
+    return (inp * pr[0] + out * pr[1] + cache_read * pr[0] * 0.1 + cache_write * pr[0] * 1.25) / 1e6
 
 SYSTEM = (
     "You are the AI assistant built into 3dPazl, a constructor of watertight 3D buildings. The user talks to you in "
     "the app's chat panel and sees the model update live in the 3D viewport. Act through the tools - they are the same "
-    "as the 3dPazl MCP server. Call `guide` once at the start of a conversation and follow it. Typical work: "
+    "as the 3dPazl MCP server. If you have not read `guide` in this conversation, read it first, then carry out the user's "
+    "request in the same turn - never stop after reading the guide or ask what to build when the request already says it. "
+    "Typical work: "
     "new_building / patch -> validate -> render_views (check every view, including sections and floor plans: floors, "
     "walls and textures inside the cuts must be clean) -> fix -> repeat. Use `note` for short progress messages. "
     "Reply in the user's language, briefly: what you did and what you checked."
 )
+
+
+def usage_total(runs):
+    t = {"runs": len(runs), "input": 0, "output": 0, "cache_read": 0, "cost_usd": 0.0, "subscription_runs": 0, "by_provider": {}}
+    for r in runs:
+        t["input"] += r.get("input", 0); t["output"] += r.get("output", 0); t["cache_read"] += r.get("cache_read", 0)
+        bp = t["by_provider"].setdefault(r.get("provider", "?"), {"runs": 0, "input": 0, "output": 0, "cost_usd": 0.0})
+        bp["runs"] += 1; bp["input"] += r.get("input", 0); bp["output"] += r.get("output", 0)
+        if r.get("cost_usd") is not None and "подписке" not in (r.get("note") or ""):
+            t["cost_usd"] += r["cost_usd"]; bp["cost_usd"] += r["cost_usd"]
+        elif "подписке" in (r.get("note") or "") or "аккаунту" in (r.get("note") or ""):
+            t["subscription_runs"] += 1
+    t["cost_usd"] = round(t["cost_usd"], 6)
+    return t
 
 
 # ------------------------------------------------------------------ tools
@@ -148,6 +178,7 @@ class Chat:
         self.stop_flag = False
         self.proc = None
         self.image = None
+        self.run = {"in": 0, "out": 0, "cache_read": 0, "cache_write": 0, "cost": None, "note": "", "tools": [], "t0": 0, "request": ""}
 
     # -------------------------------------------------- api
     def save_settings(self, upd: dict):
@@ -188,6 +219,8 @@ class Chat:
         if not text.strip():
             raise ValueError("пустое сообщение")
         self.busy, self.stop_flag = True, False
+        self.run = {"in": 0, "out": 0, "cache_read": 0, "cache_write": 0, "cost": None, "note": "", "tools": [], "t0": time.time(),
+                    "request": text[:300]}
         self.image = None
         if image and image.startswith("data:image/png;base64,") and self.project is not None:
             d = self.project.dir / "renders"
@@ -205,6 +238,38 @@ class Chat:
         self.transcript.append(item)
         self.broadcast({"type": "chat", **item})
 
+    def _use(self, inp=0, out=0, cache_read=0, cache_write=0, cost=None, note=""):
+        r = self.run
+        r["in"] += int(inp or 0); r["out"] += int(out or 0)
+        r["cache_read"] += int(cache_read or 0); r["cache_write"] += int(cache_write or 0)
+        if cost is not None:
+            r["cost"] = (r["cost"] or 0.0) + float(cost)
+        if note:
+            r["note"] = note
+
+    def _finish_usage(self, p):
+        """One AI run: tokens, money, tools, time -> project usage.json, the chat and the log."""
+        r = self.run
+        model = self.settings.get("models", {}).get(p) or DEFAULT_MODEL.get(p, "")
+        rec = {"t": time.strftime("%Y-%m-%d %H:%M:%S"), "provider": p, "model": model, "input": r["in"], "output": r["out"],
+               "cache_read": r["cache_read"], "cache_write": r["cache_write"],
+               "cost_usd": round(r["cost"], 6) if r["cost"] is not None else None, "note": r["note"],
+               "tools": r["tools"], "seconds": round(time.time() - r["t0"], 1), "request": r["request"]}
+        log("ai_run", **rec)
+        if self.project is not None:
+            f = self.project.dir / "usage.json"
+            try:
+                data = json.loads(f.read_text("utf-8"))
+            except (OSError, ValueError):
+                data = {"runs": []}
+            data["runs"].append(rec)
+            data["total"] = usage_total(data["runs"])
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(json.dumps(data, ensure_ascii=False, indent=1), "utf-8")
+        cost = f"${rec['cost_usd']:.4f}" if rec["cost_usd"] is not None else (rec["note"] or "цена неизвестна")
+        self._emit("usage", f"токены: {rec['input']:,} → {rec['output']:,}" + (f" (+кэш {rec['cache_read']:,})" if rec["cache_read"] else "")
+                   + f" · {cost} · {len(rec['tools'])} инстр. · {rec['seconds']} с", usage=rec)
+
     def _run(self, text):
         p = self.settings.get("provider", "anthropic")
         if self.history_provider != p:  # switching AI starts a fresh conversation (formats differ)
@@ -217,10 +282,15 @@ class Chat:
             else:
                 self._openai_compat(p, text)
         except Exception as ex:
+            log_exception("chat", ex, provider=p)
             self._emit("error", f"{type(ex).__name__}: {ex}")
         finally:
             if self.project is not None:
                 self.project.scope = None
+            try:
+                self._finish_usage(p)
+            except Exception as ex:  # usage must not break the chat
+                log_exception("usage", ex)
             self.busy = False
             self.broadcast({"type": "chat", "role": "done", "text": ""})
 
@@ -229,7 +299,10 @@ class Chat:
 
     def _tool_call(self, p, name, args):
         self._emit("tool", name, args=args)
+        self.run["tools"].append(name)
         res, imgs = run_tool(name, args or {}, self._agent(p))
+        err = res if res.startswith('{"error"') else None
+        log("ai_tool", provider=p, tool=name, args=args, error=err)
         return res, imgs
 
     # ---- Claude API
@@ -269,6 +342,9 @@ class Chat:
             except anthropic.APIConnectionError:
                 return self._emit("error", "Нет связи с api.anthropic.com.")
             self.history.append({"role": "assistant", "content": r.content})
+            u = r.usage
+            ci, cw = getattr(u, "cache_read_input_tokens", 0) or 0, getattr(u, "cache_creation_input_tokens", 0) or 0
+            self._use(u.input_tokens, u.output_tokens, ci, cw, price_of(r.model or model, u.input_tokens, u.output_tokens, ci, cw))
             for b in r.content:
                 if b.type == "text" and b.text.strip():
                     self._emit("assistant", b.text)
@@ -321,7 +397,10 @@ class Chat:
                            json={"model": model, "messages": self.history, "tools": tools})
             if r.status_code >= 400:
                 return self._emit("error", f"{PROVIDERS[p][0]} {r.status_code}: {r.text[:500]}")
-            msg = r.json()["choices"][0]["message"]
+            body = r.json()
+            u = body.get("usage") or {}
+            self._use(u.get("prompt_tokens", 0), u.get("completion_tokens", 0), note="цена у провайдера")
+            msg = body["choices"][0]["message"]
             msg = {k: v for k, v in msg.items() if k in ("role", "content", "tool_calls")}
             self.history.append(msg)
             if msg.get("content"):
@@ -353,7 +432,7 @@ class Chat:
         return cmd[0], cmd[1:], {"PAZL_AGENT": self._agent(p)}
 
     def _first(self, text):  # CLIs without a system-prompt flag get the instructions with the first message
-        return text if self.cli_session else f"{SYSTEM}\n\nUser request:\n{text}"
+        return text if self.cli_session else f"USER REQUEST (do it now, in this turn):\n{text}\n\n---\nHow to work:\n{SYSTEM}"
 
     def _cli_args(self, p, exe, text):
         model = self.settings.get("models", {}).get(p)
@@ -381,7 +460,8 @@ class Chat:
             args += ["-m", model] if model else []
             args += ["-i", str(self.image)] if self.image else []
             args += ["resume", self.cli_session] if self.cli_session else []
-            return args + [self._first(text)], DATA
+            self.stdin_text = self._first(text)  # via stdin: codex.cmd (npm shim) would cut a multi-line argument
+            return args + ["-"], DATA
         # gemini_cli: MCP servers come from the workspace's .gemini/settings.json
         ws = DATA / "ai_workspace" / "gemini"
         (ws / ".gemini").mkdir(parents=True, exist_ok=True)
@@ -389,7 +469,8 @@ class Chat:
             {"mcpServers": {"pazl": {"command": cmd, "args": cargs, "env": env, "trust": True}}}), "utf-8")
         if self.image:
             text += f"\n\nScreenshot with the marks (red numbers/lines): @{self.image}"
-        args = [exe, "-p", self._first(text), "-o", "stream-json", "--approval-mode", "yolo",
+        self.stdin_text = self._first(text)  # via stdin (+ an empty -p): gemini.cmd would cut a multi-line argument
+        args = [exe, "-p", " ", "-o", "stream-json", "--approval-mode", "yolo",
                 "--allowed-mcp-server-names", "pazl", "--skip-trust"]
         args += ["-m", model] if model else []
         args += ["--resume", "latest"] if self.cli_session else []  # the workspace holds only this chat
@@ -399,12 +480,17 @@ class Chat:
         exe = shutil.which(CLIS[p]["exe"])
         if not exe:
             return self._emit("error", f"{PROVIDERS[p][0]}: программа не установлена - нажмите «Установить».")
+        self.stdin_text = None
         args, cwd = self._cli_args(p, exe, text)
         had_session = self.cli_session
         flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
         err = tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace")
-        self.proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err, cwd=str(cwd),
-                                     text=True, encoding="utf-8", errors="replace", creationflags=flags, env=_cli_env())
+        self.proc = subprocess.Popen(args, stdin=subprocess.PIPE if self.stdin_text else subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                     stderr=err, cwd=str(cwd), text=True, encoding="utf-8", errors="replace", creationflags=flags,
+                                     env=_cli_env())
+        if self.stdin_text:
+            self.proc.stdin.write(self.stdin_text)
+            self.proc.stdin.close()
         st = {"failed": False, "buf": ""}
         for line in self.proc.stdout:
             try:
@@ -438,7 +524,12 @@ class Chat:
                     self._emit("assistant", b["text"])
                 elif b.get("type") == "tool_use" and b.get("name", "").startswith("mcp__pazl__"):  # not CLI internals
                     self._emit("tool", b["name"].removeprefix("mcp__pazl__"), args=b.get("input"))
-        elif ev.get("type") == "result" and ev.get("is_error"):
+                    self.run["tools"].append(b["name"].removeprefix("mcp__pazl__"))
+        if ev.get("type") == "result":  # tokens + API-equivalent cost of the run (subscription: not billed per token)
+            u = ev.get("usage") or {}
+            self._use(u.get("input_tokens", 0), u.get("output_tokens", 0), u.get("cache_read_input_tokens", 0),
+                      u.get("cache_creation_input_tokens", 0), ev.get("total_cost_usd"), "по подписке Claude (≈ цена API)")
+        if ev.get("type") == "result" and ev.get("is_error"):
             self._fail(p, st, str(ev.get("result") or ev.get("subtype")))
 
     def _ev_codex(self, p, ev, st):
@@ -447,6 +538,10 @@ class Chat:
             self.cli_session = ev.get("thread_id")
         elif t == "item.started" and item.get("type") == "mcp_tool_call":
             self._emit("tool", item.get("tool", ""), args=item.get("arguments"))
+            self.run["tools"].append(item.get("tool", ""))
+        elif t == "turn.completed":
+            u = ev.get("usage") or {}
+            self._use(u.get("input_tokens", 0), u.get("output_tokens", 0), u.get("cached_input_tokens", 0), note="по подписке ChatGPT")
         elif t == "item.completed" and item.get("type") == "agent_message" and item.get("text", "").strip():
             self._emit("assistant", item["text"])
         elif t == "turn.failed":
@@ -465,7 +560,10 @@ class Chat:
                 self._emit("assistant", st["buf"])
             st["buf"] = ""
             self._emit("tool", str(ev.get("tool_name", "")).removeprefix("mcp_pazl_"), args=ev.get("parameters"))
-        elif t == "result" and ev.get("status") not in (None, "success"):
+        if t == "result":
+            s = ev.get("stats") or {}
+            self._use(s.get("input_tokens", 0), s.get("output_tokens", 0), s.get("cached", 0), note="по аккаунту Google")
+        if t == "result" and ev.get("status") not in (None, "success"):
             self._fail(p, st, json.dumps(ev.get("error") or ev, ensure_ascii=False)[:500])
         elif t == "error":
             self._fail(p, st, str(ev.get("message") or ev)[:500])

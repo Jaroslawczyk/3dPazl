@@ -180,6 +180,8 @@ def grid_positions(p, anchor: Anchor, w_item: float, default_rows="floors"):
             if any(u - w_item / 2 - gap < a[1] and u + w_item / 2 + gap > a[0] and v - gap < a[3] and v + h_item + gap > a[2]
                    for a in avoid):
                 continue
+            if anchor is not None and (u - w_item / 2 < -0.01 or u + w_item / 2 > W + 0.01 or v + h_item > H - 0.05 or v < -0.01):
+                continue  # never past the edge of the wall or into the roof
             out.append((u, v, c, r))
     return out
 

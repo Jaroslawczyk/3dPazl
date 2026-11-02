@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
@@ -13,7 +14,8 @@ from .. import __version__
 from ..core.materials import MATS
 from ..core.registry import ELEMENTS
 from ..core.styles import load_styles, summary as styles_summary
-from .chat import Chat
+from .chat import Chat, usage_total
+from .logs import log, log_exception, report_zip
 from .project import PROJECTS, ROOT, Project
 
 HOST, PORT = "127.0.0.1", 8765
@@ -64,8 +66,10 @@ def _run(fn, *a, **kw):
     except KeyError as ex:
         raise HTTPException(404, str(ex))
     except PermissionError as ex:
+        log("refused", where=getattr(fn, "__name__", "?"), error=str(ex))
         raise HTTPException(403, str(ex))
     except Exception as ex:
+        log_exception(getattr(fn, "__name__", "?"), ex)
         raise HTTPException(400, f"{type(ex).__name__}: {ex}")
 
 
@@ -340,6 +344,55 @@ def chat_send(body: dict = Body(...)):
 @app.post("/api/chat/settings")
 def chat_settings(body: dict = Body(...)):
     return CHAT.save_settings(body)
+
+
+def _usage():
+    f = P.dir / "usage.json"
+    try:
+        data = json.loads(f.read_text("utf-8"))
+    except (OSError, ValueError):
+        data = {"runs": []}
+    data["total"] = usage_total(data.get("runs", []))
+    return data
+
+
+@app.get("/api/measure")
+def measure(eid: str = ""):
+    return _run(P.measure, eid)
+
+
+@app.get("/api/usage")
+def usage():
+    d = _usage()
+    return {"total": d["total"], "runs": d["runs"][-50:]}
+
+
+@app.get("/api/report.zip")
+def report():
+    name = f"3dpazl_report_{time.strftime('%Y%m%d_%H%M')}.zip"
+    return Response(report_zip(P, _usage()), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.post("/api/report/save")
+def report_save():
+    """Write the report ZIP next to the logs and open the folder (works in the desktop window too)."""
+    import os
+    import subprocess
+    from .logs import LOG_DIR
+    d = LOG_DIR.parent / "reports"
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / f"3dpazl_report_{time.strftime('%Y%m%d_%H%M%S')}.zip"
+    f.write_bytes(report_zip(P, _usage()))
+    if os.name == "nt":
+        subprocess.Popen(["explorer", "/select,", str(f)])
+    return {"path": str(f)}
+
+
+@app.post("/api/log")
+def client_log(body: dict = Body(...)):
+    log("client_error", **{k: str(v)[:4000] for k, v in body.items()})
+    return {"ok": True}
 
 
 @app.get("/api/chat/account")

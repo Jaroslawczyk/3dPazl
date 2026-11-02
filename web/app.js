@@ -385,6 +385,8 @@ async function refreshAll(fit = false) {
   await reloadModel(fit);
   renderMats();
   renderBuild();
+  $('#chkProps').checked = S.state.props !== false;
+  renderUsage();
   if (S.selected && !S.tree.find((t) => t.id === S.selected)) select(null);
   else if (S.selected) { attachGizmo(); showProps(S.selected); }
 }
@@ -613,7 +615,7 @@ async function showAdd(type) {
 
 // ---------------------------------------------------------------- library & styles
 const CAT_RU = { macros: 'Готовые здания (макросы)', structure: 'Конструкции', openings: 'Окна и двери', roofs: 'Крыши, купола, шпили',
-  columns: 'Колонны и портики', decor: 'Декор и фасад', primitive: 'Примитивы (любые формы)' };
+  columns: 'Колонны и портики', decor: 'Декор и фасад', primitive: 'Примитивы (любые формы)', props: 'Украшения и мелкие объекты' };
 // library filters: epoch chips (multi) + territory
 S.periodSel = new Set();
 function stylesFiltered() {
@@ -1069,7 +1071,7 @@ function renderMarks() {
     return `<div class="mk"><b>${i + 1}</b><span class="what" title="${m.kind === 'stroke' ? 'рисунок' : 'точка'}">${m.kind === 'stroke' ? '〰' : '•'} ${what}</span>
       <input data-i="${i}" value="${esc(m.note)}" placeholder="что здесь сделать"><button data-del="${i}" title="Удалить пометку">✕</button></div>`;
   }).join('');
-  if (S.marks.length) showTab('bottom', 'chat');
+  if (S.marks.length) showTab('right', 'chat');
 }
 function setMarking(on) {
   S.marking = on;
@@ -1110,7 +1112,7 @@ $('#markRun').onclick = async () => {
     'Пометки (координаты в метрах, Z вверх; на скриншоте — красные номера и линии):', ...lines,
     'После правок проверь validate и render_views (только что отмеченное).'].filter(Boolean).join('\n');
   try {
-    chatBusy(true); showTab('bottom', 'chat');
+    chatBusy(true); showTab('right', 'chat');
     await api('chat', { text, scope, image: markShot() });
     $('#chatText').value = '';
     setMarking(false);
@@ -1131,7 +1133,7 @@ function chatItem(it) {
 }
 function chatBusy(b) { $('#chatSend').hidden = b; $('#chatStop').hidden = !b; }
 function chatEvent(ev) {
-  if (ev.role === 'done') return chatBusy(false);
+  if (ev.role === 'done') { renderUsage(); return chatBusy(false); }
   chatItem(ev);
 }
 function chatFill() {
@@ -1247,9 +1249,37 @@ $('#selAutosave').onchange = async (e) => {
   if (f && confirm('Вернуть проект к этому автосохранению?')) await api('autosaves/restore', { file: f }).then(() => refreshAll(true));
 };
 
+// ---------------------------------------------------------------- menus, decorations, report, usage, error log
+document.addEventListener('click', (e) => {  // one menu open at a time; a click outside closes it
+  $$('details.menu[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+});
+$$('details.menu').forEach((d) => d.addEventListener('toggle', () => { if (d.open) $$('details.menu[open]').forEach((o) => { if (o !== d) o.open = false; }); }));
+$('#chkProps').onchange = (e) => patch([{ op: 'set', key: 'props', value: e.target.checked }], e.target.checked ? 'украшения показаны' : 'украшения скрыты');
+$('#btnPropsAuto').onclick = () => patch([{ op: 'props_clear' }, { op: 'props_auto', density: Number($('#rngPropsDens').value) / 100 }], 'украшения расставлены');
+$('#btnPropsClear').onclick = () => patch([{ op: 'props_clear' }], 'украшения убраны');
+$('#btnFixFloat').onclick = () => patch([{ op: 'fix_floating' }], 'висящие части опущены');
+$('#btnReport').onclick = async () => {
+  try {
+    const r = await api('report/save', {});
+    feedLine({ type: 'exported', agent: 'ui', note: 'Отчёт: ' + r.path });
+    showTab('right', 'feed');
+  } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); }
+};
+async function renderUsage() {
+  const u = await api('usage').catch(() => null);
+  const t = u?.total;
+  if (!t) return;
+  $('#usageBar').innerHTML = t.runs
+    ? `Потрачено на проект: <b>${(t.input + t.output).toLocaleString('ru')}</b> токенов (вход ${t.input.toLocaleString('ru')}, выход ${t.output.toLocaleString('ru')})`
+      + ` · <b>$${t.cost_usd.toFixed(4)}</b>${t.subscription_runs ? ` + ${t.subscription_runs} запуск(ов) по подписке` : ''} · запусков ИИ: ${t.runs}`
+    : 'ИИ ещё не работал над этим проектом.';
+}
+window.addEventListener('error', (e) => { api('log', { where: 'window', error: e.message, src: e.filename + ':' + e.lineno }).catch(() => {}); });
+window.addEventListener('unhandledrejection', (e) => { api('log', { where: 'promise', error: String(e.reason?.message || e.reason) }).catch(() => {}); });
+
 function showTab(where, tab) {
   $$(`.tabs[data-for="${where}"] button`).forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  const parent = where === 'left' ? $('#left') : $('#bottom');
+  const parent = where === 'left' ? $('#left') : $('#right');
   parent.querySelectorAll(':scope > .pane').forEach((p) => p.classList.toggle('on', p.dataset.pane === tab));
 }
 $$('.tabs button').forEach((b) => b.onclick = () => showTab(b.parentElement.dataset.for, b.dataset.tab));
