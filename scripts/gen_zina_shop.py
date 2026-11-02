@@ -37,6 +37,10 @@ for sx in (-1, 1):                                                              
         box(bx0, my-.03, W[2], bx1, my+.03, W[3], TEAL); box(bx0, W[0], hz-.03, bx1, W[1], hz+.03, TEAL)
         for y0, y1, z0, z1 in [(W[0]-.1, W[0], W[2]-.1, W[3]+.1), (W[1], W[1]+.1, W[2]-.1, W[3]+.1), (W[0]-.1, W[1]+.1, W[2]-.1, W[2]), (W[0]-.1, W[1]+.1, W[3], W[3]+.1)]:
             box(sx*HX-.14 if sx < 0 else HX-.25-.0, y0, z0, sx*HX+.0 if sx < 0 else HX+.14, y1, z1, TEAL)
+for cx in (-1, 1):                                                                                  # white corner posts hide the board ends
+    for cy in (-1, 1):
+        xa, xb = sorted((cx*(HX-.14), cx*HX + cx*.04)); ya, yb = sorted((cy*(HY-.14), cy*HY + cy*.04))
+        box(xa, ya, .2, xb, yb, H, TEAL)
 for (a0, a1, z0, z1) in (WIN, WINL):
     box(a0, -HY+.08, z0, a1, -HY+.16, z1, "#8fd3f4")
     frame(lambda a, b, c, d: box(a, -HY-.06, c, b, -HY+.25, d, TEAL), a0, a1, z0, z1)
