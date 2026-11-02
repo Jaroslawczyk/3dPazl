@@ -38,3 +38,10 @@
 - Built in pazl (1.1k tris): 8 posts + floor slab, rear enclosed block, gable roof on a thin helper block (`rb`) sized to the
   whole footprint, porch posts/rails, ladder beams, rock sphere. Ref ratios W:L:H = .77:1:.67 -> mine .84:1:.59 (check again).
 - Pitfall: a sphere centred at z=0 is half underground; offset z by its radius. `info separate_grounded_parts` for a rock is fine.
+
+### Case 4 redo (user: "very unlike")
+- Cause: I judged the scan from a sparse vertex preview and built a pazl block hut. Reference was a stilt house with long
+  front roof over a plank deck, weathered grey planks, patchwork rusty roof, slender posts, side ladder, hanging cloth.
+- Fix: glb_preview.py now samples 500k area-weighted points (solid look) - ALWAYS view the ref in this before building.
+  Rebuilt as scripts/textured_jungle_house.py (400 tris, procedural plank/roof textures). Ladder inflated the bbox: check W:L:H.
+- Rule: "looks unlike" => first re-look at the ref at 3 angles at 600 px, list 6 defining features, tick them off in my render.
