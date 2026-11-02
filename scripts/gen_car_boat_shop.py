@@ -58,8 +58,14 @@ box(-7.5, -4.5, .2, -6.5, -4.2, 3.4, WALL); box(6.5, -4.5, .2, 7.5, -4.2, 3.4, W
 box(-6.5, -4.42, .2, -1.2, -4.3, 3.4, "#8fd3f4"); box(1.2, -4.42, .2, 6.5, -4.3, 3.4, "#8fd3f4")   # glass wall with a doorway
 for i in (-3, -2, -1, 1, 2, 3): box(i*1.8-.05, -4.46, .2, i*1.8+.05, -4.28, 3.4, TRIM)
 box(-1.3, -4.52, .2, -1.2, -4.2, 3.4, TRIM); box(1.2, -4.52, .2, 1.3, -4.2, 3.4, TRIM)   # door posts
-hullp([(-7.8, -4.8, 4.4), (7.8, -4.8, 4.4), (-7.8, 4.8, 4.4), (7.8, 4.8, 4.4), (-7.8, 0, 7.0), (7.8, 0, 7.0)], "#a8472f")   # gable roof (ridge along x)
-box(-1.0, -4.8, 4.4, 1.0, -4.5, 4.7, "#a8472f") if False else None
+# gable roof: two sloped slabs (26 deg, 0.25 thick) over the long sides, 0.6 overhang at the gable ends, vertical gable walls, ceiling
+RZ, RH, OV, TH = 4.3, 2.44, 8.1, 0.25
+for sy in (-1, 1):
+    hullp([(-OV, sy*5.0, RZ), (OV, sy*5.0, RZ), (-OV, 0.05*sy, RZ+RH), (OV, 0.05*sy, RZ+RH),
+           (-OV, sy*5.0, RZ-TH), (OV, sy*5.0, RZ-TH), (-OV, 0.05*sy, RZ+RH-TH), (OV, 0.05*sy, RZ+RH-TH)], "#a8472f")
+for gx in (-7.5, 7.2):
+    hullp([(gx, -4.5, 4.4), (gx, 4.5, 4.4), (gx, 0, 6.55), (gx+0.3, -4.5, 4.4), (gx+0.3, 4.5, 4.4), (gx+0.3, 0, 6.55)], "#eceae4")
+box(-7.5, -4.5, 4.2, 7.5, 4.5, 4.4, "#eceae4")                           # ceiling
 # awning over the whole storefront: rainbow stripes + valance
 RAIN = ["#ff3b3b", "#ffd23f", "#2ecc71", "#3498db", "#ff8a1f", "#a855f7"]
 for k in range(14):
@@ -194,7 +200,7 @@ def uvs(m, scale, plate=False):
         slope = n[fi][1] > .3 and abs(n[fi][2]) > .3
         for vi in f[fi]:
             if slope:
-                uv[vi] = (v[vi][0] / 1.6, (v[vi][1] - 4.4) / 0.476 / 1.6); continue
+                uv[vi] = (v[vi][0] / 1.6, (v[vi][1] - 4.3) / 0.438 / 1.6); continue
             if plate:
                 uv[vi] = ((v[vi][0] + 6.2) / 12.4, (v[vi][1] - 5.0) / 1.1) if ax == 2 and n[fi][2] > 0 else (0.01, 0.01)
             else:
