@@ -162,6 +162,44 @@ async function reloadModel(fit = false) {
   loading = false; $('#busy').hidden = true;
   if (pendingReload) { pendingReload = false; reloadModel(); }
 }
+// ---------------------------------------------------------------- GLB viewer (script-built models, references)
+async function viewGlb(path) {
+  $('#busy').hidden = false;
+  try {
+    const buf = await (await fetch('/files/' + path.split('/').map(encodeURIComponent).join('/'))).arrayBuffer();
+    const gltf = await loader.parseAsync(buf, '');
+    root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+    root.clear(); S.meshesById.clear();
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.side = THREE.DoubleSide; m.needsUpdate = true; });
+    });
+    root.add(gltf.scene);
+    const box = modelBox.setFromObject(root);
+    invalidate(true); fitView(box, 'iso'); S.lastCenter = box.getCenter(new THREE.Vector3());
+    $('#status').textContent = `просмотр GLB: ${path} · треугольников ${countTris().toLocaleString('ru')} · только просмотр (вернуться: выберите проект)`;
+  } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); }
+  $('#busy').hidden = true;
+}
+$('#btnGlbView').onclick = async () => {
+  const list = await fetch('/api/glbs').then((r) => r.json());
+  let box = $('#glbPick');
+  if (!box) {
+    box = document.createElement('div'); box.id = 'glbPick';
+    box.style.cssText = 'position:fixed;top:60px;right:200px;z-index:50;background:#1d2027;border:1px solid #444;border-radius:8px;padding:8px;max-height:70vh;overflow:auto;min-width:360px';
+    document.body.appendChild(box);
+  }
+  box.hidden = false;
+  box.innerHTML = '<div style="margin:2px 0 6px;color:#aaa">GLB в projects/ (клик — открыть, Esc — закрыть)</div>' + list.map((g) =>
+    `<div class="glbrow" data-p="${g.path}" style="padding:5px 8px;cursor:pointer;border-radius:4px">${g.path} <span style="color:#888">${g.mb} МБ</span></div>`).join('');
+  box.querySelectorAll('.glbrow').forEach((el) => {
+    el.onmouseenter = () => { el.style.background = '#2c313b'; }; el.onmouseleave = () => { el.style.background = ''; };
+    el.onclick = () => { box.hidden = true; viewGlb(el.dataset.p); };
+  });
+};
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#glbPick')) $('#glbPick').hidden = true; });
 // ---------------------------------------------------------------- textures, overlays, interior illusion
 const texLoader = new THREE.TextureLoader();
 const texCache = new Map();

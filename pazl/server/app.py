@@ -478,6 +478,13 @@ async def ws(sock: WebSocket):
         _clients.discard(sock)
 
 
+@app.get("/api/glbs")
+def list_glbs():
+    """Every .glb under projects/ (script-built models, references, exports) for the viewer."""
+    return [{"path": p.relative_to(PROJECTS).as_posix(), "mb": round(p.stat().st_size / 1e6, 1)}
+            for p in sorted(PROJECTS.rglob("*.glb"))]
+
+
 PROJECTS.mkdir(exist_ok=True)
 app.mount("/files", StaticFiles(directory=str(PROJECTS)), name="files")
 app.mount("/", StaticFiles(directory=str(WEB), html=True), name="web")
