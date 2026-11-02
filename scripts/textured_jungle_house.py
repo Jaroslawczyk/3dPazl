@@ -55,15 +55,22 @@ def roof_tex(w, h):
     img = Image.new("RGB", (round(w * PX), round(h * PX)))
     d = ImageDraw.Draw(img)
     cols = [(128, 70, 50), (104, 108, 114), (146, 88, 54), (96, 56, 44), (122, 112, 104), (112, 72, 52), (134, 100, 76)]
-    pw, ph = 1.15, 0.95
-    for i in range(int(w / pw) + 1):
-        for j in range(int(h / ph) + 1):
+    y = 0.0
+    while y < h:                                   # staggered rows, random sheet widths, some torn/dark gaps
+        ph = rnd.uniform(0.7, 1.3)
+        x = -rnd.uniform(0, 0.8)
+        while x < w:
+            pw = rnd.uniform(0.6, 1.7)
             base = rnd.choice(cols)
-            x0, y0 = round(i * pw * PX), round(j * ph * PX)
-            d.rectangle([x0, y0, x0 + round(pw * PX), y0 + round(ph * PX)], fill=base)
-            for k in range(0, round(pw * PX), 9):        # ribs
-                d.line([x0 + k, y0, x0 + k, y0 + round(ph * PX)], fill=tuple(int(v * 0.66) for v in base), width=2)
-            d.rectangle([x0, y0, x0 + round(pw * PX), y0 + 2], fill=(60, 40, 32))
+            x0, y0, x1, y1 = round(x * PX), round(y * PX), round((x + pw) * PX), round((y + ph) * PX)
+            d.rectangle([x0, y0, x1, y1], fill=base)
+            for k in range(0, max(1, x1 - x0), 9):
+                d.line([x0 + k, y0, x0 + k, y1], fill=tuple(int(v * 0.66) for v in base), width=2)
+            d.rectangle([x0, y0, x1, y0 + 2], fill=(60, 40, 32))
+            if rnd.random() < 0.06:
+                d.rectangle([x0 + 6, y0 + 6, x0 + (x1 - x0) // 2, y0 + (y1 - y0) // 2], fill=(26, 20, 18))
+            x += pw
+        y += ph
     return noise(img, 12, 2)
 
 
@@ -117,6 +124,18 @@ def build():
              [(0, 0), (1, 0), (1, yr(ZF) / 6.4), (zc / 10 + .5, 1), (0, yr(ZB) / 6.4)])
     for x in (-4.4, 4.4):                      # porch posts under the long front eave
         B.box(x - 0.1, x + 0.1, FLOOR, yr(DECK_Z - 0.1), DECK_Z - 0.2, DECK_Z, {s: wood for s in ("front", "back", "left", "right")})
+    # ridge cap
+    B.box(xr0 - 0.05, xr1 + 0.05, RIDGE - 0.02, RIDGE + 0.07, zc - 0.12, zc + 0.12, {s: B.mat("cap", color=(128, 78, 56)) for s in ("front", "back", "top", "left", "right")})
+    # side porch on the -X gable: deck extension, 2 posts, low lean-to roof
+    sx0 = X0 - 1.9
+    B.box(sx0, X0, FLOOR - 0.15, FLOOR, ZB, ZF, {s: wood for s in ("front", "back", "left", "right", "bottom")})
+    B.quad(deck, (sx0, FLOOR, ZF), (X0 - sx0, 0, 0), (0, 0, -(ZF - ZB)))
+    for z in (ZB + 0.1, ZF - 0.1):
+        B.box(sx0 - 0.1 + 0.1, sx0 + 0.1 + 0.1, 0, FLOOR, z - 0.11, z + 0.11, {s: wood for s in ("front", "back", "left", "right")})
+        B.box(sx0 + 0.0, sx0 + 0.2, FLOOR, 3.5, z - 0.1, z + 0.1, {s: wood for s in ("front", "back", "left", "right")})
+    B.quad(B.mat("roof_s", roof_tex(2.4, ZF - ZB + 0.6)), (sx0 - 0.3, 3.45, ZB - 0.3), (0, 0.85, 0), (X0 + 0.0 - sx0 + 0.3, 0, 0)) if False else None
+    sl = B.mat("roof_s", roof_tex(ZF - ZB + 0.6, 2.4))
+    B.quad(sl, (sx0 - 0.3, 3.45, ZF + 0.3), (0, 0, -(ZF - ZB + 0.6)), (X0 - sx0 + 0.3, 0.85, 0))
     # railings: front rail with gap for the ladder at the right end, side rails
     for z, x0, x1 in ((DECK_Z - 0.05, -4.5, 3.4),):
         B.box(x0, x1, FLOOR + 0.9, FLOOR + 1.0, z, z + 0.08, {s: wood for s in ("front", "back", "top")})
