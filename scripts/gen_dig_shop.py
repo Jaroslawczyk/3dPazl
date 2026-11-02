@@ -77,25 +77,6 @@ box(-ox, -.16, zr-.02, ox, .16, zr+.1, DK)
 # sign board
 box(-1.9, -HY-.12, 2.55, 1.9, -HY, 3.75, SIGN)
 for px in (-1.8, 1.8): box(px-.05, -HY-.14, 2.5, px+.05, -HY, 3.8, DK)
-# --- porch props: shovels + pickaxes leaning on the wall, barrel of tools, chest, crates, detector, lantern ---
-for i, x in enumerate((1.0, 1.2, 1.4)): shovel((x, -HY-.75-.05*i, .2), (x, -HY-.03, 2.0 + .1*i))
-for i, x in enumerate((-1.0, -1.2, -1.4)): pick((x, -HY-.75-.05*i, .2), (x, -HY-.03, 2.0 + .1*i))
-bx, by = -3.2, -HY-1.0
-cyl(bx, by, .2, 1.0, .38, WOOD); cyl(bx, by, .35, .42, .4, DARK); cyl(bx, by, .8, .87, .4, DARK)
-for k, (dx, dy) in enumerate(((.12, .0), (-.1, .08), (0, -.12))): shovel((bx+dx, by+dy, .7), (bx+dx*3.5, by+dy*3.5, 1.9), up=True)
-cx_, cy_ = 3.0, -HY-1.0                         # treasure chest
-box(cx_-.45, cy_-.28, .2, cx_+.45, cy_+.28, .55, DK)
-hullp([(cx_+sx_*.45, cy_+sy_*.28, .55) for sx_ in (-1, 1) for sy_ in (-1, 1)] + [(cx_+sx_*.45, cy_+sy_*.18, .72) for sx_ in (-1, 1) for sy_ in (-1, 1)], DK)
-for dx in (-.3, .3): box(cx_+dx-.04, cy_-.3, .2, cx_+dx+.04, cy_+.3, .58, GOLD)
-box(cx_-.07, cy_-.31, .45, cx_+.07, cy_-.27, .62, GOLD)
-for (dx, dy) in ((-.35, -.5), (-.15, -.55), (.05, -.48), (.3, -.55)): cyl(cx_+dx, cy_+dy, .2, .23, .07, GOLD, 8)
-box(3.85, -HY-1.2, .2, 4.55, -HY-.5, .9, WOOD); box(3.85, -HY-1.2, .9, 4.55, -HY-.5, .95, DK); box(4.0, -HY-.5-.15, .95, 4.4, -HY-.5, 1.3, WOOD)
-dx0, dy0 = -4.75, -HY-.9                         # metal detector
-bar((dx0, dy0, .2), (dx0, -HY-.12, 1.6), .025, DK); cyl(dx0, dy0, .2, .26, .33, DARK, 12); box(dx0-.06, -HY-.2, 1.5, dx0+.06, -HY-.08, 1.7, DARK)
-bar((4.8, -HY-1.45, .2), (4.8, -HY-1.45, 2.3), .05, DK); box(4.68, -HY-1.57, 2.3, 4.92, -HY-1.33, 2.6, LAMP)
-# --- dirt mound with a shovel stuck in it + red X marker ---
-mound(-7.6, -1.5, 1.3, .8, DIRT); shovel((-7.5, -1.6, .55), (-7.1, -1.9, 2.0)); mound(-6.0, -5.2, .55, .3, DIRT)
-strip((-6.6, -4.5), (-5.6, -3.5), .06, .02, .05, RED); strip((-6.6, -3.5), (-5.6, -4.5), .06, .02, .05, RED)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
