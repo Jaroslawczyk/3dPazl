@@ -51,3 +51,10 @@
   on the gable end. Atlases are baked but contain usable flat panels: crop tiles (tile_stone/tile_roof/tile_door) into
   textures/library/ref_medieval_house/ and tile them with alternate flips (hides seams).
 - scripts/textured_medieval_house.py (238 tris). Door must fit under the wall top (arch height + radius < wall height).
+
+## Case 6 notes (low-poly fishing house, flat colours, 13.7k tris, NO textures)
+- glb_inspect showed 29 named parts with baseColorFactor only => ideal for a pazl recipe (boxes/cylinders/beams, `paint` per element)
+  and it opens natively in the app (unlike script GLBs). Units are cm: divide by 100; world coords are raw (not centred).
+- glTF colour factors are LINEAR: convert with 255*f**(1/2.2) before painting (preview tools show them raw = too orange).
+- Built `fishing_house` (878 tris, bbox 10.45 x 9.87 x 20.79 vs ref 10.45 x 10.0 x 20.8). Floating checks: barrel must touch its
+  pillar top, ladder must touch a wall.
