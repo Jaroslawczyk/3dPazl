@@ -22,14 +22,16 @@ def wall(mk, a0, a1, ops, z0=0.2, z1=H):          # wall along one axis with ope
 def frame(mk, a0, a1, z0, z1, t=0.1, d=0.14):      # teal frame round an opening (mk(a0, a1, z0, z1, depth_out))
     mk(a0-t, a0, z0-t, z1+t); mk(a1, a1+t, z0-t, z1+t); mk(a0-t, a1+t, z0-t, z0); mk(a0-t, a1+t, z1, z1+t)
 box(-HX, -HY, 0, HX, HY, .2, "#a8763e")                                        # floor slab (wood planks)
-DOOR, WIN, WINL = (-1.9, -0.7, 0.2, 2.2), (0.3, 3.3, 0.95, 2.2), (-3.4, -2.4, 0.95, 2.2)
+DOOR, WIN, WINL = (-1.9, -0.7, 0.2, 2.2), (0.5, 2.5, 1.1, 2.1), (-3.2, -2.4, 1.1, 2.1)
 wall(lambda a, b, z0, z1: box(a, -HY, z0, b, -HY+.25, z1, WALL), -HX, HX, [DOOR, WIN, WINL])      # front wall
 box(-HX, HY-.25, .2, HX, HY, H, WALL)                                                              # back wall
-SW = (0.3, 1.9, 0.95, 2.2)
+SW = (0.6, 1.6, 1.1, 2.1)
 for sx in (-1, 1):                                                                                  # side walls with a window each
     wall(lambda a, b, z0, z1, sx=sx: box(sx*HX-(.25 if sx > 0 else 0), a, z0, sx*HX+(0 if sx > 0 else .25), b, z1, WALL), -HY, HY, [SW])
     wx0, wx1 = (HX-.15, HX-.05) if sx > 0 else (-HX+.05, -HX+.15)
     box(wx0, SW[0], SW[2], wx1, SW[1], SW[3], "#8fd3f4")
+    bx0, bx1 = (HX-.2, HX) if sx > 0 else (-HX, -HX+.2); my = (SW[0]+SW[1])/2; hz = SW[2]+(SW[3]-SW[2])*.62
+    box(bx0, my-.03, SW[2], bx1, my+.03, SW[3], TEAL); box(bx0, SW[0], hz-.03, bx1, SW[1], hz+.03, TEAL)
     for y0, y1, z0, z1 in [(SW[0]-.1, SW[0], SW[2]-.1, SW[3]+.1), (SW[1], SW[1]+.1, SW[2]-.1, SW[3]+.1), (SW[0]-.1, SW[1]+.1, SW[2]-.1, SW[2]), (SW[0]-.1, SW[1]+.1, SW[3], SW[3]+.1)]:
         box(sx*HX-.14 if sx < 0 else HX-.25-.0, y0, z0, sx*HX+.0 if sx < 0 else HX+.14, y1, z1, TEAL)
 # front windows: glass + teal frames + muntins, sill planks with flower boxes
@@ -38,20 +40,20 @@ for (a0, a1, z0, z1) in (WIN, WINL):
     frame(lambda a, b, c, d: box(a, -HY-.06, c, b, -HY+.25, d, TEAL), a0, a1, z0, z1)
     box(a0-.15, -HY-.2, z0-.14, a1+.15, -HY, z0-.04, PALE)                       # sill
     box(a0, -HY-.4, z0-.5, a1, -HY-.1, z0-.14, WOOD)                             # flower box
+    mx = (a0+a1)/2; hz = z0+(z1-z0)*.62                                       # sash bars
+    box(mx-.03, -HY+.06, z0, mx+.03, -HY+.2, z1, TEAL); box(a0, -HY+.06, hz-.03, a1, -HY+.2, hz+.03, TEAL)
     n = int((a1-a0)/.3)
     for k in range(n): box(a0+.05+k*.3, -HY-.35+(k % 2)*.08, z0-.14, a0+.25+k*.3, -HY-.15+(k % 2)*.08, z0+.12+(k % 3)*.04, ["#ff3b8f", "#ffd23f", "#ff8a1f", "#ffffff"][k % 4])
-box(1.75, -HY+.08, WIN[2], 1.85, -HY+.16, WIN[3], TEAL)                          # muntin of the big window
-box(WIN[0], -HY+.08, 1.55, WIN[1], -HY+.16, 1.62, TEAL)
 frame(lambda a, b, c, d: box(a, -HY-.06, c, b, -HY+.25, d, TEAL), DOOR[0], DOOR[1], DOOR[2]+.0, DOOR[3])
 box(DOOR[0]-.14, -HY-.1, 2.2, DOOR[1]+.14, -HY, 2.3, PALE)                       # door pediment
 # porch: two steps + small lamp
 box(-2.2, -HY-.6, 0, -.4, -HY, .1, WOOD); box(-2.1, -HY-.35, .1, -.5, -HY, .2, PALE)
 # striped awning over the big window
-for k in range(6):
-    x0 = .1 + k*.55; cc = RED if k % 2 == 0 else WHITE
-    hullp([(x0, -HY, 2.4), (x0+.55, -HY, 2.4), (x0, -HY-.95, 2.0), (x0+.55, -HY-.95, 2.0),
-           (x0, -HY, 2.35), (x0+.55, -HY, 2.35), (x0, -HY-.95, 1.95), (x0+.55, -HY-.95, 1.95)], cc)
-    box(x0, -HY-1.0, 1.72, x0+.55, -HY-.95, 2.0, cc)
+for k in range(5):
+    x0 = .3 + k*.45; cc = RED if k % 2 == 0 else WHITE
+    hullp([(x0, -HY, 2.4), (x0+.45, -HY, 2.4), (x0, -HY-.95, 2.0), (x0+.45, -HY-.95, 2.0),
+           (x0, -HY, 2.35), (x0+.45, -HY, 2.35), (x0, -HY-.95, 1.95), (x0+.45, -HY-.95, 1.95)], cc)
+    box(x0, -HY-1.0, 1.72, x0+.45, -HY-.95, 2.0, cc)
 # gable roof: slabs (eave y=+-3.7), ridge cap, vertical gable walls, ceiling, chimney
 RZ, RIDGE, OV, EV, TH = 3.15, 2.0, 4.5, 3.7, .25
 for sy in (-1, 1):
