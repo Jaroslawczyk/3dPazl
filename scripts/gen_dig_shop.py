@@ -43,17 +43,8 @@ def strip(p0, p1, w, z, h, c):
 def mound(x, y, r, hh, c):
     pts = [(x+r*np.cos(a), y+r*np.sin(a), 0) for a in np.linspace(0, 6.283, 11)[:-1]] + [(x+.3*r*np.cos(a), y+.3*r*np.sin(a), hh) for a in np.linspace(0, 6.283, 7)[:-1]]
     return hullp(pts, c)
-TONES = ["#4a3322", "#4f3724", "#45301f", "#523a27"]
-fr = np.random.default_rng(11)
-box(-HX+.04, -HY-1.6+.04, 0, HX-.04, HY-.04, .1, "#2e2016")      # dark joist layer (shows in the thin gaps)
-y = -HY-1.6
-while y < HY-.01:                                  # real boards: 0.2 m wide rows, staggered butt joints, flush ends
-    x, row_w = -HX, min(.2, HY-y)
-    while x < HX-.01:
-        L = fr.uniform(1.8, 3.6); x1 = min(HX, x+L) if HX-(x+L) > .8 else HX
-        box(x+.006, y+.006, .1, x1-.006, y+row_w-.006, .2, TONES[fr.integers(4)])
-        x = x1
-    y += .2
+box(-HX, -HY-1.6, 0, HX, HY, .14, "#2e2016")             # dark base (plain edge)
+box(-HX+.02, -HY-1.6+.02, .14, HX-.02, HY-.02, .2, "#4a3322")   # ONE plank slab for the whole floor + porch
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
     if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
@@ -73,8 +64,6 @@ for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cro
     sa, sb = a0-.2, a1+.2
     hullp([(sa, -HY, z0-.03), (sb, -HY, z0-.03), (sa, -HY-.2, z0-.075), (sb, -HY-.2, z0-.075), (sa, -HY, z0-.11), (sb, -HY, z0-.11), (sa, -HY-.2, z0-.13), (sb, -HY-.2, z0-.13)], WOOD)
     box(a0-.06, -HY-.05, z0-.3, a1+.06, -HY, z0-.11, DK)
-    for bx_ in (a0+.02, a1-.12):
-        hullp([(bx_, -HY, z0-.11), (bx_+.1, -HY, z0-.11), (bx_, -HY, z0-.34), (bx_+.1, -HY, z0-.34), (bx_, -HY-.16, z0-.11), (bx_+.1, -HY-.16, z0-.11)], DK)
     box(a0-.2, -HY-.1, z1+.1, a1+.2, -HY, z1+.17, WOOD); box(a0-.16, -HY-.14, z1+.17, a1+.16, -HY, z1+.21, DK)
     for (p0, p1, q0, q1) in [(a0+.02, a1-.02, z0+.03, z0+.08), (a0+.02, a1-.02, z1-.08, z1-.03), (a0+.02, a0+.07, z0, z1), (a1-.07, a1-.02, z0, z1)]:
         box(p0, -HY+.05, q0, p1, -HY+.13, q1, DK)                  # sash border around the glass
@@ -83,8 +72,6 @@ for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cro
     for (p0, p1, q0, q1) in [(a0-.12, a0, z0-.06, z1+.12), (a1, a1+.12, z0-.06, z1+.12), (a0-.12, a1+.12, z1, z1+.12)]:
         box(p0, fy2, q0, p1, fy2+.07, q1, DK)
     box(a0-.2, fy2, z0-.06, a1+.2, fy2+.22, z0, WOODW); box(a0-.14, fy2, z0-.2, a1+.14, fy2+.05, z0-.06, DK)
-    for (p0, p1, q0, q1) in [(a0, a1, z0, z0+.05), (a0, a1, z1-.05, z1), (a0, a0+.05, z0, z1), (a1-.05, a1, z0, z1)]:
-        box(p0, fy2-.05, q0, p1, fy2+.05, q1, DK)                   # inner sash frame
     for sx_ in (a0-.1-.42, a1+.1):
         box(sx_, -HY-.06, z0-.1, sx_+.42, -HY, z1+.1, SHUT)
 for (p0, p1, q0, q1) in [(DR[0]-.2, DR[0], .2, DR[3]+.2), (DR[1], DR[1]+.2, .2, DR[3]+.2), (DR[0]-.2, DR[1]+.2, DR[3], DR[3]+.2)]:
@@ -294,7 +281,7 @@ def tex_stone(base):                                  # coursed ashlar: 8 rows, 
     a[::1] *= 1.0
     return a.clip(0, 255).astype(np.uint8)
 FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
-SPECIAL = {"#dccaa2": ("plasterin", tex_plaster, 2.0), "#6a4a30": ("wain", tex_boards, 2.0), "#8b7b66": ("stone", tex_stone, 2.0), "#4a3322": ("floor0", tex_grain, 2.0), "#4f3724": ("floor1", tex_grain, 2.0), "#45301f": ("floor2", tex_grain, 2.0), "#523a27": ("floor3", tex_grain, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
+SPECIAL = {"#4a3322": ("floorw", tex_floorboards, 1.5), "#dccaa2": ("plasterin", tex_plaster, 2.0), "#6a4a30": ("wain", tex_boards, 2.0), "#8b7b66": ("stone", tex_stone, 2.0), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
