@@ -62,8 +62,22 @@ hullp([(-7.8, -4.8, 4.4), (7.8, -4.8, 4.4), (-7.8, 4.8, 4.4), (7.8, 4.8, 4.4), (
 box(-1.0, -4.8, 4.4, 1.0, -4.5, 4.7, "#a8472f") if False else None
 # sign: plain blue band with white plate
 box(-6.5, -4.9, 4.7, 6.5, -4.6, 6.4, "#1b4f9c"); box(-6.2, -4.95, 5.0, 6.2, -4.62, 6.1, "#f6f6f6")
-# awning over entrance
-for k in range(6): box(-2.4+k*.8, -6.0, 3.2, -1.6+k*.8, -4.3, 3.35, "#d8262c" if k % 2 == 0 else "#f5f5f5")
+# awning over the whole storefront: rainbow stripes + valance
+RAIN = ["#ff3b3b", "#ffd23f", "#2ecc71", "#3498db", "#ff8a1f", "#a855f7"]
+for k in range(14):
+    x0 = -6.3 + k*0.9; cc = RAIN[k % 6]
+    box(x0, -6.0, 3.2, x0+0.9, -4.3, 3.35, cc); box(x0, -6.06, 2.85, x0+0.9, -5.98, 3.35, cc)
+# teal wainscot, orange band, bunting under the sign, flower planters
+TEAL = "#1fb8a8"
+box(-7.56, -4.56, .2, -7.2, 4.56, 1.0, TEAL); box(7.2, -4.56, .2, 7.56, 4.56, 1.0, TEAL)
+box(-7.56, -4.56, .2, -6.5, -4.5, 1.0, TEAL); box(6.5, -4.56, .2, 7.56, -4.5, 1.0, TEAL)
+box(-7.56, -4.56, 3.4, 7.56, -4.5, 3.6, "#ff7a1a")
+for k in range(14):
+    x = -6.0 + k*0.92; cc = RAIN[(k+2) % 6]
+    hullp([(x-.32, -4.98, 4.69), (x+.32, -4.98, 4.69), (x, -4.98, 4.05), (x-.32, -4.94, 4.69), (x+.32, -4.94, 4.69), (x, -4.94, 4.05)], cc)
+for sx in (-4.0, 4.0):
+    box(sx-1.2, -5.35, .2, sx+1.2, -4.75, .75, "#e8743b"); box(sx-1.15, -5.3, .75, sx+1.15, -4.8, .9, "#2ecc71")
+    for f in range(6): box(sx-1.0+f*.4, -5.2+(f % 2)*.1, .9, sx-.8+f*.4, -5.0+(f % 2)*.1, 1.25, ["#ff3b8f", "#ffd23f", "#ffffff"][f % 3] if False else ["#ff3b8f", "#ffd23f", "#ff8a1f"][f % 3])
 # interior: counter, lounge
 box(-6.5, 2.4, .2, -2.5, 3.4, 1.3, "#3b4252"); box(-6.6, 2.3, 1.3, -2.4, 3.5, 1.38, "#d8dee9"); box(-5.0, 2.7, 1.38, -4.3, 3.1, 1.8, "#1c1e24")
 box(2.5, 3.9, .2, 7.0, 4.2, 2.6, "#5b4636")                               # wall board with keys/brochures
@@ -131,14 +145,14 @@ def icon_car(d, x, y, sc, c):          # (x, y) = bottom-left, sc ~ height 100*s
     u = lambda px, py: (x + px*sc, y - py*sc)
     d.rounded_rectangle([*u(0, 40), *u(190, 10)], radius=12*sc, fill=c)
     d.polygon([u(35, 40), u(62, 78), u(130, 78), u(160, 40)], fill=c)
-    d.polygon([u(48, 44), u(68, 72), u(95, 72), u(95, 44)], fill="#f6f6f6"); d.polygon([u(102, 44), u(102, 72), u(125, 72), u(146, 44)], fill="#f6f6f6")
+    d.polygon([u(48, 44), u(68, 72), u(95, 72), u(95, 44)], fill="#e9f7ff"); d.polygon([u(102, 44), u(102, 72), u(125, 72), u(146, 44)], fill="#e9f7ff")
     for cx in (45, 148):
-        d.ellipse([*u(cx-20, 40), *u(cx+20, 0)], fill=c); d.ellipse([*u(cx-10, 30), *u(cx+10, 10)], fill="#f6f6f6")
+        d.ellipse([*u(cx-20, 40), *u(cx+20, 0)], fill=c); d.ellipse([*u(cx-10, 30), *u(cx+10, 10)], fill="#e9f7ff")
 def icon_boat(d, x, y, sc, c):
     u = lambda px, py: (x + px*sc, y - py*sc)
     d.polygon([u(0, 40), u(200, 40), u(170, 6), u(30, 6)], fill=c)                       # hull
     d.polygon([u(60, 40), u(80, 70), u(130, 70), u(145, 40)], fill=c)                    # cabin
-    d.polygon([u(88, 44), u(96, 64), u(120, 64), u(126, 44)], fill="#f6f6f6")
+    d.polygon([u(88, 44), u(96, 64), u(120, 64), u(126, 44)], fill="#e9f7ff")
     d.rectangle([*u(100, 100), *u(104, 70)], fill=c); d.polygon([u(104, 100), u(130, 90), u(104, 80)], fill=c)  # mast + flag
     d.line([u(10, -4), u(40, 2), u(80, -4), u(120, 2), u(160, -4), u(195, 2)], fill=c, width=int(5*sc))        # waves
 def icon_heli(d, x, y, sc, c):
@@ -146,16 +160,17 @@ def icon_heli(d, x, y, sc, c):
     d.ellipse([*u(40, 70), *u(130, 22)], fill=c)                                          # cabin
     d.polygon([u(120, 56), u(200, 62), u(200, 52), u(125, 38)], fill=c)                   # tail boom
     d.polygon([u(192, 52), u(206, 84), u(214, 80), u(204, 52)], fill=c)                   # fin
-    d.polygon([u(52, 62), u(80, 62), u(80, 36), u(48, 34)], fill="#f6f6f6")               # window
+    d.polygon([u(52, 62), u(80, 62), u(80, 36), u(48, 34)], fill="#e9f7ff")               # window
     d.rectangle([*u(82, 80), *u(88, 70)], fill=c); d.rectangle([*u(0, 88), *u(190, 82)], fill=c)  # mast + rotor
     d.line([u(46, 14), u(130, 14)], fill=c, width=int(6*sc)); d.line([u(66, 24), u(64, 14)], fill=c, width=int(5*sc)); d.line([u(112, 24), u(114, 14)], fill=c, width=int(5*sc))
 def tex_plate():
     W, H = 2048, 182
-    im = Image.new("RGB", (W, H), "#f6f6f6"); dr = ImageDraw.Draw(im)
-    dr.rectangle([0, 0, W-1, H-1], outline="#c9ced6", width=6)
-    c, sc = "#1b4f9c", 1.45                      # icons at both edges, centre left free
-    icon_car(dr, 40, 150, sc, c);   icon_boat(dr, 340, 150, sc, c)
-    icon_heli(dr, 1440, 150, sc, c); icon_car(dr, 1760, 150, sc, c)
+    im = Image.new("RGB", (W, H), "#bfe8ff"); dr = ImageDraw.Draw(im)
+    for k in range(0, W, 64): dr.ellipse([k-30, 150, k+60, 215], fill="#ffffff")      # cloud line
+    dr.rectangle([0, 0, W-1, H-1], outline="#ffd23f", width=10)
+    sc = 1.45                                    # icons at both edges, centre left free
+    icon_car(dr, 40, 150, sc, "#e53935");   icon_boat(dr, 340, 150, sc, "#ff8a1f")
+    icon_heli(dr, 1440, 150, sc, "#1e9e4a"); icon_car(dr, 1760, 150, sc, "#8e44ad")
     return np.asarray(im)
 def tex_tiles(base):
     a = np.zeros((N, N, 3), float); h = np.array([int(base[i:i+2], 16) for i in (1, 3, 5)], float)
@@ -188,14 +203,20 @@ def uvs(m, scale, plate=False):
                 uv[vi] = (v[vi][a] / scale, v[vi][b] / scale)
     return m, uv
 TEXDIR = pathlib.Path("textures/car_boat_shop")           # Cursor-made set: <n>.png, <n>_normal.png, <n>_orm.png
-PBR = {"#8fd3f4": "glass", "#a8472f": "roof_tiles", "#b9a98d": "floor_tiles", "#2b2f3a": "metal_dark", "#3a3f4b": "metal_dark",
-       "#1b4f9c": "sign_blue", "#d8262c": "awning_red", "#f5f5f5": "awning_fabric", "#eceae4": "wall_plaster",
-       "#5b4636": "wood", "#8a6a4a": "wood", "#c8b79a": "wood", "#f6f6f6": "sign_plate"}
+PBR = {"#8fd3f4": ("glass", "#7fe8ff"), "#a8472f": ("roof_tiles", "#2f80ff"), "#b9a98d": ("floor_tiles", "#ffe3a8"),
+       "#2b2f3a": ("metal_dark", "#ff6b2c"), "#3a3f4b": ("metal_dark", "#ff6b2c"), "#1b4f9c": ("sign_blue", "#ff4f9a"),
+       "#eceae4": ("wall_plaster", "#ffcf3f"), "#1fb8a8": ("wall_plaster", "#1fb8a8"), "#ff7a1a": ("wall_plaster", "#ff7a1a"),
+       "#5b4636": ("wood", "#c97b3a"), "#8a6a4a": ("wood", "#e0a050"), "#c8b79a": ("wood", "#f0c070"), "#e8743b": ("wood", "#e8743b")}
+for _h in ["#ff3b3b", "#ffd23f", "#2ecc71", "#3498db", "#ff8a1f", "#a855f7"]: PBR[_h] = ("awning_fabric", _h)
+def tint_img(img, hx):                                   # recolour a texture: keep its light/dark detail, replace the hue
+    a = np.asarray(img, float) / 255.0; lum = a.mean(2); lum = lum / lum.mean() * 1.05
+    c = np.array([int(hx[i:i+2], 16) for i in (1, 3, 5)], float) / 255.0
+    return Image.fromarray((np.clip(lum[..., None] * c[None, None, :], 0, 1) * 255).astype(np.uint8))
 def load_pbr(hx):
-    n = PBR.get(hx)
+    n, tc = PBR.get(hx, (None, None))
     if not n or not (TEXDIR / f"{n}.png").exists(): return None
     g = lambda suf: Image.open(TEXDIR / f"{n}{suf}.png").convert("RGB")
-    return g(""), (g("_normal") if (TEXDIR / f"{n}_normal.png").exists() else None), (g("_orm") if (TEXDIR / f"{n}_orm.png").exists() else None)
+    return tint_img(g(""), tc), (g("_normal") if (TEXDIR / f"{n}_normal.png").exists() else None), (g("_orm") if (TEXDIR / f"{n}_orm.png").exists() else None)
 def shape_mesh(m, name, img, uv, alpha=1.0, pbr=None):
     mat = tm.visual.material.PBRMaterial(baseColorTexture=Image.fromarray(img), baseColorFactor=[255, 255, 255, int(alpha * 255)],
                                           metallicFactor=0.0, roughnessFactor=0.85)
@@ -218,7 +239,8 @@ for cc in np.unique(fc, axis=0):
         nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
         m = shape_mesh(m, nm + hx[1:], fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0, pbr=load_pbr(hx))
     else:
-        m, uv = uvs(m, 1.0); m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv)
+        pb = load_pbr(hx); m, uv = uvs(m, 2.0 if PBR.get(hx, ("",))[0] == "wall_plaster" else 1.0)
+        m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv, pbr=pb)
     sc.add_geometry(m, geom_name=m.metadata["name"])
 out = pathlib.Path("projects/car_boat_shop/export"); out.mkdir(parents=True, exist_ok=True)
 sc.export(out/"car_boat_shop.glb"); sc.export(out/"car_boat_shop.obj")
