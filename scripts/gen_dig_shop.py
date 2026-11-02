@@ -44,8 +44,9 @@ def mound(x, y, r, hh, c):
     pts = [(x+r*np.cos(a), y+r*np.sin(a), 0) for a in np.linspace(0, 6.283, 11)[:-1]] + [(x+.3*r*np.cos(a), y+.3*r*np.sin(a), hh) for a in np.linspace(0, 6.283, 7)[:-1]]
     return hullp(pts, c)
 FLOOR = "#4a3322"
-box(-HX, -HY, 0, HX, HY, .2, FLOOR)             # floor + porch (dark wood planks)
-box(-HX, -HY-1.6, 0, HX, -HY, .2, FLOOR)
+box(-HX, -HY-1.6, 0, HX, HY, .14, "#2e2016")             # plain dark base: edge shows no plank pattern
+box(-HX, -HY, .14, HX, HY, .2, FLOOR)             # floor + porch: thin plank layer on top only
+box(-HX, -HY-1.6, .14, HX, -HY, .2, FLOOR)
 WIN = (-3.9, -2.1, 1.1, 2.3); WIN2 = (2.1, 3.9, 1.1, 2.3); DR = (-.7, .7, .2, 2.5)
 def fw(a, b, z0, z1):
     if z0 < .7: box(a, -HY, z0, b, -HY+.25, min(z1, .7), STONE)
@@ -66,7 +67,6 @@ for (a0, a1, z0, z1) in (WIN, WIN2):          # windows: glass, wood frame + cro
         box(sx_, -HY-.06, z0-.1, sx_+.42, -HY, z1+.1, SHUT)
 for (p0, p1, q0, q1) in [(DR[0]-.2, DR[0], .2, DR[3]+.2), (DR[1], DR[1]+.2, .2, DR[3]+.2), (DR[0]-.2, DR[1]+.2, DR[3], DR[3]+.2)]:
     box(p0, -HY-.1, q0, p1, -HY+.27, q1, DK)
-box(-1.0, -HY-.7, .2, 1.0, -HY, .35, STONE)
 for cx in (-1, 1):                              # corner posts
     for cy in (-1, 1):
         xa, xb = sorted((cx*(HX-.2), cx*HX + cx*.06)); ya, yb = sorted((cy*(HY-.2), cy*HY + cy*.06))
@@ -214,7 +214,7 @@ def tex_dirt(base):                                   # packed sand/earth with p
         a[d < r] = a[d < r] * (1 + t) * .9 + 12
         a[(d >= r) & (d < r + 2)] *= .82
     return a.clip(0, 255).astype(np.uint8)
-FLAT = {"#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
+FLAT = {"#2e2016", "#b8bec6", "#d9a441", "#f0c050", "#d8c49a", "#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
 SPECIAL = {"#4a3322": ("floorw", tex_floorboards, 1.5), "#b8905f": ("boards", tex_boards, 2.0), "#6b3a2a": ("roof", tex_roof, 1.5), "#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("floorb", tex_floorboards, 1.5), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
