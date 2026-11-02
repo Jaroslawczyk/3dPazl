@@ -21,7 +21,7 @@ def wall(mk, a0, a1, ops, z0=0.2, z1=3.4):          # wall along one axis with o
             if o[2] > z0: mk(s, e, z0, o[2])
             if o[3] < z1: mk(s, e, o[3], z1)
 
-WALL, BRICK, ROOF, TRIM, DOOR, WOOD, DECK, STONE, GLASS, DARK, SIGN = "#5b6b4a", "#7a3b2e", "#3a3f47", "#e8e2d0", "#2f3640", "#8a6a4a", "#6e6a64", "#9a958c", "#8fd3f4", "#23272e", "#f6f6f6"
+WALL, BRICK, ROOF, TRIM, DOOR, WOOD, DECK, STONE, GLASS, DARK, SIGN = "#e0cba0", "#7a3b2e", "#3a3f47", "#e8e2d0", "#2f3640", "#8a6a4a", "#6e6a64", "#9a958c", "#8fd3f4", "#23272e", "#f6f6f6"
 HX, HY, H, BW = 5.0, 3.5, 3.6, 1.0           # shop 10 x 7 m, walls 3.6 m, front = -Y
 box(-HX, -HY, 0, HX, HY, .2, DECK)
 WIN = (-4.0, -2.0, 1.2, 2.5); WIN2 = (2.6, 4.4, 1.2, 2.5); DR = (-.6, .6, .2, 2.6)
@@ -51,10 +51,6 @@ for a, b, c, d in [(-HX-.1, -HY-.1, HX+.1, -HY+.15), (-HX-.1, HY-.15, HX+.1, HY+
     box(a, b, H, c, d, H+.55, ROOF)
 box(-HX-.15, -HY-.15, H+.55, HX+.15, -HY+.2, H+.7, DARK)
 # front sign board on the parapet + red stripe, sandbag wall, crates, target
-box(-3.6, -HY-.3, H+.7, 3.6, -HY-.18, H+2.2, SIGN)                                  # texture plate
-box(-3.7, -HY-.32, H+.65, 3.7, -HY-.2, H+.72, DARK); box(-3.7, -HY-.32, H+2.2, 3.7, -HY-.2, H+2.28, DARK)
-box(-3.7, -HY-.32, H+.65, -3.62, -HY-.2, H+2.28, DARK); box(3.62, -HY-.32, H+.65, 3.7, -HY-.2, H+2.28, DARK)
-box(-3.5, -HY-.3, H+.7, -3.45, -HY-.18, H+2.2, DARK)
 box(-HX, -HY-.02, 2.9, HX, -HY+.28, 3.05, "#c0392b")                              # red band under the parapet
 box(-HX+.8, -1.5, H, -HX+1.8, -.5, H+.9, DARK)                                       # roof AC unit
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
@@ -187,7 +183,7 @@ def tex_grass(base):
     n = (noise(N, 2) - .5) * .18 + (rng.random((N, N)) - .5) * .12
     return tint(base, n)
 FLAT = {"#3a3f47", "#e8e2d0", "#2f3640", "#23272e", "#c0392b", "#b9a77a", "#5a432d"}
-SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#5b6b4a": ("plaster", tex_plaster, 2.0),
+SPECIAL = {"#8fd3f4": ("glass", tex_glass, 3.0), "#6e6a64": ("floor", tex_floor, 1.5), "#7a3b2e": ("brick", tex_brick, 1.5), "#e0cba0": ("plaster", tex_plaster, 2.0),
            "#8a6a4a": ("wood", tex_wood, 1.0), "#9a958c": ("floor", tex_floor, 1.5)}
 def uvs(m, scale, plate=False):
     m = m.copy(); m.unmerge_vertices()
