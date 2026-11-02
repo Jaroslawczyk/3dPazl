@@ -15,3 +15,5 @@ dist/
 build/
 chat_settings.json
 ai_workspace/
+logs/
+reports/
