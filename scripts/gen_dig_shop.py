@@ -96,20 +96,6 @@ bar((4.8, -HY-1.45, .2), (4.8, -HY-1.45, 2.3), .05, DK); box(4.68, -HY-1.57, 2.3
 # --- dirt mound with a shovel stuck in it + red X marker ---
 mound(-7.6, -1.5, 1.3, .8, DIRT); shovel((-7.5, -1.6, .55), (-7.1, -1.9, 2.0)); mound(-6.0, -5.2, .55, .3, DIRT)
 strip((-6.6, -4.5), (-5.6, -3.5), .06, .02, .05, RED); strip((-6.6, -3.5), (-5.6, -4.5), .06, .02, .05, RED)
-# --- interior: counter, back shelves with goods, tool racks, map ---
-box(-4.4, -.3, .2, -1.0, .4, 1.1, DK); box(-4.5, -.4, 1.1, -.9, .5, 1.18, WOOD)
-box(-4.0, -.1, 1.18, -3.6, .2, 1.4, LAMP); cyl(-2.6, .05, 1.18, 1.26, .22, GOLD, 10); box(-1.9, -.15, 1.18, -1.4, .25, 1.5, WOODW)
-rng2 = np.random.default_rng(3); goods = ["#c0392b", "#d9a441", "#3d7ea6", "#6b8e23", "#b8bec6", "#f0c050"]
-for zs in (1.0, 1.7, 2.4):
-    box(-4.6, HY-.7, zs, 4.6, HY-.25, zs+.06, WOOD)
-    for x in np.arange(-4.4, 4.5, .55):
-        if rng2.random() < .78:
-            hh = rng2.uniform(.18, .38); box(x, HY-.6, zs+.06, x+rng2.uniform(.2, .4), HY-.32, zs+.06+hh, goods[rng2.integers(len(goods))])
-for ux in (-4.6, 0, 4.6): box(ux-.04, HY-.7, .2, ux+.04, HY-.25, 2.6, DK)
-for y in np.arange(-2.0, 2.1, .5): shovel((HX-.5, y, .6), (HX-.5, y, 2.4), up=False)   # shovel rack on right wall
-for y in np.arange(1.2, 3.0, .6): pick((-HX+.5, y, .6), (-HX+.5, y, 2.4))                   # pickaxes on left wall
-box(-HX+.25, -2.6, 1.2, -HX+.3, -1.4, 2.2, "#d8c49a")                                     # treasure map
-box(-HX+.25, -2.45, 1.7, -HX+.32, -1.55, 1.78, RED)
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
