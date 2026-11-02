@@ -193,7 +193,7 @@ $('#btnGlbView').onclick = async () => {
   }
   box.hidden = false;
   box.innerHTML = '<div style="margin:2px 0 6px;color:#aaa">GLB в projects/ (клик — открыть, Esc — закрыть)</div>' + list.map((g) =>
-    `<div class="glbrow" data-p="${g.path}" style="padding:5px 8px;cursor:pointer;border-radius:4px">${g.path} <span style="color:#888">${g.mb} МБ</span></div>`).join('');
+    `<div class="glbrow" data-p="${g.path}" style="padding:5px 8px;cursor:pointer;border-radius:4px">${g.ref ? "📌 эталон · " : "🏠 "}${g.path} <span style="color:#888">${g.mb} МБ</span></div>`).join('');
   box.querySelectorAll('.glbrow').forEach((el) => {
     el.onmouseenter = () => { el.style.background = '#2c313b'; }; el.onmouseleave = () => { el.style.background = ''; };
     el.onclick = () => { box.hidden = true; viewGlb(el.dataset.p); };

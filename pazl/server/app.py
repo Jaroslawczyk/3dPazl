@@ -481,8 +481,14 @@ async def ws(sock: WebSocket):
 @app.get("/api/glbs")
 def list_glbs():
     """Every .glb under projects/ (script-built models, references, exports) for the viewer."""
-    return [{"path": p.relative_to(PROJECTS).as_posix(), "mb": round(p.stat().st_size / 1e6, 1)}
-            for p in sorted(PROJECTS.rglob("*.glb"))]
+    out = []
+    for p in sorted(PROJECTS.rglob("*.glb")):
+        rel = p.relative_to(PROJECTS).as_posix()
+        if rel.startswith(("_", "gallery/")) or "/_" in rel or "_lod" in rel:   # tests, gallery copies, LODs
+            continue
+        out.append({"path": rel, "mb": round(p.stat().st_size / 1e6, 1), "ref": p.name.startswith("ref") or p.name.endswith("_v3.glb")})
+    out.sort(key=lambda g: (g["ref"], g["path"]))                                # my models first, references after
+    return out
 
 
 PROJECTS.mkdir(exist_ok=True)
