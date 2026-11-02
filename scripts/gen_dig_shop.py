@@ -111,6 +111,12 @@ lin(-sx_, fy, -sx_+T_, by_, .2, H); lin(sx_-T_, fy, sx_, by_, .2, H)
 for sgn in (-1, 1):                                  # gable triangles inside
     xa, xb = sorted((sgn*sx_, sgn*(sx_-T_)))
     hullp([(x, y, z) for x in (xa, xb) for (y, z) in ((fy, H), (by_, H), (0, H+1.4))], PLAS)
+# interior door casing: jambs + head trim + plinth blocks at the floor
+for (p0, p1, q0, q1) in [(DR[0]-.14, DR[0], .2, DR[3]+.14), (DR[1], DR[1]+.14, .2, DR[3]+.14), (DR[0]-.14, DR[1]+.14, DR[3], DR[3]+.14)]:
+    box(p0, fy, q0, p1, fy+.08, q1, DK)
+for (p0, p1) in [(DR[0]-.18, DR[0]), (DR[1], DR[1]+.18)]:
+    box(p0, fy, .2, p1, fy+.1, .35, DK)
+box(DR[0]-.18, fy, DR[3]+.14, DR[1]+.18, fy+.1, DR[3]+.2, WOOD)          # head cap
 # remove overlapping/coplanar faces (z-fighting): later parts win, earlier ones get the overlap cut out
 solid, acc = [], None
 for m in reversed(P):
