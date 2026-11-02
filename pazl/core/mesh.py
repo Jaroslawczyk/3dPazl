@@ -35,9 +35,15 @@ def tri_materials(tri_oid):
     return mats, elems
 
 
+def is_glass(name) -> bool:
+    return str(name).startswith(("glass", "stained_glass"))
+
+
 def split_by_material(V, F, mats) -> dict[str, trimesh.Trimesh]:
     out = {}
     for name in sorted(set(mats)):
+        if is_glass(name):  # window panes are not exported as polygons: the opening stays empty
+            continue
         idx = np.where(mats == name)[0]
         tm = trimesh.Trimesh(V, F[idx], process=False)
         tm.remove_unreferenced_vertices()
@@ -320,11 +326,13 @@ def surface(final, result=None):
     V, F, oid = manifold_to_arrays(final)
     mats, elems = tri_materials(oid)
     if not is_bricks(result):
-        return V, F, mats, elems
+        keep = np.array([not is_glass(m) for m in mats], dtype=bool)
+        return V, F[keep], mats[keep], elems[keep]
     rec = result.recipe
     vox = bricks_of(result) if final is result.final() else voxelize(final, V, F, mats, elems, float(rec.get("brick_size") or 0.5))
     V2, F2, M2, E2, _ = brick_mesh(vox, cull=rec.get("brick_cull", True) is not False)
-    return V2, F2, M2, E2
+    keep = np.array([not is_glass(m) for m in M2], dtype=bool)
+    return V2, F2[keep], M2[keep], E2[keep]
 
 
 def chunk_parts(final, result):
