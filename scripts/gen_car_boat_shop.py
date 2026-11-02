@@ -187,9 +187,23 @@ def uvs(m, scale, plate=False):
             else:
                 uv[vi] = (v[vi][a] / scale, v[vi][b] / scale)
     return m, uv
-def shape_mesh(m, name, img, uv, alpha=1.0):
+TEXDIR = pathlib.Path("textures/car_boat_shop")           # Cursor-made set: <n>.png, <n>_normal.png, <n>_orm.png
+PBR = {"#8fd3f4": "glass", "#a8472f": "roof_tiles", "#b9a98d": "floor_tiles", "#2b2f3a": "metal_dark", "#3a3f4b": "metal_dark",
+       "#1b4f9c": "sign_blue", "#d8262c": "awning_red", "#f5f5f5": "awning_fabric", "#eceae4": "wall_plaster",
+       "#5b4636": "wood", "#8a6a4a": "wood", "#c8b79a": "wood", "#f6f6f6": "sign_plate"}
+def load_pbr(hx):
+    n = PBR.get(hx)
+    if not n or not (TEXDIR / f"{n}.png").exists(): return None
+    g = lambda suf: Image.open(TEXDIR / f"{n}{suf}.png").convert("RGB")
+    return g(""), (g("_normal") if (TEXDIR / f"{n}_normal.png").exists() else None), (g("_orm") if (TEXDIR / f"{n}_orm.png").exists() else None)
+def shape_mesh(m, name, img, uv, alpha=1.0, pbr=None):
     mat = tm.visual.material.PBRMaterial(baseColorTexture=Image.fromarray(img), baseColorFactor=[255, 255, 255, int(alpha * 255)],
                                           metallicFactor=0.0, roughnessFactor=0.85)
+    if pbr:
+        col, nrm, orm = pbr
+        mat.baseColorTexture = col
+        if nrm: mat.normalTexture = nrm
+        if orm: mat.metallicRoughnessTexture = orm; mat.occlusionTexture = orm; mat.metallicFactor = 1.0; mat.roughnessFactor = 1.0
     if alpha < 1: mat.alphaMode = "BLEND"
     m.visual = tm.visual.TextureVisuals(uv=uv, material=mat); m.metadata["name"] = name; return m
 fc = scene.visual.face_colors[:, :3]
@@ -199,10 +213,10 @@ for cc in np.unique(fc, axis=0):
     sel = np.where((fc == cc).all(1))[0]
     m = scene.submesh([sel], append=True)
     if hx == "#f6f6f6":
-        m, uv = uvs(m, 1, plate=True); m = shape_mesh(m, "sign", tex_plate(), uv)
+        m, uv = uvs(m, 1, plate=True); m = shape_mesh(m, "sign", tex_plate(), uv, pbr=load_pbr(hx))
     elif hx in SPECIAL:
         nm, fn, sz = SPECIAL[hx]; m, uv = uvs(m, sz)
-        m = shape_mesh(m, nm + hx[1:], fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0)
+        m = shape_mesh(m, nm + hx[1:], fn(hx), uv, alpha=0.55 if nm == "glass" else 1.0, pbr=load_pbr(hx))
     else:
         m, uv = uvs(m, 1.0); m = shape_mesh(m, "col" + hx[1:], tint(hx, (noise(N, 2) - .5) * .08), uv)
     sc.add_geometry(m, geom_name=m.metadata["name"])
