@@ -433,6 +433,9 @@ def dome(part: trimesh.Trimesh, rings=9, n=20):
     band = [r for r in R if r[0] <= yb + 1e-9]
     if band:
         w = max(band, key=lambda r: r[3] * r[4])
-        R = [r for r in R if r[0] > yb + 1e-9] + [(yb, w[1], w[2], w[3], w[4]), (lo, w[1], w[2], w[3], w[4])]
+        t = .12  # thickness of the rolled brim, share of the radius: the band turns under and goes back up inside
+        R = [r for r in R if r[0] > yb + 1e-9] + [(yb, w[1], w[2], w[3], w[4]), (lo, w[1], w[2], w[3], w[4]),
+                                                  (lo, w[1], w[2], w[3] * (1 - t), w[4] * (1 - t)),
+                                                  (yb + (hi - lo) * .05, w[1], w[2], w[3] * (1 - t), w[4] * (1 - t))]
     m, _ = loft(M, R, n, 2.2, caps=(True, False))
     return m
