@@ -83,7 +83,8 @@ def textured(V, F, UV, img):
 
 
 def build_piece(ref, uv, img, meshes, size, sharp=60):
-    m = trimesh.util.concatenate(meshes)
+    from pazl.core import meshcheck
+    m = meshcheck.clean(trimesh.util.concatenate(meshes))  # no collapsed slivers (mesh_check)
     V, F, UV = retopo.unwrap(m, sharp)
     UV[:, 1] = 1 - UV[:, 1]  # xatlas gives v up; glTF wants v down (otherwise every island is mirrored)
     s = retopo.Sampler(ref, uv, img, count=1500000 if size >= 1024 else 600000)

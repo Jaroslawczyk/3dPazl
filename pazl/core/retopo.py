@@ -189,6 +189,18 @@ def is_flat(part, ratio=.3):
     return e[0] < ratio * e[1]
 
 
+def prune(m: trimesh.Trimesh, ref: trimesh.Trimesh, tol=.15):
+    """Drop faces that do not lie on the reference: a primitive wrapped onto an open shell leaves bridges across it
+    (they cut through the head under a hair cap). tol = share of the shell's thickness-free size."""
+    s = Sampler(ref, count=max(20000, len(ref.faces) * 400))
+    c = m.triangles_center
+    d = np.linalg.norm(s.project(c)[0] - c, axis=1)
+    m = m.copy()
+    m.update_faces(d < tol * np.sort(ref.extents)[1] * .25)
+    m.remove_unreferenced_vertices()
+    return m
+
+
 def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2, root_near=None):  # noqa: E731
     """Every connected piece of the reference rebuilt: up to `small` triangles -> ribbon growing from root_near (hair) or
     card, flat -> one-layer sheet, bulky -> shrinkwrapped icosphere."""
@@ -199,7 +211,7 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
         elif is_flat(p) and not is_curved(p):
             out.append(sheet(p))
         elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
-            out.append(shrinkwrap(p, 2, grow=1.3, iters=1))
+            out.append(prune(shrinkwrap(p, 2, grow=1.3, iters=1), p))
         else:
             out.append(shrinkwrap(p, sub_for(len(p.faces))))
     return trimesh.util.concatenate(out)

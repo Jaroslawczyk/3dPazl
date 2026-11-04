@@ -304,3 +304,16 @@ def test_mesh_check_finds_tear_and_poke_through(tmp_path):
     f2 = tmp_path / "m2.glb"
     sc2.export(f2)
     assert any(p["kind"] == "poke_through" for p in meshcheck.check(f2)["problems"])
+
+
+def test_push_out_lifts_a_sunk_hat_but_not_hair_cards():
+    from pazl.core import meshcheck
+    head = trimesh.creation.icosphere(subdivisions=3, radius=.1)
+    hat = trimesh.creation.icosphere(subdivisions=2, radius=.1)
+    hat.apply_scale([1.0, .6, 1.0])
+    hat.apply_translation([0, .06, 0])  # the lower half of the hat is inside the head
+    card = trimesh.Trimesh([[0, 0, 0], [.02, .15, 0], [-.02, .15, 0]], [[0, 1, 2]])  # root buried at the centre
+    m = trimesh.util.concatenate([hat, card])
+    out = meshcheck.push_out_faces(m, head)
+    assert not meshcheck._inside(meshcheck._closed(head), out.vertices[:len(hat.vertices)]).any()
+    assert np.allclose(out.vertices[len(hat.vertices):], card.vertices)  # cards untouched

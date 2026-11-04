@@ -129,8 +129,10 @@ def _between(parts, lo, hi, scale, samples):
     Z-fighting: two parts' surfaces on top of each other facing the same way - they flicker."""
     res = []
     for i, (na, A) in enumerate(parts):
-        if all(_sheetlike(x) for x in A.split(only_watertight=False)):
+        solid = [x for x in A.split(only_watertight=False) if not _sheetlike(x)]
+        if not solid:
             continue
+        A = trimesh.util.concatenate(solid)  # hair cards / strand roots are buried in the scalp on purpose
         P, fi = trimesh.sample.sample_surface(A, samples, seed=1)
         Na = A.face_normals[fi]
         for j, (nb, B) in enumerate(parts):
@@ -151,7 +153,7 @@ def _between(parts, lo, hi, scale, samples):
                 ins = _inside(closed, Q)
                 if ins.sum() > .6 * len(P):
                     continue  # A lies inside B on purpose (an inner part), not a poke-through
-                dip = ins & (dist > scale * .003) & (dist < scale * .03)
+                dip = ins & (dist > scale * .003) & (dist < scale * .015)  # deeper = buried, never seen
                 if dip.sum() > max(8, .01 * len(Q)):
                     c = Q[dip].mean(0)
                     res.append({"kind": "poke_through", "part": f"{nb} through {na}", "points": int(dip.sum()),
@@ -184,3 +186,63 @@ def check(path, hole_min=None, samples=2500, openings=False):
         summ[p["kind"]] = summ.get(p["kind"], 0) + 1
     return {"model": str(path), "size": np.round(hi - lo, 3).tolist(), "tris": int(sum(len(g.faces) for _, g in parts)),
             "parts": [n for n, _ in parts], "summary": summ, "problems": probs}
+
+
+# ---------------------------------------------------------------- fixes
+def push_out(V, inner: trimesh.Trimesh, gap=None):
+    """Vertices of an outer part (hat, hair, clothes) that sit inside a closed inner part (body) or closer than `gap` to
+    it are moved just outside its surface along its normal. Fixes poke_through without touching the rest."""
+    V = np.array(V, float)
+    inner = inner.copy()
+    inner.merge_vertices(merge_tex=True, merge_norm=True)  # UV seams would make the body look open
+    pieces = _closed(inner)
+    if not pieces:
+        return V
+    gap = float(np.linalg.norm(inner.extents)) * .002 if gap is None else gap
+    ins = _inside(pieces, V)
+    cp, dist, tri = trimesh.proximity.closest_point(inner, V)
+    move = ins | (dist < gap)
+    V[move] = cp[move] + inner.face_normals[tri[move]] * gap
+    return V
+
+
+def push_out_faces(m: trimesh.Trimesh, inner: trimesh.Trimesh, rounds=3):
+    """push_out for vertices, then again for faces whose centres still sink (long triangles over a rounded body):
+    their corners move out by how deep the centre is."""
+    m = m.copy()
+    lab = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+    solid_f = np.zeros(len(m.faces), bool)
+    for k in np.unique(lab):  # hair cards / strands keep their buried roots; only solid pieces are pushed
+        f = lab == k
+        piece = trimesh.Trimesh(m.vertices, m.faces[f], process=False)
+        solid_f[f] = not _sheetlike(piece)
+    if not solid_f.any():
+        return m
+    vmask = np.zeros(len(m.vertices), bool)
+    vmask[m.faces[solid_f].ravel()] = True
+    V = np.array(m.vertices)
+    V[vmask] = push_out(V[vmask], inner)
+    m.vertices = V
+    inner = inner.copy()
+    inner.merge_vertices(merge_tex=True, merge_norm=True)
+    pieces = _closed(inner)
+    for _ in range(rounds):
+        c = m.triangles_center
+        ins = (_inside(pieces, c) if pieces else np.zeros(len(c), bool)) & solid_f
+        if not ins.any():
+            break
+        cp, dist, tri = trimesh.proximity.closest_point(inner, c[ins])
+        V = np.array(m.vertices)
+        lift = inner.face_normals[tri] * (dist + float(np.linalg.norm(inner.extents)) * .002)[:, None]
+        for f, d in zip(m.faces[ins], lift):
+            V[f] += d / 1.0
+        m.vertices = V
+    return m
+
+
+def clean(m: trimesh.Trimesh):
+    """Drop zero-area faces (collapsed shrinkwrap points). Nothing is welded, so winding and UV seams stay intact."""
+    m = m.copy()
+    m.update_faces(m.area_faces > float(np.linalg.norm(m.extents)) ** 2 * 1e-9)
+    m.remove_unreferenced_vertices()
+    return m

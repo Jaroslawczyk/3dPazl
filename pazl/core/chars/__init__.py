@@ -408,7 +408,11 @@ def prop_mesh(c, r, V, F, N, g):
 
 
 def prop_part(c, r, V, F, N, g):
+    from .. import meshcheck
     parts, bone = prop_mesh(c, r, V, F, N, g)
+    body_m = trimesh.Trimesh(V, F, process=False)
+    for m, _ in parts:  # hats, hair, pets never sink into the body (mesh_check: poke_through)
+        m.vertices = meshcheck.push_out_faces(m, body_m).vertices
     if len(parts) == 1 and parts[0][1] is None:  # textured model from a file
         m = parts[0][0]
         uv, png = _uv_image(m) or (None, None)
