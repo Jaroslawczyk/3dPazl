@@ -69,7 +69,8 @@ def _write_body(c):
     if c.get("import"):
         V, F, N, C = rig.load_mesh(c["import"])
         if _target(c) and len(F) > _target(c):  # colours follow the nearest original vertex
-            V2, F = decimate(V, F, _target(c))
+            first, inv = rig.wts.weld(V, 1e-4)  # unwelded seams make the simplifier throw whole parts away
+            V2, F = decimate(V[first], inv[F], _target(c))
             C = C[cKDTree(V).query(V2)[1]]
             V = V2
         m = trimesh.Trimesh(V, F, process=False)
@@ -84,7 +85,7 @@ def _write_body(c):
     return out.relative_to(PROJECTS).as_posix(), bones, m
 
 
-def create(name, preset="man", params=None, src="", template="humanoid", cell=None, quality="high"):
+def create(name, preset="man", params=None, src="", template="humanoid", cell=None, quality="high", crotch=None):
     """New character from a preset (organic generated body) or from any GLB under projects/ (src)."""
     name = _safe(name)
     if quality not in body.QUALITY:
@@ -98,6 +99,8 @@ def create(name, preset="man", params=None, src="", template="humanoid", cell=No
         kind, p = body.params_for(preset, params)
         c.update({"kind": kind, "preset": preset, "params": p, "template": body.TEMPLATE[kind]})
     rel, bones, m = _write_body(c)
+    if not bones and template == "humanoid":
+        bones = body.fit_tpose(trimesh.sample.sample_surface(m, 80000, seed=1)[0], crotch)  # block bodies have too few vertices to measure
     bones = bones or skeleton.fit(template, m.bounds)
     rn = _rn(name)
     old = rig._p(rn, ".rig.json")

@@ -1,4 +1,6 @@
+import struct
 import sys
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +10,7 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pazl.core import skins  # noqa: E402
-from pazl.core.chars import body, cloth  # noqa: E402
+from pazl.core.chars import body, cloth, importer  # noqa: E402
 from pazl.core.chars.field import Grid, ellipsoid, surface_nets  # noqa: E402
 
 
@@ -69,3 +71,71 @@ def test_box_uv_keeps_shape():
     m = trimesh.creation.box()
     idx, F, uv = skins.box_uv(np.asarray(m.vertices), np.asarray(m.faces), .5)
     assert len(F) == len(m.faces) and len(idx) == len(uv) and len(idx) > 8
+
+
+def _fbx_node(name, props=b"", n=0, kids=b"", at=0):
+    """Serialise one binary FBX node (version 7400) placed at offset `at`."""
+    nm = name.encode()
+    head = 13 + len(nm)
+    body = props + kids
+    if kids:
+        body += b"\0" * 13
+    return struct.pack("<IIIB", at + head + len(body), n, len(props), len(nm)) + nm + body
+
+
+def _nested(name, props, n, children, at):
+    head = 13 + len(name) + len(props)
+    kids, o = b"", at + head
+    for c in children:
+        k = c(o)
+        kids += k
+        o += len(k)
+    return _fbx_node(name, props, n, kids, at)
+
+
+def _arr(t, a):
+    raw = zlib.compress(a.tobytes())
+    return t + struct.pack("<III", len(a), 1, len(raw)) + raw
+
+
+def _s(x):
+    return b"S" + struct.pack("<I", len(x)) + x
+
+
+def test_binary_fbx_with_compressed_arrays_and_node_offset():
+    V = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], float)
+    I = np.array([0, 1, 2, ~3], np.int32)
+    L = lambda v: b"L" + struct.pack("<q", v)  # noqa: E731
+    D = lambda v: b"D" + struct.pack("<d", v)  # noqa: E731
+    geo = lambda o: _nested("Geometry", L(1) + _s(b"g") + _s(b"Mesh"), 3, [lambda q: _fbx_node("Vertices", _arr(b"d", V.ravel()), 1, at=q), lambda q: _fbx_node("PolygonVertexIndex", _arr(b"i", I), 1, at=q)], o)  # noqa: E731
+    model = lambda o: _nested("Model", L(2) + _s(b"m") + _s(b"Mesh"), 3, [lambda q: _nested("Properties70", b"", 0, [lambda r: _fbx_node("P", _s(b"Lcl Translation") + _s(b"") + _s(b"") + _s(b"A") + D(5) + D(0) + D(0), 7, at=r)], q)], o)  # noqa: E731
+    con = lambda o: _nested("Connections", b"", 0, [lambda q: _fbx_node("C", _s(b"OO") + L(1) + L(2), 3, at=q)], o)  # noqa: E731
+    data = b"Kaydara FBX Binary  \0\x1a\0" + struct.pack("<I", 7400)
+    k = _nested("Objects", b"", 0, [geo, model], len(data))
+    data += k
+    data += con(len(data)) + b"\0" * 13
+    Vo, F, C = importer.read_fbx(data)
+    assert len(F) == 2 and np.allclose(Vo[:, 0].min(), .05)  # moved by the node, centimetres to metres
+
+
+def test_obj_import_makes_standing_model_of_given_height():
+    obj = b"v 0 0 0\nv 2 0 0\nv 0 0 4\nv 0 2 0\nf 1 2 3\nf 1 2 4\nf 1 3 4\nf 2 3 4\n"
+    r = importer.convert({"t_imp.obj": obj}, "_t_imp", 1.8, "z")
+    try:
+        m = trimesh.load(importer.PROJECTS / r["src"], force="mesh")
+        assert abs(m.bounds[0][1]) < 1e-4 and abs(m.bounds[1][1] - 1.8) < 1e-3
+    finally:
+        (importer.PROJECTS / r["src"]).unlink()
+
+
+def test_block_body_with_lowered_arms_is_straightened_and_measured():
+    def block(c, s):
+        m = trimesh.creation.box(extents=s)
+        m.apply_translation(c)
+        return m
+    m = trimesh.util.concatenate([block((0, 1.5, 0), (.4, .4, .4)), block((0, 1, 0), (.6, .6, .3)), block((.45, 1, 0), (.3, .6, .3)),
+                                  block((-.45, 1, 0), (.3, .6, .3)), block((.15, .35, 0), (.3, .7, .3)), block((-.15, .35, 0), (.3, .7, .3))])
+    V, crotch = importer.straighten(np.asarray(m.vertices), np.asarray(m.faces))
+    assert abs(crotch - .7) < 1e-6 and V[:, 0].max() > .85  # arms went out from .6 to .9
+    b = {x["name"]: x for x in body.fit_tpose(trimesh.sample.sample_surface(trimesh.Trimesh(V, m.faces, process=False), 40000, seed=1)[0], crotch)}
+    assert abs(b["hips"]["head"][1] - .7) < .01 and abs(b["upper_arm.L"]["head"][0] - .3) < .03 and b["head"]["head"][1] < 1.45

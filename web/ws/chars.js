@@ -19,6 +19,12 @@ export async function mount(el, ctx) {
     <div ${row}><select id="chSrc" style="flex:1"><option value="">— или своя модель (GLB) —</option>${glbs.filter((g) => !g.path.startsWith('chars/')).map((g) => `<option>${esc(g.path)}</option>`).join('')}</select>
       <select id="chTpl"><option value="humanoid">человек</option><option value="quadruped">зверь</option><option value="simple">объект</option></select></div>
     <button id="chImp" style="width:100%">Сделать персонажем</button>
+    <div class="hint" style="margin-top:6px">Файл с компьютера: OBJ (можно с .mtl и текстурами), FBX, GLB, DAE, STL, PLY</div>
+    <input id="chFile" type="file" multiple accept=".obj,.mtl,.fbx,.glb,.gltf,.bin,.dae,.stl,.ply,.png,.jpg,.jpeg" style="width:100%">
+    <div ${row} class="hint">рост, м <input id="chH" type="number" min="0" step="0.05" value="1.7" style="width:54px" title="0: оставить размер файла">
+      верх <select id="chUp"><option value="auto">авто</option><option value="y">Y</option><option value="z">Z</option></select>
+      поворот <select id="chTurn"><option>0</option><option>90</option><option>180</option><option>270</option></select></div>
+    <button id="chLoad" style="width:100%">Загрузить модель</button>
     <h4>2. Персонаж</h4>
     <select id="chOpen" style="width:100%"></select>
     <div id="chSliders"></div>
@@ -79,6 +85,13 @@ export async function mount(el, ctx) {
     return create({ name: $('#chName').value || src.split('/').pop().replace('.glb', ''), src, template: $('#chTpl').value, quality: $('#chQ').value });
   });
   $('#chQ').onchange = (e) => C && busy('пересчитываю качество…', async () => { await open(C.name, await post('/api/ws/chars/update', { name: C.name, quality: e.target.value })); });
+  const read = (f) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok({ name: f.name, data: r.result }); r.onerror = no; r.readAsDataURL(f); });
+  $('#chLoad').onclick = () => busy('читаю модель, ставлю скелет…', async () => {
+    const fs = [...$('#chFile').files]; if (!fs.length) throw new Error('выберите файл модели');
+    const r = await post('/api/ws/chars/import', { name: $('#chName').value, files: await Promise.all(fs.map(read)), height: +$('#chH').value, up: $('#chUp').value, turn: +$('#chTurn').value, template: $('#chTpl').value, quality: $('#chQ').value });
+    fillOpen((await getJson('/api/ws/chars/catalog')).chars, r.name); await open(r.name, r);
+    out(`✓ ${r.name}: ${r.size_m.join('×')} м, ${r.tris.toLocaleString('ru')} треуг. Модель лежит боком? Выберите другой верх или поворот и загрузите снова.`);
+  });
   $('#chOpen').onchange = (e) => e.target.value && busy('открываю…', () => open(e.target.value));
   $('#chSkin').onchange = (e) => busy('надеваю скин…', async () => { if (!C) throw new Error('сначала персонаж'); await open(C.name, await post('/api/ws/chars/skin', { name: C.name, skin: e.target.value || null })); });
   $('#chClip').onchange = (e) => V.play(e.target.value);

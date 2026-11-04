@@ -269,6 +269,47 @@ def blocky_field(p, cell=None):
     return g, f, b, eyes, []
 
 
+def fit_tpose(V, crotch=None):
+    """Humanoid skeleton measured from the figure itself (any proportions, T-pose). None if arms are not spread."""
+    V = np.asarray(V, float)
+    lo, hi = V.min(0), V.max(0)
+    H = hi[1] - lo[1]
+    if hi[0] - lo[0] < H * .6:
+        return None
+    n = 80
+    b = np.clip(((V[:, 1] - lo[1]) / H * n).astype(int), 0, n - 1)
+    half = np.array([np.abs(V[b == i, 0]).max() if (b == i).any() else 0 for i in range(n)])
+    y = lo[1] + (np.arange(n) + .5) * H / n
+    band = np.flatnonzero(half > half.max() * .7)
+    yb, yt = y[band[0]] - H / n / 2, y[band[-1]] + H / n / 2
+    sy, ax = (yb + yt) / 2, float(half.max())
+    if crotch is None:
+        near = np.array([np.abs(V[b == i, 0]).min() if (b == i).any() else 0 for i in range(n)])
+        gap = np.flatnonzero((near > H * .0015) & (y < yb))
+        crotch = float(y[gap[-1]]) if len(gap) else lo[1] + H * .45
+    trunk = half[(y > crotch) & (y < yb)]
+    tw = float(np.median(trunk)) if len(trunk) else H * .12
+    above = np.flatnonzero((y > yt) & (y < yt + (hi[1] - yt) * .35))  # the neck: not the rounded top of the head
+    nh = float(y[above[half[above].argmin()]]) if len(above) else yt
+    nb = yt
+    nh = max(nh, nb + H * .012)
+    T = nb - crotch
+    f = float(hi[2])
+    bs = [_bone("hips", None, (0, crotch, 0), (0, crotch + .16 * T, 0)), _bone("spine", "hips", (0, crotch + .16 * T, 0), (0, crotch + .46 * T, 0)),
+          _bone("chest", "spine", (0, crotch + .46 * T, 0), (0, nb, 0)), _bone("neck", "chest", (0, nb, 0), (0, nh, 0)), _bone("head", "neck", (0, nh, 0), (0, hi[1], 0))]
+    ar = ax - tw
+    for s, k in skeleton.SIDES:
+        x = tw / 2 * k
+        bs += [_bone("shoulder" + s, "chest", (tw * .15 * k, sy, 0), (tw * k, sy, 0)),
+               _bone("upper_arm" + s, "shoulder" + s, (tw * k, sy, 0), ((tw + ar * .48) * k, sy, 0)),
+               _bone("forearm" + s, "upper_arm" + s, ((tw + ar * .48) * k, sy, 0), ((tw + ar * .86) * k, sy, 0)),
+               _bone("hand" + s, "forearm" + s, ((tw + ar * .86) * k, sy, 0), (ax * k, sy, 0)),
+               _bone("thigh" + s, "hips", (x, crotch, 0), (x, lo[1] + (crotch - lo[1]) * .5, 0)),
+               _bone("shin" + s, "thigh" + s, (x, lo[1] + (crotch - lo[1]) * .5, 0), (x, lo[1] + H * .05, 0)),
+               _bone("foot" + s, "shin" + s, (x, lo[1] + H * .05, 0), (x, lo[1], f))]
+    return bs
+
+
 FIELDS = {"human": human_field, "beast": beast_field, "blob": blob_field, "blocky": blocky_field}
 
 

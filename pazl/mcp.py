@@ -163,6 +163,17 @@ def char_make(name: str = "", preset: str = "", params: dict | None = None, src:
 
 
 @tool
+def char_import(path: str, name: str = "", height: float = 0, up: str = "auto", turn: int = 0, template: str = "humanoid", quality: str = "high") -> str:
+    """Make a character from a model file on this computer: OBJ (its .mtl and textures beside it are picked up), FBX (binary), GLB, DAE, STL, PLY.
+    height in metres (0 keeps size), up auto|y|z, turn degrees so it faces +Z. Bones inside the file are replaced by a skeleton measured from the figure; lowered arms of block bodies are swung into T-pose."""
+    import base64
+    p = Path(path)
+    fs = [p] + [x for x in p.parent.iterdir() if x != p and x.suffix.lower() in (".mtl", ".png", ".jpg", ".jpeg", ".bin")]
+    files = [{"name": f.name, "data": base64.b64encode(f.read_bytes()).decode()} for f in fs]
+    return _j(_call("POST", "/api/ws/chars/import", {"name": name, "files": files, "height": height, "up": up, "turn": turn, "template": template, "quality": quality}))
+
+
+@tool
 def char_sculpt(name: str, strokes: list | None = None, undo: bool = False) -> str:
     """Clay on a character (generated or imported): strokes=[{p:[x,y,z], r: radius m, amount: m (minus dents), mirror: true}]."""
     return _j(_call("POST", "/api/ws/chars/sculpt", {"name": name, "strokes": strokes, "undo": undo}))
