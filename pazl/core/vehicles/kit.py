@@ -11,6 +11,7 @@ import io
 from dataclasses import dataclass
 from pathlib import Path
 
+import manifold3d
 import numpy as np
 import trimesh
 from PIL import Image, ImageDraw, ImageFont
@@ -132,11 +133,80 @@ def _half(V, F, n, o):
     return (r[0], r[1]) if len(r[1]) else (V[:0], F[:0])
 
 
+def _loops(F):
+    """Outlines of a coplanar patch: directed edges used once, walked into closed loops of vertex ids."""
+    edges = {(int(a), int(b)) for t in F for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0]))}
+    nxt: dict[int, list[int]] = {}
+    for a, b in edges:
+        if (b, a) not in edges:
+            nxt.setdefault(a, []).append(b)
+    loops = []
+    while nxt:
+        start = next(iter(nxt))
+        loop, v = [start], nxt[start].pop()
+        if not nxt[start]:
+            del nxt[start]
+        while v != start:
+            loop.append(v)
+            w = nxt[v].pop()
+            if not nxt[v]:
+                del nxt[v]
+            v = w
+        loops.append(loop)
+    return loops
+
+
+def merge_coplanar(V, F):
+    """Rebuild every flat patch of a surface from its outline: `paint` cuts leave slivers on big faces, and the shape,
+    the colour and the gradient (linear in height) stay exactly the same without them."""
+    _, first, inv = np.unique(np.round(V, 5), axis=0, return_index=True, return_inverse=True)
+    W, F = V[first], inv.reshape(-1)[F]
+    F = F[(F[:, 0] != F[:, 1]) & (F[:, 1] != F[:, 2]) & (F[:, 0] != F[:, 2])]
+    T = W[F]
+    n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+    ln = np.linalg.norm(n, axis=1)
+    F, T, n, ln = F[ln > 1e-10], T[ln > 1e-10], n[ln > 1e-10], ln[ln > 1e-10]
+    n = n / ln[:, None]
+    key = np.c_[np.round(n, 3), np.round((n * T[:, 0]).sum(1), 3)]
+    _, gid = np.unique(key, axis=0, return_inverse=True)
+    gid = gid.reshape(-1)
+    out = []
+    for g in range(gid.max() + 1 if len(gid) else 0):
+        idx = np.flatnonzero(gid == g)
+        Fg = F[idx]
+        if len(Fg) < 3:
+            out.append(Fg)
+            continue
+        try:
+            nn = n[idx[0]]
+            u = np.cross(nn, [1.0, 0, 0] if abs(nn[0]) < 0.9 else [0, 1.0, 0])
+            u /= np.linalg.norm(u)
+            v = np.cross(nn, u)
+            flat, ids = [], []
+            for loop in _loops(Fg):
+                P = W[loop]
+                turn = np.linalg.norm(np.cross(P - np.roll(P, 1, 0), np.roll(P, -1, 0) - P), axis=1)
+                keep = turn > 1e-9  # straight runs lose their extra points
+                if keep.sum() < 3:
+                    continue
+                flat.append(np.c_[P[keep] @ u, P[keep] @ v])
+                ids += list(np.array(loop)[keep])
+            ids = np.array(ids)
+            G = ids[np.asarray(manifold3d.triangulate(flat)).reshape(-1, 3)]
+            area = lambda A: np.linalg.norm(np.cross(W[A[:, 1]] - W[A[:, 0]], W[A[:, 2]] - W[A[:, 0]]), axis=1).sum()  # noqa: E731
+            ok = abs(area(G) - area(Fg)) < 1e-6 + 1e-4 * area(Fg) and len(G) <= len(Fg)
+            d = np.cross(W[G[:, 1]] - W[G[:, 0]], W[G[:, 2]] - W[G[:, 0]]) @ nn
+            out.append(np.where(d[:, None] < 0, G[:, ::-1], G) if ok else Fg)
+        except (KeyError, IndexError, RuntimeError, ValueError):
+            out.append(Fg)  # an outline that touches itself: leave this patch as it is
+    return W, (np.vstack(out) if out else F)
+
+
 class Kit:
     def __init__(self, p: dict, R):
         self.p, self.R = p, R
         self.d = int(p["detail"])
-        self.seg = {1: 8, 2: 10, 3: 14}[self.d]
+        self.seg = {1: 8, 2: 8, 3: 12}[self.d]
         self.pieces: list[Piece] = []
         self.pivots: dict[str, tuple] = {}
         self.cells: list[str] = []
@@ -152,6 +222,23 @@ class Kit:
         p = Piece(V, np.asarray(mesh.tri_verts).astype(np.int64), col, grad, float(V[:, 2].min()), float(V[:, 2].max()), node)
         self.pieces.append(p)
         return p
+
+    def add_raw(self, V, F, col, grad=True, node="body") -> Piece:
+        """A hand-made surface, for shapes that do not need closed solids."""
+        p = Piece(np.asarray(V, float), np.asarray(F, np.int64), col, grad, float(V[:, 2].min()), float(V[:, 2].max()), node)
+        self.pieces.append(p)
+        return p
+
+    def stud(self, x, y, z, r, s, col="chrome", top="dark", seg=6):
+        """Round fitting on a side wall (s = +1 or -1 along Y): a sloped rim and a flat centre, 16 triangles."""
+        a = np.arange(seg) * 2 * np.pi / seg
+        ring = lambda rr, h: np.c_[x + rr * np.cos(a), np.full(seg, y + s * h), z + rr * np.sin(a)]  # noqa: E731
+        i, j = np.arange(seg), (np.arange(seg) + 1) % seg
+        F = np.vstack([np.c_[i, i + seg, j + seg], np.c_[i, j + seg, j]])
+        fan = np.c_[np.zeros(seg - 2, int), np.arange(2, seg), np.arange(1, seg - 1)]
+        flip = (lambda f: f) if s > 0 else (lambda f: f[:, ::-1])
+        self.add_raw(np.vstack([ring(r, -0.06), ring(r * 0.72, 0.02)]), flip(F), col, False)
+        self.add_raw(ring(r * 0.72, 0.02), flip(fan), top, False)
 
     def paint(self, p: Piece, col, x=None, y=None, z=None, grad=None, planes=()) -> Piece:
         """Recolour what lies inside a box and/or half-spaces (n, o): the surface is cut, the shape does not change."""
@@ -215,28 +302,32 @@ class Kit:
         self.pieces.append(Piece(V, np.array(F), edge, False, 0, 1))
 
     def wheel(self, x, y, r, w, name, hub="steel", rim=0.6, lugs=0, nuts=True):
-        """Tyre, rim and hub as one spinning node; the hub side looks away from the centre line."""
+        """Tyre and hub as one spinning node, ~60 triangles like the reference wheels: built by hand, no faces inside it.
+        The hub side looks away from the centre line."""
         seg = self.seg
-        prof = [(0, -w / 2), (r, -w / 2), (r, w * 0.25), (r * 0.92, w / 2), (r * rim, w / 2), (r * rim, w * 0.28), (0, w * 0.28)]
-        tyre = geo.revolve(prof, seg)
-        if lugs:
-            tread = [geo.box(r * 0.93, -r * 0.09, -w / 2 if i % 2 else 0, r * 1.06, r * 0.09, 0 if i % 2 else w / 2).rotate([0, 0, 360 * i / lugs])
-                     for i in range(lugs)]
-            tyre = geo.union([tyre] + tread)
-        hub_prof = [(0, w * 0.27), (r * rim * 1.01, w * 0.27), (r * rim * 0.34, w * 0.4), (0, w * 0.4)]
-        disc = geo.revolve(hub_prof, seg)
-        bolts = []
-        if self.d >= 3 and nuts:
-            for i in range(4):
-                a = 6.283 * (i + 0.5) / 4
-                bolts.append(geo.cyl(r * 0.04, w * 0.1, 4, w * 0.3, cx=r * rim * 0.62 * np.cos(a), cy=r * rim * 0.62 * np.sin(a)))
-        turn = -90 if y >= 0 else 90
-        at = lambda m: m.rotate([turn, 0, 0]).translate([x, y, r])  # noqa: E731
+        a = np.arange(seg) * 2 * np.pi / seg
+        ring = lambda rr, z: np.c_[rr * np.cos(a), rr * np.sin(a), np.full(seg, z)]  # noqa: E731
+        i, j = np.arange(seg), (np.arange(seg) + 1) % seg
+        tv = np.vstack([ring(r, -w / 2), ring(r, w * 0.25), ring(r * (rim + 0.07), w / 2), ring(r * rim, w * 0.3)])
+        tf = []
+        for k in range(3):
+            A, B, C, D = k * seg + i, k * seg + j, (k + 1) * seg + j, (k + 1) * seg + i
+            tf += [np.c_[A, B, C], np.c_[A, C, D]]
+        tf.append(np.c_[np.zeros(seg - 2, int), np.arange(2, seg), np.arange(1, seg - 1)])  # inner side
+        hv = np.vstack([ring(r * rim, w * 0.3), [[0, 0, w * 0.42]]])
+        hf = np.c_[i, j, np.full(seg, seg)]
+        turn = (lambda P: np.c_[P[:, 0], P[:, 2], -P[:, 1]]) if y >= 0 else (lambda P: np.c_[P[:, 0], -P[:, 2], P[:, 1]])
+        at = lambda P: turn(P) + (x, y, r)  # noqa: E731
         self.pivots[name] = (x, y, r)
-        self.add(at(tyre), "tyre", node=name)
-        self.add(at(disc), hub, node=name)
-        if bolts:
-            self.add(at(geo.union(bolts)), "dark", False, node=name)
+        self.add_raw(at(tv), np.vstack(tf), "tyre", node=name)
+        self.add_raw(at(hv), hf, hub, node=name)
+        put = lambda m: m.rotate([-90 if y >= 0 else 90, 0, 0]).translate([x, y, r])  # noqa: E731
+        if lugs and self.d >= 2:
+            tread = [geo.box(r * 0.93, -r * 0.09, -w / 2 if n % 2 else 0, r * 1.06, r * 0.09, 0 if n % 2 else w / 2).rotate([0, 0, 360 * n / lugs]) for n in range(lugs)]
+            self.add(put(geo.union(tread)), "tyre", node=name)
+        if self.d >= 3 and nuts:
+            bolts = [geo.cyl(r * 0.04, w * 0.1, 4, w * 0.3, cx=r * rim * 0.62 * np.cos(t), cy=r * rim * 0.62 * np.sin(t)) for t in 6.283 * (np.arange(4) + 0.5) / 4]
+            self.add(put(geo.union(bolts)), "dark", False, node=name)
 
     # ---------------------------------------------------------------- mesh out
     def bake(self):
@@ -276,6 +367,8 @@ class Kit:
         lo, hi = self.bounds()
         c = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]])
         for p in self.pieces:
+            if p.uv is None and len(p.F):
+                p.V, p.F = merge_coplanar(p.V, p.F)
             p.V = (p.V - c) * scale
             p.g0, p.g1 = (p.g0 - c[2]) * scale, (p.g1 - c[2]) * scale
         self.pivots = {k: tuple((np.array(v) - c) * scale) for k, v in self.pivots.items()}

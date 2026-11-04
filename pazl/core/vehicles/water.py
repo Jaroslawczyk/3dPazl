@@ -40,6 +40,7 @@ def open_hull(k: Kit, L, B, D, col="paint", rimw=None, keel=0.62, bow=0.34, ster
 def cabin(k: Kit, x0, x1, w, z0, h, col="white", roof="paint", posts=2, c=0.12):
     """Deckhouse: walls around a glass core, a roof with an overhang."""
     z1 = z0 + h
+    posts = posts if k.d >= 3 else min(posts, 2)
     wall = block(x0, x1, -w / 2, w / 2, z0, z1, c)
     k.add(block(x0 + 0.03, x1 - 0.03, -w / 2 + 0.03, w / 2 - 0.03, z0, z1, c), "glass")
     wz0, wz1 = z0 + h * 0.42, z1 - h * 0.12
@@ -57,32 +58,30 @@ def funnel(k: Kit, x, z, r, h, col="paint", band="black", y=0.0):
 
 
 def porthole(k: Kit, x, y, z, r):
-    """Ring plus glass: 12-16 triangles each, in the real ones 28."""
-    s = 1 if y > 0 else -1
-    k.add(geo.cyl(r, 0.02, 8, 0).rotate([-90 * s, 0, 0]).translate([x, y, z]), "chrome", False)
-    k.add(geo.cyl(r * 0.68, 0.03, 8, 0).rotate([-90 * s, 0, 0]).translate([x, y, z]), "dark", False)
+    """16 triangles; the reference ones take 28."""
+    k.stud(x, y, z, r, 1 if y > 0 else -1)
 
 
 def rail(k: Kit, pts, z, h=0.5, every=2.0, r=0.02):
     """Handrail along a polyline, with posts."""
     for a, b in zip(pts, pts[1:]):
-        k.add(geo.rod((*a, z + h), (*b, z + h), r, 5), "steel", False)
+        k.add(geo.rod((*a, z + h), (*b, z + h), r, 3), "steel", False)
         n = max(1, int(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 / every))
         for i in range(n + 1):
             p = (a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n)
-            k.add(geo.rod((*p, z), (*p, z + h), r, 5), "steel", False)
+            k.add(geo.rod((*p, z), (*p, z + h), r, 3), "steel", False)
 
 
 def lifering(k: Kit, x, y, z, r=0.3):
     s = 1 if y > 0 else -1
-    m = geo.subtract(geo.cyl(r, 0.07, 10, 0), [geo.cyl(r * 0.55, 0.3, 10, -0.1)]).rotate([-90 * s, 0, 0]).translate([x, y, z])
+    m = geo.subtract(geo.cyl(r, 0.07, 8, 0), [geo.cyl(r * 0.55, 0.3, 6, -0.1)]).rotate([-90 * s, 0, 0]).translate([x, y, z])
     p = k.add(m, "white", False)
     k.paint(p, "red", x=(x - r * 0.3, x + r * 0.3), grad=False)
 
 
 def bollard(k: Kit, x, y, z, r=0.07):
-    k.add(geo.cyl(r, r * 2.4, 8, z, cx=x, cy=y), "dark", False)
-    k.add(geo.cyl(r * 1.45, r * 0.5, 8, z + r * 2.4, cx=x, cy=y), "dark", False)
+    k.add(geo.cyl(r, r * 2.4, 6, z, cx=x, cy=y), "dark", False)
+    k.add(geo.cyl(r * 1.45, r * 0.5, 6, z + r * 2.4, cx=x, cy=y), "dark", False)
 
 
 def mast(k: Kit, x, z, h, r=0.06, y=0.0):
@@ -207,13 +206,14 @@ def tug(k: Kit):
     mast(k, L * 0.09, z2, 2.0, 0.05)
     if k.d >= 2:
         radar(k, L * 0.06, z2)
-        n = 12  # tyre fenders along the hull
-        for s in (-1, 1):
-            for i in range(n // 2):
-                x = -L * 0.42 + i * L * 0.13
+        for s in (-1, 1):  # tyre fenders along the hull
+            for i in range(5):
+                x = -L * 0.42 + i * L * 0.16
                 y = s * (B / 2 + 0.17 - (0.5 if x > L * 0.16 else 0))
-                t = geo.subtract(geo.cyl(0.42, 0.26, 8, 0), [geo.cyl(0.2, 1, 8, -0.4)]).rotate([0, 90, 0]).translate([x, y, D * 0.72])
-                k.add(t, "tyre", False)
+                t = geo.cyl(0.42, 0.26, 6, 0)
+                if k.d >= 3:
+                    t = geo.subtract(t, [geo.cyl(0.2, 1, 6, -0.4)])
+                k.add(t.rotate([0, 90, 0]).translate([x, y, D * 0.72]), "tyre", False)
         for x in (-L * 0.4, L * 0.32):
             bollard(k, x, 0, z, 0.16)
         for s in (-1, 1):
@@ -268,7 +268,7 @@ def container(k: Kit, x, y, z, col, sides=(-1, 1), door=False):
     w, b, h = 6.1, 2.44, 2.6
     k.add(geo.boxc(w, b, h, x, y, z), col)
     if k.d >= 2:
-        for i in range(1, 6):
+        for i in range(1, 6) if k.d >= 3 else (2, 4):
             for s in sides:
                 k.add(geo.boxc(0.34, 0.03, h * 0.8, x - w / 2 + w * i / 6, y + s * (b / 2 + 0.002), z + h * 0.1), col, False)
     if k.d >= 3 and door:
@@ -325,7 +325,7 @@ def liner(k: Kit):
     k.paint(h, "paint2", z=(D * 0.92, None))
     k.add(plan(geo_points(geo.offset2(geo.poly(pts), 0.3)), D * 0.98, D * 1.02), "chrome")
     if k.d >= 2:
-        n = 14 if k.d == 2 else 22
+        n = 10 if k.d == 2 else 18
         for s in (-1, 1):
             for i in range(n):
                 x = -L * 0.42 + i * L * 0.78 / n
@@ -336,16 +336,15 @@ def liner(k: Kit):
     for i, (ls, ws, hh) in enumerate(tiers):
         lt, wt = L * ls, B * ws
         cx = -L * 0.04
-        tier = plan(rect(lt, wt, 2.0, cx, 0), z, z + hh)
-        core = plan(rect(lt - 0.5, wt - 0.5, 2.0, cx, 0), z, z + hh)
-        k.add(core, "glass_dark")
-        n = 18 if k.d == 1 else 30
-        win = [geo.box(cx - lt / 2 + 3 + (lt - 6) * j / n, -B, z + hh * 0.34, cx - lt / 2 + 3 + (lt - 6) * (j + 0.66) / n, B, z + hh * 0.76) for j in range(n)]
-        k.add(geo.subtract(tier, win), "white")
+        t = k.add(plan(rect(lt, wt, 2.0, cx, 0), z, z + hh), "white")
+        n = {1: 1, 2: 10, 3: 18}[k.d]  # at this size a window is a painted patch, depth would never be seen
+        for j in range(n):
+            a = cx - lt / 2 + 3 + (lt - 6) * j / n
+            k.paint(t, "glass_dark", x=(a, a + (lt - 6) * (0.72 if n > 1 else 1) / n), z=(z + hh * 0.34, z + hh * 0.76), grad=False)
         k.add(plan(rect(lt + 1.0, wt + 0.8, 2.0, cx, 0), z + hh, z + hh + 0.22), "chrome" if i % 2 else "white")
-        if k.d >= 2:
-            rail(k, [(cx - lt / 2, -wt / 2 - 0.2), (cx + lt / 2, -wt / 2 - 0.2)], z + hh + 0.22, 1.0, lt / 8, 0.06)
-            rail(k, [(cx - lt / 2, wt / 2 + 0.2), (cx + lt / 2, wt / 2 + 0.2)], z + hh + 0.22, 1.0, lt / 8, 0.06)
+        if k.d >= 3 or (k.d == 2 and i == 0):
+            rail(k, [(cx - lt / 2, -wt / 2 - 0.2), (cx + lt / 2, -wt / 2 - 0.2)], z + hh + 0.22, 1.0, lt / 6, 0.06)
+            rail(k, [(cx - lt / 2, wt / 2 + 0.2), (cx + lt / 2, wt / 2 + 0.2)], z + hh + 0.22, 1.0, lt / 6, 0.06)
         z += hh + 0.22
     # bridge in front of the top tier
     cabin(k, L * 0.11, L * 0.2, B * 0.9, D + 3.42 + 3.22, 2.8, "white", "white", 6, 0.6)
@@ -355,12 +354,13 @@ def liner(k: Kit):
         mast(k, L * 0.12, z, 7.5, 0.28)
         radar(k, L * 0.12, z + 7.4)
         for s in (-1, 1):  # lifeboats on davits along the upper deck
-            for i in range(5):
-                x = -L * 0.26 + i * L * 0.09
+            n = 5 if k.d >= 3 else 3
+            for i in range(n):
+                x = -L * 0.26 + i * L * 0.36 / n
                 y = s * (B * 0.34 + 2.0)
                 zt = D + 3.42 + 3.22 + 3.0
-                k.add(block(x - 3, x + 3, y - 1.0, y + 1.0, zt, zt + 1.2, 0.5), "orange")
-                k.add(block(x - 2.8, x + 2.8, y - 0.8, y + 0.8, zt + 1.2, zt + 1.6, 0.5), "white")
+                b = k.add(block(x - 3, x + 3, y - 1.0, y + 1.0, zt, zt + 1.6, 0.5), "orange")
+                k.paint(b, "white", z=(zt + 1.1, None))
                 for dx in (-2.2, 2.2):
                     k.add(geo.beam((x + dx, y - s * 2.0, zt - 0.2), (x + dx, y, zt + 2.1), 0.14, 0.14), "steel", False)
         k.decal("sign:КРУИЗ", (L * 0.34, B * 0.31 + 0.02, D * 0.8), (0, 1, 0), 9, 2.2, t=0.03)

@@ -62,7 +62,7 @@ def mirrors(k: Kit, x, y, z, big=False):
     for s in (-1, 1):
         k.add(geo.hull([(x - w, s * y, z - h / 2), (x - w, s * (y + 0.2), z - h / 2), (x - w, s * (y + 0.2), z + h / 2), (x - w, s * y, z + h / 2),
                         (x, s * (y + 0.03), z - h / 3), (x, s * (y + 0.17), z - h / 3), (x, s * (y + 0.17), z + h / 3), (x, s * (y + 0.03), z + h / 3)]), "paint")
-        k.add(geo.rod((x - w / 2, s * (y - 0.08), z - h / 3), (x - w / 2, s * (y + 0.04), z - h / 3), 0.012, 6), "dark", False)
+        k.add(geo.boxc(0.025, 0.14, 0.02, x - w / 2, s * (y - 0.02), z - h / 3), "dark", False)
 
 
 def wipers(k: Kit, x, z, W):
@@ -96,7 +96,7 @@ def car(k: Kit, style, livery=None):
     sec = [(-W / 2 + 0.05, 0), (-W / 2, sill + 0.2), (-W / 2, belt - 0.18), (-W / 2 + 0.09, belt + 0.1), (W / 2 - 0.09, belt + 0.1), (W / 2, belt - 0.18), (W / 2, sill + 0.2), (W / 2 - 0.05, 0)]
     outline = chamfer(rect(L, W), [0.26, 0.34, 0.34, 0.26])
     lower = side(prof, W) ^ plan(outline, 0, 5) ^ front(sec, xr - 1, xf + 1)
-    cuts = [cyly(r * 1.18, -W, W, x, r, k.seg + 2) ^ outer(xr, xf, W, 0.3) for x in (axf, axr)]
+    cuts = [cyly(r * 1.18, -W, W, x, r, k.seg) ^ outer(xr, xf, W, 0.3) for x in (axf, axr)]
     if style == "pickup":
         cuts.append(block(xr + 0.1, cab_r - 0.08, -W / 2 + 0.09, W / 2 - 0.09, belt - 0.48, 2))
     body = k.add(geo.subtract(lower, cuts), "paint")
@@ -112,7 +112,7 @@ def car(k: Kit, style, livery=None):
     for s in (-1, 1):  # lamps are painted into the body, so they follow its cut corners
         y = sorted((s * W * 0.2, s * W * 0.52))
         k.paint(body, "lamp", x=(xf - 0.3, None), y=y, z=(zl - 0.075, zl + 0.075), grad=False)
-        k.paint(body, "tail", x=(None, xr + 0.25), y=y, z=(zt - 0.07, zt + 0.07), grad=False)
+        k.paint(body, "tail", x=(None, xr + (0.09 if style == "pickup" else 0.25)), y=y, z=(zt - 0.07, zt + 0.07), grad=False)  # a pickup has a bed behind that wall
         if k.d >= 2:
             k.paint(body, "amber", x=(xf - 0.3, None), y=sorted((s * W * 0.2, s * W * 0.3)), z=(zl - 0.14, zl - 0.09), grad=False)
     k.paint(body, "dark", z=(None, sill + 0.09))
@@ -123,8 +123,8 @@ def car(k: Kit, style, livery=None):
     gz = hood - 0.27
     k.paint(body, "dark", x=(xf - 0.05, None), y=(-W * 0.19, W * 0.19), z=(gz - 0.1, gz + 0.1), grad=False)
     if k.d >= 2:
-        for i in range(3):
-            k.add(geo.boxc(0.02, W * 0.36, 0.022, xf + 0.003, 0, gz - 0.07 + i * 0.06), "chrome", False)
+        for i in range(2):
+            k.add(geo.boxc(0.02, W * 0.36, 0.022, xf + 0.003, 0, gz - 0.04 + i * 0.06), "chrome", False)
         t = number(k)
         k.decal("plate:" + t, (xf + 0.058, 0, zb + 0.08), (1, 0, 0), 0.5, 0.125)
         k.decal("plate:" + t, (xr - 0.058, 0, zb + 0.08), (-1, 0, 0), 0.5, 0.125)
@@ -205,7 +205,7 @@ def bus(k: Kit):
     sill, belt = 0.42, 1.35
     lower = block(xr, xf, -W / 2, W / 2, sill, belt, 0.18) ^ side([(xr, sill), (xr, belt), (xf - 0.05, belt), (xf, belt - 0.3), (xf, sill + 0.1), (xf - 0.1, sill)], W + 1)
     axf, axr = xf - 2.6, xr + 3.1
-    body = k.add(geo.subtract(lower, [cyly(r * 1.2, -W, W, x, r, k.seg + 2) ^ outer(xr, xf, W, 0.34) for x in (axf, axr)]), "paint")
+    body = k.add(geo.subtract(lower, [cyly(r * 1.2, -W, W, x, r, k.seg) ^ outer(xr, xf, W, 0.34) for x in (axf, axr)]), "paint")
     prof = [(xr, belt - 0.02), (xr, H - 0.1), (xr + 0.12, H), (xf - 0.42, H), (xf - 0.12, H - 0.25), (xf - 0.02, belt - 0.02)]
     sec = [(-W / 2, belt - 0.03), (-W / 2 + 0.05, H - 0.14), (-W / 2 + 0.2, H), (W / 2 - 0.2, H), (W / 2 - 0.05, H - 0.14), (W / 2, belt - 0.03)]
     shell = side(prof, W + 1) ^ front(sec, xr - 1, xf + 1) ^ plan(rect(L, W, 0.18), 0, 5)
@@ -260,7 +260,7 @@ def truck_cab(k: Kit, xf):
     xr = xf - 2.1
     belt, sill = 1.55, 0.72
     low = block(xr, xf, -W / 2, W / 2, sill, belt, 0.16) ^ side([(xr, sill), (xr, belt), (xf - 0.02, belt), (xf, belt - 0.2), (xf, sill)], W + 1)
-    body = k.add(geo.subtract(low, [cyly(TR * 1.2, -W, W, xf - 1.1, TR, k.seg + 2)]), "paint")
+    body = k.add(geo.subtract(low, [cyly(TR * 1.2, -W, W, xf - 1.1, TR, k.seg)]), "paint")
     glasshouse(k, W, belt, H, xr, xr + 0.02, xf - 0.28, xf - 0.04, rear_cut=False)
     k.add(geo.box(xr + 0.02, -W / 2 + 0.05, belt - 0.03, xr + 0.5, W / 2 - 0.05, H - 0.05), "paint")  # sleeper wall
     k.paint(body, "dark", x=(xf - 0.05, None), y=(-W * 0.34, W * 0.34), z=(1.0, 1.38), grad=False)
@@ -308,7 +308,7 @@ def cargo_box(k: Kit, x0, x1, zb):
 def cargo_tank(k: Kit, x0, x1, zb):
     R0 = 1.0
     zc = zb + 0.15 + R0
-    seg = k.seg + 4
+    seg = k.seg + 2
     k.add(block(x0, x1, -0.6, 0.6, zb, zc - 0.5), "dark")
     t = k.add(cylx(R0, x0 + 0.25, x1 - 0.25, 0, zc, seg), "paint2")
     k.add(cylx(R0 * 0.72, x0, x0 + 0.25, 0, zc, seg, r2=R0), "paint2")

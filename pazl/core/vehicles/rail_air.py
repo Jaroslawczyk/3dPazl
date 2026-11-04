@@ -32,7 +32,7 @@ def locomotive(k: Kit):
     xf, xr = L / 2, -L / 2
     zc, R = 2.3, 0.9
     xb = xr + 3.0
-    seg = k.seg + 4
+    seg = k.seg + 2
     bo = k.add(cylx(R, xb, xf - 1.0, 0, zc, seg), "paint")
     k.add(cylx(R * 1.06, xf - 1.0, xf - 0.8, 0, zc, seg), "dark")
     k.add(cylx(R * 0.96, xf - 0.8, xf - 0.72, 0, zc, seg, r2=R * 0.78), "paint2")
@@ -168,7 +168,7 @@ def wagon(k: Kit, kind):
                 k.decal("number:" + (k.p["text"] or str(k.R.randint(10000, 99999))), (xf - 2.7, s * (W / 2 + 0.008), z0 + 1.9), (0, s, 0), 1.5, 0.36)
     elif kind == "tank":
         R, zc = 1.3, z0 + 1.5
-        seg = k.seg + 4
+        seg = k.seg + 2
         k.add(block(xr + 0.2, xf - 0.2, -0.8, 0.8, z0 + 0.2, zc - 0.7), "dark")
         t = k.add(cylx(R, xr + 0.5, xf - 0.5, 0, zc, seg), "paint")
         k.paint(t, "paint2", z=(zc - 0.2, zc + 0.2))
@@ -191,11 +191,11 @@ def wagon(k: Kit, kind):
         for row, ys in enumerate(((-0.96, -0.32, 0.32, 0.96), (-0.64, 0, 0.64), (-0.32, 0.32))):
             for y in ys:
                 dx = 0.3 * k.R.random()
-                lg = cylx(r, xr + 0.3 + dx, xf - 0.3 - dx, y, z0 + 0.3 + r + row * r * 1.72, 8)
-                k.add(lg, "wood_dark")
-                if k.d >= 2:
-                    k.add(cylx(r * 0.8, xf - 0.3 - dx, xf - 0.295 - dx, y, z0 + 0.3 + r + row * r * 1.72, 8), "canvas", False)
-                    k.add(cylx(r * 0.8, xr + 0.295 + dx, xr + 0.3 + dx, y, z0 + 0.3 + r + row * r * 1.72, 8), "canvas", False)
+                a, b = xr + 0.3 + dx, xf - 0.3 - dx
+                lg = k.add(cylx(r, a, b, y, z0 + 0.3 + r + row * r * 1.72, 6), "wood_dark")
+                if k.d >= 2:  # sawn ends: only the end caps change colour
+                    k.paint(lg, "canvas", x=(b - 0.001, None), grad=False)
+                    k.paint(lg, "canvas", x=(None, a + 0.001), grad=False)
     if k.d >= 2:
         coupler(k, xf, 0.95)
         coupler(k, xr, 0.95)

@@ -64,8 +64,23 @@ Added on top of the references, because games need them:
   The packs have no text at all.
 - Wheels, propellers and rotors are separate nodes with their pivot at the axle.
 
-## Where we are heavier
+## Keeping the weight down
 
-`detail: 1` is the fair comparison with the packs. A car there is about 1300 triangles, and `detail: 2` about 2400, roughly three
-times the budget above, mostly from wheels (150 each against 60) and from cuts for lamps and door lines. Use `detail: 1` for
-traffic and crowds.
+- `merge_coplanar` rebuilds each flat patch from its outline after painting. Without it, door lines alone cost 700 triangles on a car.
+- The wheel is built by hand with no inside faces: 62 triangles at 8 sides, the same as the reference wheels.
+- Size decides the method. A window on a 120 m ship is a painted patch, on a car it is a real inset. A porthole is a 16-triangle `stud`.
+- Thin parts use 3-sided rods and 6-sided cylinders.
+
+| Model | Reference | `detail: 1` | `detail: 2` | `detail: 3` |
+|---|---|---|---|---|
+| Sedan | none in the packs | 830 | 1140 | 1610 |
+| Speedboat | 136-265 | 510 | 590 | 630 |
+| Rowboat | 170 | 270 | 420 | 480 |
+| Tug | 200-470 | 750 | 1400 | 1820 |
+| Train wagon | 660-930 | 850 | 1180 | 1540 |
+| Locomotive | 740 | 1360 | 1600 | 2340 |
+| Cargo ship | 360-1060 | 1130 | 2240 | 4700 |
+| Sailing ship | 1400-1900 | 630 | 1340 | 1490 |
+| Ocean liner | 2800 | 830 | 2680 | 4390 |
+
+`detail: 1` is the level to use for traffic and crowds. Small boats, the tug and the locomotive are still above the references even there.

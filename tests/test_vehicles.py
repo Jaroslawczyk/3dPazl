@@ -66,6 +66,45 @@ def test_paint_cuts_the_surface_without_changing_it():
     assert q.V[np.unique(q.F)][:, 0].min() == pytest.approx(0.5)
 
 
+def normals(p):
+    T = p.V[p.F]
+    return np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+
+
+def test_merge_keeps_area_and_drops_slivers():
+    k = kit.Kit({"detail": 2}, None)
+    p = k.add(geo.boxc(2, 2, 2), "paint")
+    for x in (-0.6, -0.2, 0.2, 0.6):
+        k.paint(p, "paint", x=(x, x + 0.1), z=(0.5, 1.5))
+    before = area(p)
+    n = len(p.F)
+    V, F = kit.merge_coplanar(p.V, p.F)
+    q = kit.Piece(V, F, "paint", True, 0, 2)
+    assert area(q) == pytest.approx(before)
+    assert len(F) < n
+    assert (normals(q) @ (0, 0, 1) >= -1e-9)[(V[F][:, :, 2].min(1) > 1.99)].all()  # the top still looks up
+
+
+def test_wheel_and_stud_face_outwards_and_stay_cheap():
+    k = kit.Kit({"detail": 2}, None)
+    k.wheel(0, 1, 0.3, 0.2, "w")
+    assert sum(len(p.F) for p in k.pieces) <= 64
+    tyre, hub = k.pieces
+    C = tyre.V[tyre.F].mean(1) - (0, 1, 0.3)
+    band = np.abs(C[:, 1]) < 0.02  # faces of the tread
+    assert ((normals(tyre)[band] * C[band]).sum(1) > 0).all()
+    assert (normals(hub)[:, 1] > 0).all()  # hub looks away from the centre line
+    for s in (-1, 1):
+        k = kit.Kit({"detail": 2}, None)
+        k.stud(0, s, 0, 0.1, s)
+        assert (normals(k.pieces[1])[:, 1] * s > 0).all()
+
+
+@pytest.mark.parametrize("kind,limit", [("sedan", 1250), ("truck_box", 1500), ("wagon", 1250), ("tug", 1500), ("liner", 2800), ("airliner", 2400)])
+def test_triangle_budget(kind, limit):
+    assert sum(len(p.F) for p in vehicles.build(kind).pieces) <= limit
+
+
 def test_seed_repeats_and_changes_the_model():
     a, b, c = (vehicles.build("sedan", {"seed": s}) for s in (1, 1, 2))
     assert a.colors == b.colors and a.cells == b.cells
