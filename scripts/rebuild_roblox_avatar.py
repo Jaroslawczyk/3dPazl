@@ -82,9 +82,14 @@ def textured(V, F, UV, img):
     return m
 
 
-def build_piece(ref, uv, img, meshes, size, sharp=60):
+def build_piece(ref, uv, img, meshes, size, sharp=60, max_hole=20, body=None):
     from pazl.core import meshcheck
-    m = meshcheck.clean(trimesh.util.concatenate(meshes))  # no collapsed slivers (mesh_check)
+    m = trimesh.util.concatenate(meshes)
+    if body is not None:  # out of the head before texturing, so nothing gets squashed later
+        m = meshcheck.push_out_faces(m, body)
+    m.merge_vertices()  # unwrap (smooth_shade) welds like this: clean must see the same triangles
+    for _ in range(3):  # a fill can leave a new needle on a nearly straight border: repeat
+        m = meshcheck.clean(m, max_hole=max_hole, scale=6)  # no slivers or small gaps (mesh_check uses the 1.9 m diagonal: 3x margin for float32 saving)
     V, F, UV = retopo.unwrap(m, sharp)
     UV[:, 1] = 1 - UV[:, 1]  # xatlas gives v up; glTF wants v down (otherwise every island is mirrored)
     s = retopo.Sampler(ref, uv, img, count=1500000 if size >= 1024 else 600000)
@@ -216,9 +221,9 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     np.savez_compressed(out / "body_t.labels.npz", P=Vt, bone=who)  # which bone each part follows
 
     head_c = trimesh.util.concatenate([p for k, p in plist if k == "head"]).bounds.mean(0)
-    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c)], 512)
+    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c)], 512, max_hole=8, body=trimesh.Trimesh(V, F, process=False))
     textured(hV, hF, hUV, htex).export(out / "hair_hat.glb")
-    pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256)
+    pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256, body=trimesh.Trimesh(V, F, process=False))
     textured(pV, pF, pUV, ptex).export(out / "pet.glb")
     sc = trimesh.Scene([trimesh.load(out / f, force="mesh") for f in ("body_pose.glb", "hair_hat.glb", "pet.glb")])
     sc.export(out / "posed_all.glb")  # whole figure in the reference pose, to compare in the app

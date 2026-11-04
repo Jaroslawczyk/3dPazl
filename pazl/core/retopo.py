@@ -213,7 +213,8 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
         elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
             out.append(prune(shrinkwrap(p, 2, grow=1.3, iters=1), p))
         else:
-            out.append(shrinkwrap(p, sub_for(len(p.faces))))
+            w = shrinkwrap(p, sub_for(len(p.faces)))
+            out.append(w if p.is_watertight else prune(w, p))  # an open piece (beanie) must not be closed across the head
     return trimesh.util.concatenate(out)
 
 

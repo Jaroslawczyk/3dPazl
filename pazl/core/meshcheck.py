@@ -108,6 +108,14 @@ def _orientation(name, g, lo, hi):
     return res
 
 
+def bad_faces(m, scale):
+    """(degenerate, sliver) masks with the same rules the report uses; scale = the whole model's diagonal."""
+    T = m.triangles
+    longest = np.max([np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3)], 0)
+    deg = m.area_faces < (scale * 1e-4) ** 2
+    return deg, ~deg & (2 * m.area_faces / np.maximum(longest, 1e-12) < longest * .02)
+
+
 def _triangles(name, g, lo, hi, scale):
     T = g.triangles
     a, b, c = (np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3))
@@ -206,7 +214,7 @@ def push_out(V, inner: trimesh.Trimesh, gap=None):
     return V
 
 
-def push_out_faces(m: trimesh.Trimesh, inner: trimesh.Trimesh, rounds=3):
+def push_out_faces(m: trimesh.Trimesh, inner: trimesh.Trimesh, rounds=8):
     """push_out for vertices, then again for faces whose centres still sink (long triangles over a rounded body):
     their corners move out by how deep the centre is."""
     m = m.copy()
@@ -240,9 +248,87 @@ def push_out_faces(m: trimesh.Trimesh, inner: trimesh.Trimesh, rounds=3):
     return m
 
 
-def clean(m: trimesh.Trimesh):
-    """Drop zero-area faces (collapsed shrinkwrap points). Nothing is welded, so winding and UV seams stay intact."""
+def clean(m: trimesh.Trimesh, max_hole=12, scale=None):
+    """Drop zero-area faces, drop slivers from open pieces (closing nothing), fill small holes (up to max_hole border
+    edges) with a fan. Nothing is welded, so winding and UV seams stay intact."""
     m = m.copy()
-    m.update_faces(m.area_faces > float(np.linalg.norm(m.extents)) ** 2 * 1e-9)
+    T = m.triangles
+    L = np.max([np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3)], 0)
+    zero = m.area_faces <= float(np.linalg.norm(m.extents)) ** 2 * 1e-9
+    sliver = 2 * m.area_faces / np.maximum(L, 1e-12) < L * .02
+    lab = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+    e, cnt = np.unique(m.edges_sorted, axis=0, return_counts=True)
+    open_v = np.zeros(len(m.vertices), bool)
+    open_v[e[cnt == 1].ravel()] = True
+    open_piece = {k for k in np.unique(lab) if open_v[m.faces[lab == k]].any()}
+    m.update_faces(~zero & ~(sliver & np.isin(lab, list(open_piece))))
     m.remove_unreferenced_vertices()
-    return m
+    # slivers left in closed pieces have one very short edge: collapse it (both ends meet), drop what became flat
+    T = m.triangles
+    E = np.stack([np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3)], 1)
+    short = E.min(1) < E.max(1) * .05
+    if short.any():
+        V = np.array(m.vertices)
+        remap = np.arange(len(V))
+        for f, j in zip(m.faces[short], E[short].argmin(1)):
+            a, b = remap[f[j]], remap[f[(j + 1) % 3]]
+            if a != b:
+                V[a] = (V[a] + V[b]) / 2
+                remap[remap == b] = a
+        F = remap[m.faces]
+        F = F[(F[:, 0] != F[:, 1]) & (F[:, 1] != F[:, 2]) & (F[:, 0] != F[:, 2])]
+        m = trimesh.Trimesh(V, F, process=False)
+        m.remove_unreferenced_vertices()
+    if scale:  # whatever the report would still call degenerate / sliver (needles with no short edge): out, then refill
+        deg, sl = bad_faces(m, scale)
+        if (deg | sl).any():
+            m.update_faces(~(deg | sl))
+            m.remove_unreferenced_vertices()
+    return fill_small_holes(m, max_hole)
+
+
+def _tri_quality(a, b, c):
+    """Height over the longest side: 0 for a needle, 0.87 for an equilateral triangle."""
+    L = max(np.linalg.norm(a - b), np.linalg.norm(b - c), np.linalg.norm(c - a), 1e-12)
+    return np.linalg.norm(np.cross(b - a, c - a)) / L / L
+
+
+def fill_small_holes(m: trimesh.Trimesh, max_edges=12):
+    """Close border loops of up to max_edges edges with a fan from their centre (the gaps left in a hair shell)."""
+    e, cnt = np.unique(m.edges_sorted, axis=0, return_counts=True)
+    open_e = e[cnt == 1]
+    if not len(open_e):
+        return m
+    # directed border edges as they run in their faces, so the fan gets the same winding
+    fe = np.vstack([m.faces[:, [0, 1]], m.faces[:, [1, 2]], m.faces[:, [2, 0]]])
+    key = {tuple(sorted(x)) for x in open_e.tolist()}
+    nxt = {int(a): int(b) for a, b in fe.tolist() if (min(a, b), max(a, b)) in key}
+    lab = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+    sheet_v = np.zeros(len(m.vertices), bool)  # strands / cards stay open: closing them makes them "solid" for push_out
+    for k in np.unique(lab):
+        if _sheetlike(trimesh.Trimesh(m.vertices, m.faces[lab == k], process=False)):
+            sheet_v[m.faces[lab == k].ravel()] = True
+    V, F, seen = list(m.vertices), [list(f) for f in m.faces], set()
+    for start in list(nxt):
+        if start in seen:
+            continue
+        loop, v = [], start
+        while v in nxt and v not in seen and len(loop) <= max_edges + 1:
+            seen.add(v)
+            loop.append(v)
+            v = nxt[v]
+        if v != start or len(loop) < 3 or len(loop) > max_edges or sheet_v[loop].any():
+            continue
+        P = m.vertices[loop]
+        if len(loop) == 3:
+            F.append([loop[2], loop[1], loop[0]])
+            continue
+        # fan from the loop vertex that sees the others best (no needle triangles from a near-collinear centre)
+        best = max(range(len(loop)), key=lambda k: min(_tri_quality(P[k], P[(k + i) % len(loop)], P[(k + i + 1) % len(loop)])
+                                                          for i in range(1, len(loop) - 1)))
+        for i in range(1, len(loop) - 1):
+            a, b = loop[(best + i) % len(loop)], loop[(best + i + 1) % len(loop)]
+            F.append([b, a, loop[best]])
+    out = trimesh.Trimesh(np.array(V), np.array(F), process=False)
+    out.fix_normals(multibody=True)
+    return out

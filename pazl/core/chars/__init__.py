@@ -300,11 +300,14 @@ def _bird(c, r, V, F, N, g, names_):
     s = float(np.max([b["tail"][1] for b in r["bones"]])) * .085 * float(g.get("size", 1))
     hc, hh = _head_box(r, V, names_)
     x = max(np.abs(P[:, 0]).max() * .8, hh[0] * 1.3 + s * 1.05)  # clear of the head and its hair
-    base = np.array([k * x, top, P[:, 2].mean()])
+    z = P[:, 2].mean()
+    under = V[(np.abs(V[:, 0] - k * x) < s * .5) & (np.abs(V[:, 2] - z) < s * .5)]  # chest or the arm block below the feet
+    top = max(top, under[:, 1].max()) if len(under) else top
+    base = np.array([k * x, top + s * .04, z])  # feet on the shoulder, not in it (push_out would flatten them)
     blue = body.rgb(g.get("color") or "#2bb5ea")
     parts = [_blob(2, [s * .95, s, s * .9], [0, s * 1.3, 0], blue),
-             _blob(1, [s * .22, s * .55, s * .5], [s * .9, s * 1.15, -s * .05], blue * .8),
-             _blob(1, [s * .22, s * .55, s * .5], [-s * .9, s * 1.15, -s * .05], blue * .8),
+             _blob(1, [s * .32, s * .55, s * .5], [s * .85, s * 1.15, -s * .05], blue * .8),
+             _blob(1, [s * .32, s * .55, s * .5], [-s * .85, s * 1.15, -s * .05], blue * .8),
              _blob(1, [s * .2, s * .2, s * .1], [s * .38, s * 1.55, s * .82], np.ones(3)),
              _blob(1, [s * .2, s * .2, s * .1], [-s * .38, s * 1.55, s * .82], np.ones(3)),
              _blob(1, [s * .1, s * .12, s * .06], [s * .38, s * 1.55, s * .9], np.full(3, .03)),
@@ -411,8 +414,12 @@ def prop_part(c, r, V, F, N, g):
     from .. import meshcheck
     parts, bone = prop_mesh(c, r, V, F, N, g)
     body_m = trimesh.Trimesh(V, F, process=False)
-    for m, _ in parts:  # hats, hair, pets never sink into the body (mesh_check: poke_through)
+    for i, (m, col) in enumerate(parts):  # hats, hair, pets never sink into the body; no slivers or small gaps (mesh_check)
+        if col is None:  # a ready textured file (e.g. a 1:1 rebuild) was fixed when it was made: a second push squashes it
+            continue
         m.vertices = meshcheck.push_out_faces(m, body_m).vertices
+        m = meshcheck.clean(m)
+        parts[i] = (m, col)
     if len(parts) == 1 and parts[0][1] is None:  # textured model from a file
         m = parts[0][0]
         uv, png = _uv_image(m) or (None, None)
