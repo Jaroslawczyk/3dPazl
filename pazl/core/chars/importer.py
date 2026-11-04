@@ -8,7 +8,7 @@ import re
 import shutil
 import struct
 import zlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import numpy as np
 import trimesh
@@ -148,10 +148,30 @@ def _bake(g):
     if img is None or uv is None or len(uv) != len(g.vertices):
         return None
     V, F, uv = np.asarray(g.vertices, float), np.asarray(g.faces), np.asarray(uv, float)
+    a = np.asarray(img.convert("RGB"), dtype=np.uint8)
+    if len(np.unique(a.reshape(-1, 3), axis=0)) <= 128:
+        # Palette atlases assign one flat colour to each original face. Sample at
+        # face centres and split shared vertices at colour seams instead of
+        # subdividing the whole mesh just to bake a tiny swatch texture.
+        h, w = a.shape[:2]
+        centers = uv[F].mean(axis=1)
+        colors = a[((1 - centers[:, 1] % 1) * (h - 1)).astype(int),
+                   ((centers[:, 0] % 1) * (w - 1)).astype(int)]
+        vertices, vertex_colors, faces, cache = [], [], np.empty_like(F), {}
+        for fi, face in enumerate(F):
+            color = tuple(map(int, colors[fi]))
+            for ci, vi in enumerate(face):
+                key = (int(vi), color)
+                if key not in cache:
+                    cache[key] = len(vertices)
+                    vertices.append(V[vi])
+                    vertex_colors.append(color)
+                faces[fi, ci] = cache[key]
+        return np.asarray(vertices), faces, np.asarray(vertex_colors, dtype=float) / 255
     while len(F) * 4 <= 24000:  # stays under the "high" quality limit, so block bodies are not simplified out of shape
         V, F, at = trimesh.remesh.subdivide(V, F, vertex_attributes={"uv": uv})
         uv = at["uv"]
-    a = np.asarray(img.convert("RGB"), float) / 255
+    a = a.astype(float) / 255
     h, w = a.shape[:2]
     C = a[((1 - uv[:, 1] % 1) * (h - 1)).astype(int), ((uv[:, 0] % 1) * (w - 1)).astype(int)]
     return V, F, C
@@ -316,7 +336,12 @@ def _count(files):
 
 
 def _load(files):
-    safe = {Path(k).name: v for k, v in files.items()}
+    safe = {}
+    for key, value in files.items():
+        relative = PurePosixPath(str(key).replace("\\", "/"))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"путь файла выходит за каталог импорта: {key}")
+        safe[relative.as_posix()] = value
     main = next((k for k in safe if Path(k).suffix.lower() in FORMATS), None)
     if not main:
         raise ValueError(f"нужен файл модели: {', '.join(FORMATS)}")
@@ -327,7 +352,9 @@ def _load(files):
     tmp.mkdir(parents=True)
     try:
         for k, v in safe.items():
-            (tmp / k).write_bytes(v)
+            target = tmp / Path(k)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(v)
         return _read_scene(tmp / main)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

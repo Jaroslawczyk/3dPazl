@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import unquote
 
 import logging
 
@@ -192,9 +193,29 @@ def char_import(path: str, name: str = "", height: float = 0, up: str = "auto", 
     height in metres (0 keeps size), up auto|y|z, turn degrees so it faces +Z. Bones inside the file are replaced by a skeleton measured from the figure; lowered arms of block bodies are swung into T-pose."""
     import base64
     p = Path(path)
-    fs = [p] + [x for x in p.parent.iterdir() if x != p and x.suffix.lower() in (".mtl", ".png", ".jpg", ".jpeg", ".bin")]
-    files = [{"name": f.name, "data": base64.b64encode(f.read_bytes()).decode()} for f in fs]
-    return _j(_call("POST", "/api/ws/chars/import", {"name": name, "files": files, "height": height, "up": up, "turn": turn, "template": template, "quality": quality}))
+    base = p.parent.resolve()
+    files = {p.name: p}
+    files.update({x.name: x for x in p.parent.iterdir()
+                  if x != p and x.suffix.lower() in (".mtl", ".png", ".jpg", ".jpeg", ".webp", ".bin")})
+    missing = []
+    if p.suffix.lower() == ".gltf":
+        doc = json.loads(p.read_text(encoding="utf-8"))
+        for item in (*doc.get("buffers", []), *doc.get("images", [])):
+            uri = item.get("uri", "")
+            if not uri or uri.startswith("data:"):
+                continue
+            relative = Path(unquote(uri.replace("/", os.sep)))
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(f"GLTF resource must stay beside its source file: {uri}")
+            resource = (base / relative).resolve()
+            if not resource.is_file():
+                missing.append(uri)
+                continue
+            files[relative.as_posix()] = resource
+    if missing:
+        raise FileNotFoundError("GLTF is missing referenced resources: " + ", ".join(missing))
+    payload = [{"name": key, "data": base64.b64encode(f.read_bytes()).decode()} for key, f in files.items()]
+    return _j(_call("POST", "/api/ws/chars/import", {"name": name, "files": payload, "height": height, "up": up, "turn": turn, "template": template, "quality": quality}))
 
 
 @tool

@@ -7,6 +7,11 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 2. `char_wear(name, kind, color=..., skin=...)`. Kinds: tshirt longsleeve tank jacket pants shorts skirt dress cloak boots shoes gloves scarf belt beanie hat hair_short hair_long beard.
 3. Look at the result in the app: tabs Персонажи, Одежда.
 
+## Reproduce a complete reference mesh
+When the user supplies a complete GLTF/GLB and wants the same model, start with `char_import` and preserve its source geometry and textures. Do not replace it with a hand-built primitive approximation: this can multiply the triangle count and distort depth or silhouette. Compare source and result with `scripts/glb_compare.py`; use retopology only when the source needs a lower triangle budget, cleaner parts, or a new rig.
+
+`char_import` follows external GLTF buffer/image URIs into their relative subfolders and reports missing files before import. Small palette textures are baked per face with vertices split at colour boundaries, keeping the source triangle count instead of subdividing every face.
+
 ## 1:1 rebuild of a reference model with its own textures (the way to do "сделай 1 к 1")
 `scripts/rebuild_roblox_avatar.py [ref.glb] [name]` (~45 s) -> character `galaxy_1to1`, 3,573 tris vs 5,078 (body 1,464), same look and pose:
 1. Reference moved into our frame (studs x 0.28 = metres, turned to face +Z).
