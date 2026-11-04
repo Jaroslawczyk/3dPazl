@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LANG, LANGS, initI18n, setLang } from './i18n.js';
+import { initDebugView } from './debugview.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -73,6 +74,7 @@ function resize() {
 new ResizeObserver(resize).observe(vp);
 // render on demand: an idle viewport costs nothing; any input / camera move / model change requests a frame
 let dirty = true;
+let debugTick = null;  // UV checker / vertex normals (web/debugview.js)
 function invalidate(shadows = false) { dirty = true; if (shadows) renderer.shadowMap.needsUpdate = true; }
 orbit.addEventListener('change', () => invalidate());
 gizmo.addEventListener('change', () => invalidate());
@@ -97,6 +99,7 @@ function loop() {
   orbit.update(); tickCamAnim(); tickDoors(); tickBoom();
   if (!dirty && !camAnim) return;
   dirty = false;
+  debugTick?.();
   updateClipRange();
   renderer.render(scene, camera);
   drawMarks();
@@ -195,6 +198,7 @@ async function viewGlb(path) {
 }
 // shared with the workshop modules (web/workspaces.js, web/ws/*.js)
 window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
+debugTick = initDebugView({ THREE, scene, root, invalidate, uvBox: $('#chkUV'), nBox: $('#chkNormals') });
 $('#btnGlbView').onclick = async () => {
   const list = await fetch('/api/glbs').then((r) => r.json());
   let box = $('#glbPick');

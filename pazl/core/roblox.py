@@ -30,7 +30,7 @@ LIMBS = [{"up": (217, 289, 64, 64), "down": (217, 485, 64, 64), "sides": [(19, 3
 CLASSIC = {"tshirt": ("shirt", .5, 1), "longsleeve": ("shirt", 1, 1), "tank": ("shirt", 0, 1), "jacket": ("shirt", 1, 1), "dress": ("shirt", 0, 1),
            "cloak": ("shirt", 0, 0), "gloves": ("shirt", -.14, 0),
            "pants": ("pants", 1, .22), "shorts": ("pants", .55, .22), "skirt": ("pants", .5, .3), "boots": ("pants", -.35, 0), "shoes": ("pants", -.14, 0)}
-ACCESSORY = ("hat", "beanie", "hair_short", "hair_long", "beard", "scarf", "belt")
+ACCESSORY = ("bird", "hat", "beanie", "hair_short", "hair_long", "beard", "scarf", "belt")
 MESH_TRIS, ACC_TRIS, IMG_MAX = 20000, 4000, 1024
 
 
@@ -84,6 +84,15 @@ def classic(outfit, template, H):
                 _paint(im, L["down"], t)
             if limb > 0:
                 _paint(im, L["up"], t)
+        if g.get("print") and which == "shirt":  # picture in the middle of the torso front
+            x, y, w, h = TORSO["front"]
+            k = int(w * float(g.get("print_size", .78)))
+            pic = np.asarray(Image.open(PROJECTS / g["print"]).convert("RGBA").resize((k, k), Image.LANCZOS)).astype(float)
+            x0, y0 = x + (w - k) // 2, y + int(h * .52) - k // 2
+            a = pic[..., 3:] / 255
+            box = im[y0:y0 + k, x0:x0 + k]
+            box[..., :3] = (pic[..., :3] * a + box[..., :3] * (1 - a)).astype(np.uint8)
+            box[..., 3] = np.maximum(box[..., 3], pic[..., 3].astype(np.uint8))
         if g["kind"] == "jacket":  # zip down the front
             x, y, w, h = TORSO["front"]
             im[y:y + h, x + w // 2 - 2:x + w // 2 + 2] = (40, 40, 44, 255)
@@ -183,6 +192,13 @@ def export_char(name):
         stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         (out / "accessories").mkdir()
         for g in acc:
+            if g["kind"] == "bird":
+                ms, _ = chars.pet_mesh(c, r, V, g)
+                for m, col in ms:
+                    m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.r_[col * 255, 255].astype(np.uint8))
+                trimesh.util.concatenate([m for m, _ in ms]).export(out / "accessories" / "bird.glb")
+                files.append("accessories/bird.glb")
+                continue
             v, f, *_ = chars._garment(c, g, fit, stamp)
             v, f = decimate(np.asarray(v, float), np.asarray(f), ACC_TRIS)
             m = trimesh.Trimesh(v, f, process=False)

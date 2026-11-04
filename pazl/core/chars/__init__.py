@@ -219,6 +219,95 @@ def _textured(part, s):
             "png": skins.png_bytes(s), "metal": float(s.get("metal", 0)), "rough": float(s.get("rough", .7))}
 
 
+def _quad_part(name, x0, x1, y0, y1, z, png, bone):
+    """A flat picture facing +Z (the front of the character) that follows one bone."""
+    V = np.array([[x0, y1, z], [x1, y1, z], [x1, y0, z], [x0, y0, z]], float)
+    W = np.zeros((4, 4), np.float32)
+    W[:, 0] = 1
+    J = np.zeros((4, 4), np.uint16)
+    J[:, 0] = bone
+    return {"name": name, "V": V, "F": np.array([[3, 2, 1], [3, 1, 0]]), "N": np.tile([0., 0, 1], (4, 1)), "C": None, "J": J, "W": W,
+            "UV": np.array([[0, 0], [1, 0], [1, 1], [0, 1.]]), "png": png, "rough": .85}
+
+
+def print_part(g, Vg, bones, names_):
+    """Print on the chest front of a garment: g["print"] = PNG under projects/, g["print_size"] = share of the chest width."""
+    ix = names_.index("chest")
+    P = Vg[cloth.block_label(Vg, bones, names_) == ix]
+    if not len(P):
+        return None
+    lo, hi = P.min(0), P.max(0)
+    cx, cy = (lo[0] + hi[0]) / 2, lo[1] + (hi[1] - lo[1]) * .52
+    h = min(hi[0] - lo[0], hi[1] - lo[1]) * float(g.get("print_size", .78)) / 2
+    near = P[(np.abs(P[:, 0] - cx) < h) & (np.abs(P[:, 1] - cy) < h)]
+    z = (near if len(near) else P)[:, 2].max() + .003
+    from io import BytesIO
+    from PIL import Image
+    pic = Image.open(PROJECTS / g["print"]).convert("RGBA")  # the material is opaque: lay the picture on the garment colour
+    bg = Image.new("RGBA", pic.size, tuple(int(v * 255) for v in body.rgb(g.get("color") or "#ffffff")) + (255,))
+    buf = BytesIO()
+    Image.alpha_composite(bg, pic).convert("RGB").save(buf, "PNG")
+    return _quad_part("print", cx - h, cx + h, cy - h, cy + h, z, buf.getvalue(), ix)
+
+
+def _blob(sub, scale, at, col):
+    m = trimesh.creation.icosphere(subdivisions=sub)
+    m.apply_scale(scale)
+    m.apply_translation(at)
+    return m, col
+
+
+def pet_mesh(c, r, V, g):
+    """Small pet sitting on the right shoulder: list of (trimesh, rgb). Built from primitives, faces +Z like the body."""
+    names_ = skeleton.order(r["bones"])[0]
+    lab = cloth.block_label(V, r["bones"], names_)
+    side = "upper_arm.L" if g.get("side") == "L" else "upper_arm.R"
+    P = V[lab == names_.index(side)]
+    top = P[:, 1].max()
+    cap = P[P[:, 1] > top - (top - P[:, 1].min()) * .1]
+    base = np.array([cap[:, 0].mean(), top, cap[:, 2].mean()])
+    s = float(np.max([b["tail"][1] for b in r["bones"]])) * .085 * float(g.get("size", 1))
+    blue = body.rgb(g.get("color") or "#2bb5ea")
+    parts = [_blob(2, [s * .95, s, s * .9], [0, s * 1.3, 0], blue),
+             _blob(1, [s * .22, s * .55, s * .5], [s * .9, s * 1.15, -s * .05], blue * .8),
+             _blob(1, [s * .22, s * .55, s * .5], [-s * .9, s * 1.15, -s * .05], blue * .8),
+             _blob(1, [s * .2, s * .2, s * .1], [s * .38, s * 1.55, s * .82], np.ones(3)),
+             _blob(1, [s * .2, s * .2, s * .1], [-s * .38, s * 1.55, s * .82], np.ones(3)),
+             _blob(1, [s * .1, s * .12, s * .06], [s * .38, s * 1.55, s * .9], np.full(3, .03)),
+             _blob(1, [s * .1, s * .12, s * .06], [-s * .38, s * 1.55, s * .9], np.full(3, .03))]
+    beak = trimesh.creation.cone(radius=s * .22, height=s * .45, sections=8)
+    beak.apply_translation([0, s * 1.25, s * .8])
+    parts.append((beak, body.rgb("#f2a516")))
+    tail = trimesh.creation.cone(radius=s * .3, height=s * .5, sections=6)
+    tail.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [1, 0, 0]))
+    tail.apply_translation([0, s * .95, -s * .75])
+    parts.append((tail, blue * .85))
+    for x in (-.28, .28):
+        leg = trimesh.creation.cylinder(radius=s * .045, height=s * .4, sections=6)
+        leg.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
+        leg.apply_translation([s * x, s * .2, 0])
+        foot = trimesh.creation.box([s * .18, s * .05, s * .28])
+        foot.apply_translation([s * x, s * .025, s * .08])
+        parts += [(leg, body.rgb("#d9a520")), (foot, body.rgb("#d9a520"))]
+    for m, _ in parts:
+        m.apply_translation(base)
+    return parts, names_.index(side)
+
+
+def pet_part(c, r, V, g):
+    parts, bone = pet_mesh(c, r, V, g)
+    Vs, Fs, Ns, Cs, off = [], [], [], [], 0
+    for m, col in parts:
+        Vs.append(m.vertices), Fs.append(m.faces + off), Ns.append(m.vertex_normals), Cs.append(np.tile(col, (len(m.vertices), 1)))
+        off += len(m.vertices)
+    Vb = np.vstack(Vs)
+    J = np.zeros((len(Vb), 4), np.uint16)
+    J[:, 0] = bone
+    W = np.zeros((len(Vb), 4), np.float32)
+    W[:, 0] = 1
+    return {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .5}
+
+
 def export_c(c):
     rn = _rn(c["name"])
     r = rig.load(rn)
@@ -243,6 +332,11 @@ def export_c(c):
         stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         fit = fit_for(c, r, V, F, N)
         for g in c["outfit"]:
+            o = cloth.kinds_for(c["template"])[g["kind"]][2]
+            if o.get("pet"):
+                parts.append(pet_part(c, r, V, g))
+                fits.append({"kind": g["kind"], "tris": len(parts[-1]["F"])})
+                continue
             Vg, Fg, Ng, Lg = _garment(c, g, fit, stamp)
             Vg, Ng = np.asarray(Vg, float), np.asarray(Ng, float)
             if c.get("blocks"):
@@ -252,11 +346,14 @@ def export_c(c):
                 Wg[:, 0] = 1
             else:
                 Jg, Wg = cloth.transfer(fit, Vg, Wd, cloth.soft(g["kind"], c["template"]), cloth.rigid_bone(g["kind"], c["template"], names_))
-            o = cloth.kinds_for(c["template"])[g["kind"]][2]
             col = body.rgb(g.get("color") or o["color"])
             skin = g.get("skin") or (None if g.get("color") else o.get("skin"))
             part = {"name": g["kind"], "V": Vg, "F": Fg, "N": Ng, "C": np.tile(col, (len(Vg), 1)), "J": Jg, "W": Wg, "rough": .85}
             parts.append(_textured(part, skin) if skin else part)
+            if g.get("print"):
+                pp = print_part(g, Vg, r["bones"], names_)
+                if pp:
+                    parts.append(pp)
             fits.append({"kind": g["kind"], "tris": len(Fg)})
     out = CHARS / f"{c['name']}.glb"
     size = gltf.write_parts(out, parts, r["bones"], r["clips"])

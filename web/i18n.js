@@ -61,7 +61,7 @@ const D = [
   ['Все территории', 'All regions', 'Wszystkie regiony'], ['Текстуры (выкл. — плоские цвета)', 'Textures (off = flat colours)', 'Tekstury (wył. = płaskie kolory)'],
   ['Декали', 'Decals', 'Naklejki'], ['Текстуры материалов', 'Material textures', 'Tekstury materiałów'],
   ['Замените текстуру любого материала модели на другую или уберите её.', "Replace any material's texture with another one or remove it.", 'Zamień teksturę dowolnego materiału na inną lub ją usuń.'],
-  ['✎ Пометки', '✎ Marks', '✎ Znaczniki'], ['Перед', 'Front', 'Przód'], ['Бок', 'Side', 'Bok'], ['Верх', 'Top', 'Góra'], ['Цельная', 'Welded', 'Spawany'], ['Каркас', 'Wireframe', 'Siatka'],
+  ['✎ Пометки', '✎ Marks', '✎ Znaczniki'], ['Перед', 'Front', 'Przód'], ['Бок', 'Side', 'Bok'], ['Верх', 'Top', 'Góra'], ['Цельная', 'Welded', 'Spawany'], ['Каркас', 'Wireframe', 'Siatka'], ['UV-чекер', 'UV checker', 'UV checker'], ['Нормали', 'Normals', 'Normalne'],
   ['Камера ИИ', 'AI camera', 'Kamera AI'], ['Интерьер', 'Interior', 'Wnętrze'], ['Окна прозрачные', 'Clear windows', 'Przezroczyste okna'], ['Затычка', 'Plug', 'Zaślepka'],
   ['3D-иллюзия', '3D illusion', 'Iluzja 3D'], ['Срез', 'Cut', 'Przekrój'], ['сборка…', 'building…', 'budowanie…'], ['Свойства', 'Properties', 'Właściwości'],
   ['Выберите элемент в сцене или в дереве.', 'Select an element in the scene or in the tree.', 'Wybierz element w scenie lub w drzewie.'],

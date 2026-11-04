@@ -47,6 +47,7 @@ KINDS = {
         "hair_short": ("Короткие волосы", "Волосы", {"hair": .45, "color": "#3b2a1c", "ease": .011, "wrinkle": 2.2}),
         "hair_long": ("Длинные волосы", "Волосы", {"hair": .1, "mane": True, "color": "#5b3a1e", "ease": .012, "wrinkle": 2.2}),
         "beard": ("Борода", "Волосы", {"beard": True, "color": "#3b2a1c", "ease": .012, "wrinkle": 2.5}),
+        "bird": ("Птичка на плече", "Аксессуары", {"pet": "bird", "color": "#2bb5ea"}),
     },
     "quadruped": {
         "coat": ("Попона", "Верх", {"cover": {"hips": (.25, 1), "spine": (0, 1), "chest": (0, .8)}, "color": "#8c2f2f", "ease": .012, "skin": "tartan"}),

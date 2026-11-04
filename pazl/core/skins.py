@@ -17,7 +17,7 @@ SKINS = PROJECTS / "skins"
 N = 512
 PATTERNS = {"solid": "Однотонный", "stripes": "Полосы", "checker": "Шахматка", "dots": "Горох", "spots": "Пятна", "camo": "Камуфляж",
             "plaid": "Клетка", "weave": "Ткань", "knit": "Вязка", "scales": "Чешуя", "fur": "Шерсть", "leather": "Кожа",
-            "wood": "Дерево", "marble": "Мрамор", "rust": "Ржавчина", "image": "Своя картинка"}
+            "wood": "Дерево", "marble": "Мрамор", "rust": "Ржавчина", "galaxy": "Космос", "image": "Своя картинка"}
 PRESETS = {
     "denim": {"title": "Джинса", "pattern": "weave", "colors": ["#2f4d7a", "#5d7ba8"], "tile": .06, "rough": .9},
     "linen": {"title": "Лён", "pattern": "weave", "colors": ["#d9d0bb", "#efe8d8"], "tile": .05, "rough": .95},
@@ -35,6 +35,7 @@ PRESETS = {
     "rust": {"title": "Ржавый металл", "pattern": "rust", "colors": ["#6e6f73", "#7a3d1c", "#2b1a12"], "tile": .5, "rough": .75, "metal": .55},
     "chess": {"title": "Шахматка", "pattern": "checker", "colors": ["#f0f0ee", "#202024"], "tile": .2, "rough": .5},
     "polka": {"title": "Горошек", "pattern": "dots", "colors": ["#c23a4a", "#f6efe6"], "tile": .08, "rough": .7},
+    "galaxy": {"title": "Космос (галактика)", "pattern": "galaxy", "colors": ["#0d0a2e", "#4b2a8f", "#c2457e", "#3f86c9"], "tile": .45, "rough": .8},
 }
 
 
@@ -123,6 +124,17 @@ def tile_array(s):
         a = noise(seed, 6) * .75 + noise(seed + 1, 40) * .25
         o = _mix(c, np.clip((a - .5) * 8, 0, 1))
         return np.where((np.clip(noise(seed + 2, 30), 0, 1) > .9)[..., None], c[2] if len(c) > 2 else c[1], o)
+    if pat == "galaxy":  # dark sky, two-colour nebula, a cyan glow and stars (single pixels and a few crosses)
+        base, neb = c[0], _mix([c[1], c[2] if len(c) > 2 else c[1]], noise(seed + 1, 6))
+        a = np.clip((noise(seed, 3) - .3) * 1.8, 0, 1) ** 1.4
+        o = base * (1 - a[..., None]) + neb * a[..., None]
+        g = np.clip((noise(seed + 2, 9) - .8) * 3, 0, 1)[..., None] * .6
+        o = o * (1 - g) + (c[3] if len(c) > 3 else c[1]) * g
+        r = np.random.default_rng(seed).random((N, N))
+        big = r > .9993
+        star = (r > .996) | big | np.roll(big, 1, 0) | np.roll(big, -1, 0) | np.roll(big, 1, 1) | np.roll(big, -1, 1)
+        o[star] = 1
+        return o
     raise ValueError(f"unknown pattern {pat}; have {list(PATTERNS)}")
 
 
