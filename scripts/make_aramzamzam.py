@@ -17,13 +17,30 @@ FRAMES = int(BEATS * 60 / BPM * FPS)
 DOWN = {".L": q("z", -60), ".R": q("z", 60)}
 
 
+def leg(i, u, sd, side, ph):
+    """One leg on its own: segment 0 alternating knee lifts, 1 heel taps, 2 side steps, 3 out-of-phase knee bends."""
+    w = math.sin(math.pi * u + ph)
+    lift = max(0.0, w)  # this leg is in the air during its own beat
+    if i == 0:
+        t, sh, fo, ab = -(10 + 48 * lift), 20 + 62 * lift, 18 * lift, 3 * lift
+    elif i == 1:
+        t, sh, fo, ab = -(8 + 32 * lift), 8 + 4 * lift, -28 * lift, 0
+    elif i == 2:
+        t, sh, fo, ab = -(10 + 20 * lift), 20 + 30 * lift, 8 * lift, 28 * lift
+    else:
+        b = 8 + 22 * (.5 + .5 * math.cos(2 * math.pi * u + ph))
+        t, sh, fo, ab = -b, 2 * b, -b, 7 * (.5 + .5 * math.cos(2 * math.pi * u + ph))
+    if i != 3:
+        fo = -(t + sh) + fo  # flat foot unless the leg is lifted
+    return {"thigh" + sd: q("x", t) * q("z", side * ab), "shin" + sd: q("x", sh), "foot" + sd: q("x", fo)}
+
+
 def segment(i, u):
     """Local rotations of segment i at beat u (u in beats, inside the segment: 0..2)."""
     a = 2 * math.pi * u  # one bounce per beat
     r = {"shoulder.L": q("z", -15), "shoulder.R": q("z", 15)}
-    k = 8 + 12 * (.5 + .5 * math.cos(a))  # knees: down on the beat
-    for sd in (".L", ".R"):
-        r["thigh" + sd], r["shin" + sd], r["foot" + sd] = q("x", -k), q("x", 2 * k), q("x", -k)
+    for sd, side, ph in ((".L", 1, 0.0), (".R", -1, math.pi)):  # each leg has its own motion and phase
+        r.update(leg(i, u, sd, side, ph))
     r["spine"] = q("x", 2 * (.5 + .5 * math.cos(a)))
     for sd, kk, ph in ((".L", 1, 0), (".R", -1, math.pi)):
         if i == 0:  # alternating pumps in front
