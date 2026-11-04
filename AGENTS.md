@@ -2,7 +2,9 @@
 
 **Read [docs/QUICKSTART.md](docs/QUICKSTART.md) first**: file map, how to view results in the app, budgets, the user's rules.
 
-Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`). Start by reading its `guide` tool.
+Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`; Codex: `[mcp_servers.pazl]` in `~/.codex/config.toml`). Start by reading its `guide` tool.
+
+**Never drive 3dPazl through its own «ИИ» chat tab or by clicking the UI to build.** That tab starts a second AI (Codex/Claude/Gemini) that re-reads everything, so tokens are paid twice and every screenshot costs more than a tool reply. Build with the MCP tools or the Python API (`docs/QUICKSTART.md`); open the browser only at the end to show the result. If the `pazl` tools are missing in your session, say so to the user instead of falling back to the UI.
 
 - Buildings, items, rigs: [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - Vehicles and how to build good low-poly models: [docs/model_craft.md](docs/model_craft.md)
