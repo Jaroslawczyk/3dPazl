@@ -31,7 +31,7 @@ KINDS = {
         "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
         "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
         "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017}),
-        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True, "reach_k": 1.4}),
+        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True, "reach_k": 1.4, "seal": True}),
         "pants": ("Брюки", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, 1), "shin": (0, .92)})}, "color": "#333a4d", "ease": .01, "skin": "denim"}),
         "shorts": ("Шорты", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, .6)})}, "color": "#6d6a52", "ease": .011}),
         "skirt": ("Юбка", "Низ", {"band": ("spine", .1, "thigh.L", .75), "flare": .17, "color": "#8c3a5c"}),
@@ -320,6 +320,8 @@ def make(fit, kind, spec, template, target=None):
         raise ValueError(f"{kind}: поверхность не получилась")
     idx = np.clip(((V - lo) / cell).round().astype(int), 0, n - 1)
     on = O[tuple(idx.T)] > -(cell * 2.5 + .002 * wr)  # drop the caps that closed the hems: they lie deep inside
+    if o.get("seal") and np.abs(fit.V[:, 0]).min() > .15:  # a sleeve keeps its inner end closed: swinging the arm must not open a hole at the shoulder
+        on |= np.abs(V[:, 0]) < np.abs(fit.V[:, 0]).min() + .005
     F = F[on[F].all(1)]
     m = trimesh.Trimesh(V, F, process=False)
     m.remove_unreferenced_vertices()

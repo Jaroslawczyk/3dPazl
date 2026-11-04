@@ -21,10 +21,10 @@ def segment(i, u):
     """Local rotations of segment i at beat u (u in beats, inside the segment: 0..2)."""
     a = 2 * math.pi * u  # one bounce per beat
     r = {"shoulder.L": q("z", -15), "shoulder.R": q("z", 15)}
-    k = 14 + 16 * (.5 + .5 * math.cos(a))  # knees: down on the beat
+    k = 8 + 12 * (.5 + .5 * math.cos(a))  # knees: down on the beat
     for sd in (".L", ".R"):
         r["thigh" + sd], r["shin" + sd], r["foot" + sd] = q("x", -k), q("x", 2 * k), q("x", -k)
-    r["spine"] = q("x", 6 * (.5 + .5 * math.cos(a)))
+    r["spine"] = q("x", 2 * (.5 + .5 * math.cos(a)))
     for sd, kk, ph in ((".L", 1, 0), (".R", -1, math.pi)):
         if i == 0:  # alternating pumps in front
             r["upper_arm" + sd] = q("x", -70 + 28 * math.sin(a + ph)) * q("z", kk * 8) * DOWN[sd]
@@ -72,7 +72,8 @@ names, par, heads, tails = order(rg["bones"])
 con = anim.contacts(rg["bones"])
 rest = np.tile([0, 0, 0, 1.0], (len(names), 1))
 _, P0 = anim.fk(par, heads, rest, np.zeros(3))
-ground = anim.tails_world(np.tile(np.eye(3), (len(names), 1, 1)), P0, heads, tails)[con, 1].min()
+T0 = anim.tails_world(np.tile(np.eye(3), (len(names), 1, 1)), P0, heads, tails)
+ground, z0 = T0[con, 1].min(), T0[con, 2].mean()
 keys, root = {n: [] for n in names}, []
 for f in range(FRAMES + 1):
     pz = pose(f % FRAMES)
@@ -86,7 +87,7 @@ for f in range(FRAMES + 1):
     R, P = anim.fk(par, heads, rots, np.zeros(3))
     T = anim.tails_world(R, P, heads, tails)
     dy = ground - np.vstack([T[con], P[con]])[:, 1].min()
-    root.append([f, 0.0, round(float(dy), 5), 0.0])
+    root.append([f, 0.0, round(float(dy), 5), round(float(z0 - T[con, 2].mean()), 5)])  # feet stay under the body: no leaning
 rg["clips"]["aramzamzam"] = {"preset": "custom", "fps": FPS, "frames": FRAMES, "loop": True, "keys": {n: k for n, k in keys.items() if k}, "root": root}
 rig.save(rg)
 print(chars.export(CHAR)["clips"])

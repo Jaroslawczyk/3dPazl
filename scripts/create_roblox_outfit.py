@@ -33,5 +33,5 @@ c["cloth3d"], c["quality"] = True, "low"
 chars.save(c)
 for kind, skin, col, bt in (("pants", "web_dark_pants", "#23282a", 700), ("tank", "web_dark_jersey", "#26332f", 500),
                             ("jacket", "web_olive_canvas", "#7c7c45", 1300), ("shoes", None, "#1c1c1f", 400)):
-    chars.wear("roblox_outfit", kind, color=col, skin=skin, block_tris=bt, **({"ease": .036} if kind == "jacket" else {}))
+    chars.wear("roblox_outfit", kind, color=col, skin=skin, block_tris=bt, **({"ease": .028} if kind == "jacket" else {}))
 print(chars.export("roblox_outfit")["tris"])
