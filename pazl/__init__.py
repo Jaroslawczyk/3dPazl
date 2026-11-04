@@ -1,4 +1,4 @@
-__version__ = "0.68.1"
+__version__ = "0.69.0"
 __author__ = "Yaraslau Sychou"
 __email__ = "jaro9869004@gmail.com"
 __license__ = "3dPazl Non-Commercial License (commercial use only under a written agreement with the author)"
