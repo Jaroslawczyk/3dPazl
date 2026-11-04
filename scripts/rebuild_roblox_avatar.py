@@ -96,6 +96,17 @@ def build_piece(ref, uv, img, meshes, size, sharp=60, max_hole=20, body=None):
     return V, F, UV, retopo.bake(V, F, UV, s, size)
 
 
+def _mean_color(ref, uv, img):
+    """colour(piece) -> mean RGB of the reference texture over that piece (tells a grey brim from purple hair)."""
+    s = retopo.Sampler(ref, uv, img, count=200000)
+
+    def f(piece):
+        P = trimesh.sample.sample_surface(piece, 300, seed=5)[0]
+        _, fi, bc = s.project(P)
+        return s.color_at(fi, bc)[:, :3].mean(0)
+    return f
+
+
 def measure(S, y0, y1):
     """(cx, cz, hx, hz) of the reference samples S (part's local frame) with local y between y0 and y1."""
     lo, hi = min(y0, y1), max(y0, y1)
@@ -221,7 +232,7 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     np.savez_compressed(out / "body_t.labels.npz", P=Vt, bone=who)  # which bone each part follows
 
     head_c = trimesh.util.concatenate([p for k, p in plist if k == "head"]).bounds.mean(0)
-    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c)], 512, max_hole=8, body=trimesh.Trimesh(V, F, process=False))
+    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c, color=_mean_color(hair, huv, himg))], 512, max_hole=8, body=trimesh.Trimesh(V, F, process=False))
     textured(hV, hF, hUV, htex).export(out / "hair_hat.glb")
     pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256, body=trimesh.Trimesh(V, F, process=False))
     textured(pV, pF, pUV, ptex).export(out / "pet.glb")

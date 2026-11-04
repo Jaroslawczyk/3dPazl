@@ -550,13 +550,19 @@ def export_c(c):
     if not rest and c["template"] == "humanoid" and c.get("rest", "down") == "down":  # file default pose: arms down like a game avatar; the bind stays T-pose
         H = float(np.max([b["tail"][1] for b in r["bones"]]))
         rest = {k: v.as_quat() for k, v in rig.anim._humanoid_pose("idle", 0, H).items() if k.startswith(("shoulder", "upper_arm"))}
+    fix_error = None
     size = gltf.write_parts(out, parts, r["bones"], r["clips"], rest)
     if sum(len(p["F"]) for p in parts) <= 60000 and not c.get("no_fix"):  # check + repair the very file that is shown/exported
         from .. import meshfix
-        meshfix.fix(out)
+        backup = out.read_bytes()
+        try:
+            meshfix.fix(out)
+        except Exception as e:  # never lose an export because the checker cannot read a file (e.g. odd vertex colours)
+            out.write_bytes(backup)
+            fix_error = f"mesh_fix skipped: {e}"
         size = out.stat().st_size
     return {"name": c["name"], "path": out.relative_to(PROJECTS).as_posix(), "kb": round(size / 1e3), "clips": list(r["clips"]),
-            "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "max_part": int(max(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"]}
+            "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "max_part": int(max(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"], **({"mesh_fix": fix_error} if fix_error else {})}
 
 
 def _eyes(C):

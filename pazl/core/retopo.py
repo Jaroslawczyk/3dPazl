@@ -201,11 +201,28 @@ def prune(m: trimesh.Trimesh, ref: trimesh.Trimesh, tol=.15):
     return m
 
 
-def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2, root_near=None):  # noqa: E731
+def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2, root_near=None, color=None):  # noqa: E731
     """Every connected piece of the reference rebuilt: up to `small` triangles -> ribbon growing from root_near (hair) or
     card, flat -> one-layer sheet, bulky -> shrinkwrapped icosphere."""
     out = []
-    for p in ref.split(only_watertight=False):
+    pieces = ref.split(only_watertight=False, repair=False)
+    caps = [p for p in pieces if not p.is_watertight and len(p.faces) >= 150]
+    if caps and color is not None:  # a cap's brim / fold is often a separate ring of the same colour: one hat, no gap
+        cols = [color(p) for p in pieces]
+        groups = {id(c): [c] for c in caps}
+        for p, col in zip(pieces, cols):
+            if any(p is c for c in caps) or len(p.faces) <= small:
+                continue
+            for c in caps:
+                cc = cols[next(i for i, x in enumerate(pieces) if x is c)]
+                lo, hi = c.bounds[0] - c.extents * .1, c.bounds[1] + c.extents * .1
+                inside = np.all((p.vertices > lo) & (p.vertices < hi), axis=1).mean()
+                if inside > .8 and np.linalg.norm(col - cc) < .12:
+                    groups[id(c)].append(p)
+                    break
+        merged = {id(x) for g in groups.values() for x in g}
+        pieces = [p for p in pieces if id(p) not in merged] + [trimesh.util.concatenate(g) for g in groups.values()]
+    for p in pieces:
         if len(p.faces) <= small:
             out.append(ribbon(p, root_near) if root_near is not None else card(p))
         elif is_flat(p) and not is_curved(p):
@@ -213,8 +230,11 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
         elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
             out.append(prune(shrinkwrap(p, 2, grow=1.3, iters=1), p))
         else:
+            if not p.is_watertight and len(p.faces) >= 150:  # a cap (beanie): one clean dome, no torn fold
+                out.append(dome(p))
+                continue
             w = shrinkwrap(p, sub_for(len(p.faces)))
-            out.append(w if p.is_watertight else prune(w, p))  # an open piece (beanie) must not be closed across the head
+            out.append(w if p.is_watertight else prune(w, p))  # open pieces must not be closed across the head
     return trimesh.util.concatenate(out)
 
 
@@ -355,3 +375,32 @@ def ribbon(part: trimesh.Trimesh, root_near):
     tip = V[np.argmax(t)]
     v = np.vstack([pts, [tip]])
     return trimesh.Trimesh(v, [[0, 1, 3], [0, 3, 2], [2, 3, 4]], process=False)
+
+
+def dome(part: trimesh.Trimesh, rings=9, n=20):
+    """A cap-like open piece (beanie, helmet, hood) as ONE clean surface: a loft of rings measured along its own axis,
+    closed at the crown, open at the rim. Wrapping a primitive onto it tears at the folded brim; this does not."""
+    V = np.asarray(part.vertices)
+    e, cnt = np.unique(part.edges_sorted, axis=0, return_counts=True)
+    rim = V[np.unique(e[cnt == 1])]
+    c0 = rim.mean(0)
+    up = np.linalg.svd(rim - c0, full_matrices=False)[2][2]  # normal of the rim's plane
+    if (V.mean(0) - c0) @ up < 0:
+        up = -up
+    Z = np.array([0, 0, 1.]) - up * up[2]
+    Z = Z / np.linalg.norm(Z) if np.linalg.norm(Z) > 1e-6 else np.array([1., 0, 0])
+    X = np.cross(up, Z)
+    M = np.eye(4)
+    M[:3, 0], M[:3, 1], M[:3, 2], M[:3, 3] = X, up, Z, c0
+    S = trimesh.transform_points(trimesh.sample.sample_surface(part, 30000, seed=4)[0], np.linalg.inv(M))
+    lo, hi = np.percentile(S[:, 1], 1), S[:, 1].max()
+    R = []
+    for f in np.linspace(1, 0, rings):  # crown first
+        y = lo + (hi - lo) * f
+        band = (hi - lo) / rings
+        sel = S[np.abs(S[:, 1] - y) < band] if f < 1 else S[S[:, 1] > hi - band]
+        a, b = np.percentile(sel, 2, 0), np.percentile(sel, 98, 0)
+        s = .15 if f == 1 else 1.0  # the crown ring shrinks to a point-like cap
+        R.append((y, (a[0] + b[0]) / 2, (a[2] + b[2]) / 2, (b[0] - a[0]) / 2 * s, (b[2] - a[2]) / 2 * s))
+    m, _ = loft(M, R, n, 2.2, caps=(True, False))
+    return m
