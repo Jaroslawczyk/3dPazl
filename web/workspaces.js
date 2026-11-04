@@ -19,6 +19,46 @@ function blenderLine(b) {
   return `✓ Blender ${esc(b.version)} · ${esc(ok)}`;
 }
 
+// 2D workspaces: a 2D canvas replaces the 3D viewport (body[data-dim="2d"]). Modules draw via ctx.view2d.
+let v2d = null;
+function view2d() {
+  if (v2d) return v2d;
+  const c = document.createElement('canvas');
+  c.id = 'view2d';
+  c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;display:none;background:#26262b';
+  $('#center').appendChild(c);
+  const st = document.createElement('style');
+  st.textContent = 'body[data-dim="2d"] #view2d{display:block!important} body[data-dim="2d"] #vtools .vrow>*:not(#btnHideL):not(#btnHideR){display:none}';
+  document.head.appendChild(st);
+  const g = c.getContext('2d');
+  let last = null;
+  const cache = new Map();
+  const img = (src) => {
+    if (typeof src !== 'string') return Promise.resolve(src);
+    if (!cache.has(src)) cache.set(src, new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; }));
+    return cache.get(src);
+  };
+  const size = () => { const r = c.getBoundingClientRect(); const d = devicePixelRatio || 1;
+    if (c.width !== Math.round(r.width * d) || c.height !== Math.round(r.height * d)) { c.width = Math.round(r.width * d); c.height = Math.round(r.height * d); } };
+  // layers: [{img, alpha?}] drawn fitted into the canvas over a checkerboard; after(g, fit) for overlays
+  const draw = (layers, after) => {
+    last = [layers, after]; size();
+    const W = c.width, H = c.height;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#26262b'; g.fillRect(0, 0, W, H);
+    const base = layers.find((l) => l.img)?.img; if (!base) return null;
+    const s = Math.min((W - 40) / base.width, (H - 40) / base.height, 8), w = base.width * s, h = base.height * s;
+    const f = { s, x: (W - w) / 2, y: (H - h) / 2, w, h, d: devicePixelRatio || 1 };
+    const q = 8 * f.d; for (let y = 0; y < h; y += q) for (let x = 0; x < w; x += q) {
+      g.fillStyle = ((x / q + y / q) & 1) ? '#cfcfd4' : '#f2f2f5'; g.fillRect(f.x + x, f.y + y, Math.min(q, w - x), Math.min(q, h - y)); }
+    g.imageSmoothingEnabled = s < 2;
+    for (const l of layers) if (l.img) { g.globalAlpha = l.alpha ?? 1; g.drawImage(l.img, f.x, f.y, w, h); }
+    g.globalAlpha = 1; after?.(g, f); return f;
+  };
+  new ResizeObserver(() => last && draw(...last)).observe(c);
+  v2d = { canvas: c, g, img, draw, show: async (src) => draw([{ img: await img(src) }]), redraw: () => last && draw(...last) };
+  return v2d;
+}
+
 async function renderWs(id) {
   const el = $('#wsLeft');
   infos ||= await fetch('/api/ws').then((r) => r.json());
@@ -29,8 +69,10 @@ async function renderWs(id) {
   blenderInfo().then((b) => { const n = $('#wsBlender'); if (n && document.body.dataset.ws === id) n.innerHTML = blenderLine(b); });
   const open = async (path) => {
     document.querySelectorAll('#wsModels .ws-model').forEach((m) => m.classList.toggle('on', m.dataset.p === path));
+    if (info.dim === '2d') { if (ctx.pick) return ctx.pick(path); return view2d().show('/files/' + path); }
     return window.pazl.viewGlb(path);
   };
+  const ctx = {};
   const refresh = async () => {
     const list = await fetch(`/api/ws/${id}/models`).then((r) => r.json());
     const box = $('#wsModels');
@@ -45,7 +87,8 @@ async function renderWs(id) {
   $('#status').textContent = `${info.title}: ${list.length ? 'выберите модель слева' : 'моделей пока нет'}`;
   try {
     const mod = await import(`./ws/${id}.js`);
-    mod.mount?.($('#wsTools'), { pazl: window.pazl, info, blender: blenderInfo, refresh, open });
+    Object.assign(ctx, { pazl: window.pazl, info, blender: blenderInfo, refresh, open, view2d: info.dim === '2d' ? view2d() : null });
+    mod.mount?.($('#wsTools'), ctx);
   } catch (e) { $('#wsTools').innerHTML = `<div class="hint">Ошибка модуля: ${esc(e.message)}</div>`; }
 }
 

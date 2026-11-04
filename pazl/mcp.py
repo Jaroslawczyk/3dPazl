@@ -416,6 +416,62 @@ def library_insert(item_id: str, on: str = "", at: list | None = None, rot: floa
     return _j(_call("POST", "/api/library/insert", {"id": item_id, "on": on, "at": at, "rot": rot}))
 
 
+# ---------------------------------------------------------------- 2D frames / sprites
+NL = chr(10)
+
+
+@tool
+def frames_load(seq: str = "", sample: bool = False) -> str:
+    """2D frames workshop. List sequences (projects/frames2d/<seq>/key/*.png keyframes), or one seq's state.
+    sample=True creates procedural test sequences sample_sketch / sample_color. Next: frames_interpolate -> frames_check."""
+    if sample:
+        seq = _call("POST", "/api/ws/frames/sample")["name"]
+    if not seq:
+        return NL.join(f"{s['name']}: {s['keys']} keys, {s['frames']} frames, fps {s['fps']}, {s['method'] or '-'}"
+                         for s in _call("GET", "/api/ws/frames/seqs")) or "no sequences"
+    j = _call("GET", f"/api/ws/frames/seq/{seq}")
+    return f"{j['name']}: {len(j['keys'])} keys, {len(j['frames'])} frames, fps {j['fps']}, method {j['method'] or '-'}"
+
+
+@tool
+def frames_interpolate(seq: str, n: int = 1, method: str = "flow", lineart: str = "auto", fps: int = 0) -> str:
+    """Generate n inbetweens between every pair of keyframes. method: flow (native optical flow, default) | blend |
+    rife (needs PAZL_RIFE=rife-ncnn-vulkan). lineart: auto|true|false (keeps strokes crisp). Returns ghost per inbetween
+    (0 = both warped keys agree; >0.3 = likely ghosting/double lines -> add a key or use fewer inbetweens)."""
+    j = _call("POST", "/api/ws/frames/interpolate", {"seq": seq, "n": n, "method": method,
+              "lineart": None if lineart == "auto" else lineart in ("true", "1", True), "fps": fps or None})
+    return f"{j['frames']} frames from {j['keys']} keys" + NL + NL.join(f"{p['pair']} ghost {p['ghost']}" for p in j["pairs"])
+
+
+@tool
+def frames_check(seq: str) -> list:
+    """Quality report + ONE contact-sheet image of all frames (blue = keys, orange = inbetweens). pacing_flicker:
+    0 = even motion; jumps_at = frame numbers with abrupt change."""
+    j = _call("GET", f"/api/ws/frames/check/{seq}")
+    txt = (f"{j['frames']} frames {j['size'][0]}x{j['size'][1]} fps {j['fps']} method {j['method']} "
+           f"flicker {j['pacing_flicker']} jumps {j['jumps_at']}" + NL + NL.join(f"{p['pair']} ghost {p['ghost']}" for p in j["pairs"]))
+    return [Image(path=str(Path(__file__).resolve().parents[1] / "projects" / j["contact"])), txt]
+
+
+@tool
+def frames_export(seq: str, kind: str = "gif", fps: int = 0, cols: int = 0) -> str:
+    """Export a sequence: kind gif (anim.gif) | sheet (sheet.png + sheet.json atlas). PNG frames are already in out/."""
+    j = _call("POST", "/api/ws/frames/export", {"seq": seq, "kind": kind, "fps": fps or None, "cols": cols})
+    return _j(j)
+
+
+@tool
+def sprite_sheet(paths: list | None = None, name: str = "sheet", cols: int = 0, op: str = "pack", path: str = "",
+                 color: str = "auto", tol: float = 0.12, x: float = 0.5, y: float = 1.0, rows: int = 0) -> str:
+    """Sprites workshop (files under projects/, e.g. 'sprites/hero.png'). op: pack (paths -> sprites/<name>.png grid +
+    .json atlas) | unpack (path; cols+rows or auto by islands) | colorkey (path; color '#rrggbb' or auto, tol) ->
+    <name>_key.png | trim (path) | pivot (path, x, y in 0..1)."""
+    if op == "pack":
+        return _j(_call("POST", "/api/ws/sprites/pack", {"paths": paths or [], "name": name, "cols": cols}))
+    return _j(_call("POST", "/api/ws/sprites/op", {"path": path, "op": op, "color": color, "tol": tol, "x": x, "y": y,
+                                                    "cols": cols, "rows": rows}))
+
+
 def main():
     mcp.run()
 
