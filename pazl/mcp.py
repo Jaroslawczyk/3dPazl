@@ -142,6 +142,53 @@ def rig_export(name: str) -> str:
 
 
 @tool
+def char_make(name: str = "", preset: str = "", params: dict | None = None, src: str = "", template: str = "humanoid",
+              skin: str = "", anim: str = "") -> str:
+    """Characters workshop: organic one-piece body, skeleton and idle/walk clips -> projects/chars/<name>.glb.
+    Empty name lists presets, clothes, skins. New: preset (man woman athlete chubby elder child toon goblin dog cat horse monster)
+    or src = any GLB under projects/. Existing name with params {height, build, head, hips...} reshapes the body and refits clothes;
+    skin = preset/saved skin name; anim = idle|walk|run|wave|jump."""
+    if not name:
+        return _j(_call("GET", "/api/ws/chars/catalog"))
+    r = None
+    if preset or src:
+        r = _call("POST", "/api/ws/chars/create", {"name": name, "preset": preset, "params": params, "src": src, "template": template})
+    elif params:
+        r = _call("POST", "/api/ws/chars/update", {"name": name, "params": params})
+    if skin:
+        r = _call("POST", "/api/ws/chars/skin", {"name": name, "skin": skin})
+    if anim:
+        r = _call("POST", "/api/ws/chars/anim", {"name": name, "preset": anim})
+    return _j(r or _call("GET", f"/api/ws/chars/get/{name}"))
+
+
+@tool
+def char_sculpt(name: str, strokes: list | None = None, undo: bool = False) -> str:
+    """Clay on a character (generated or imported): strokes=[{p:[x,y,z], r: radius m, amount: m (minus dents), mirror: true}]."""
+    return _j(_call("POST", "/api/ws/chars/sculpt", {"name": name, "strokes": strokes, "undo": undo}))
+
+
+@tool
+def char_wear(char: str, kind: str = "", color: str = "", skin: str = "", ease: float = 0, length: float = 1,
+              remove: bool = False, copy_from: str = "") -> str:
+    """Clothes fitted from the body itself, so one recipe suits any character. Humanoid: tshirt longsleeve tank jacket pants shorts skirt
+    dress cloak boots shoes gloves scarf belt beanie hat hair_short hair_long beard; quadruped: coat collar paws; any object: wrap.
+    copy_from dresses `char` in another character's outfit."""
+    if copy_from:
+        return _j(_call("POST", "/api/ws/clothes/copy", {"from": copy_from, "to": char}))
+    if remove:
+        return _j(_call("POST", "/api/ws/clothes/remove", {"char": char, "kind": kind}))
+    return _j(_call("POST", "/api/ws/clothes/wear", {"char": char, "kind": kind, "color": color, "skin": skin or None, "ease": ease or None, "length": length}))
+
+
+@tool
+def skin_apply(src: str, skin: str | dict, name: str = "", parts: list | None = None) -> str:
+    """Skin any static GLB under projects/ (items, exports, imports) -> projects/skins/<name>.glb. skin: preset name
+    (denim tartan camo dragon tiger oak marble rust ...) or {pattern, colors, tile (m), seed, metal, rough}."""
+    return _j(_call("POST", "/api/ws/skins/apply", {"src": src, "skin": skin, "name": name, "parts": parts}))
+
+
+@tool
 def list_styles() -> str:
     """Architectural styles with era/region, recommended macros and tips."""
     return _j(_call("GET", "/api/catalog/styles"))

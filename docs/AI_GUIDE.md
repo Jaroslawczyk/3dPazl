@@ -148,3 +148,8 @@ GET state, recipe, tree, anchors/{id}, element/{id}, catalog/styles, catalog/ele
 projects, log?since=; POST new, load, save, patch {ops,note}, undo, redo, validate, render {views,tile,custom},
 export {format,lod_tris,force}, textures/manifest, note {text}, camera {az,el,dist,target}.
 GET preview.glb (per element), model.glb (welded, textured), render/latest.png.
+
+## Characters, clothes, skins
+- `char_make(name, preset)` grows a one-piece organic body (not primitives) with skeleton and idle/walk clips; `src` makes a character from any GLB. `char_make(name, params={...})` reshapes it and refits clothes.
+- `char_sculpt` pushes the surface with clay strokes. `char_wear` fits a garment from the body itself; `copy_from` refits another character's outfit; `wrap` covers any object.
+- `skin_apply` puts a pattern or picture skin on any static GLB; character skins go through `char_make(skin=...)`.

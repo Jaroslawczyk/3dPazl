@@ -13,8 +13,12 @@ from .project import PROJECTS
 WORKSHOPS = {
     "items": {"title": "Предметы", "dir": "items",
               "about": "Мелкие объекты и декали: посуда, еда, книги, инструменты, мелочи для интерьера."},
-    "clothes": {"title": "Одежда", "dir": "clothes",
-                "about": "Одежда для разных персонажей: подгонка под тело, слои, ткань."},
+    "chars": {"title": "Персонажи", "dir": "chars",
+              "about": "Живое цельное тело вместо примитивов: люди, звери, существа или ваш GLB. Пропорции, лепка, скин, анимация."},
+    "clothes": {"title": "Одежда", "dir": "chars",
+                "about": "Одежда считается по телу, поэтому подходит любому персонажу. Чехол надевается на любой объект."},
+    "skins": {"title": "Скины", "dir": "skins",
+              "about": "Материалы-раскраски для любых объектов: предметы, здания, импорт. Свой узор или своя картинка."},
     "rig": {"title": "Риг и анимация", "dir": "rigs",
             "about": "Кости, веса, анимации и проверка движения: пересечения, растяжения, реалистичность."},
     # ---- 2D
@@ -146,6 +150,112 @@ async def rig_check(body: dict):
 async def rig_export(body: dict):
     from ..core import rig
     return await asyncio.to_thread(_rig_call, rig.export, body["name"])
+
+
+# ---------------------------------------------------------------- characters, clothes, skins
+@router.get("/chars/catalog")
+def chars_catalog():
+    from ..core import chars
+    return chars.catalog()
+
+
+@router.get("/chars/get/{name}")
+def chars_get(name: str):
+    from ..core import chars
+    return _rig_call(chars.get, name)
+
+
+@router.post("/chars/create")
+async def chars_create(body: dict):
+    """body: {name, preset, params?} or {name, src (GLB under projects/), template}"""
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.create, body.get("name"), body.get("preset") or "man", body.get("params"),
+                                   body.get("src") or "", body.get("template") or "humanoid")
+
+
+@router.post("/chars/update")
+async def chars_update(body: dict):
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.update, body["name"], body.get("params") or {})
+
+
+@router.post("/chars/sculpt")
+async def chars_sculpt(body: dict):
+    """body: {name, strokes: [{p, r, amount, mirror}]} or {name, undo: true}"""
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.sculpt, body["name"], body.get("strokes"), bool(body.get("undo")))
+
+
+@router.post("/chars/skin")
+async def chars_skin(body: dict):
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.set_skin, body["name"], body.get("skin"))
+
+
+@router.post("/chars/anim")
+async def chars_anim(body: dict):
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.anim, body["name"], body.get("preset") or "walk")
+
+
+@router.post("/clothes/wear")
+async def clothes_wear(body: dict):
+    """body: {char, kind, color?, skin?, ease?, length?, flare?, wrinkle?, from?, to?}"""
+    from ..core import chars
+    o = {k: body[k] for k in ("ease", "length", "flare", "wrinkle", "from", "to") if body.get(k) not in (None, "")}
+    return await asyncio.to_thread(_rig_call, chars.wear, body["char"], body["kind"], body.get("color") or "", body.get("skin"), **o)
+
+
+@router.post("/clothes/remove")
+async def clothes_remove(body: dict):
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.remove, body["char"], body["kind"])
+
+
+@router.post("/clothes/copy")
+async def clothes_copy(body: dict):
+    from ..core import chars
+    return await asyncio.to_thread(_rig_call, chars.copy_outfit, body["from"], body["to"])
+
+
+@router.get("/skins/catalog")
+def skins_catalog():
+    from ..core import skins
+    return skins.catalog()
+
+
+@router.get("/skins/parts")
+def skins_parts(src: str):
+    from ..core import skins
+    return _rig_call(skins.parts_of, src)
+
+
+@router.post("/skins/preview")
+async def skins_preview(body: dict):
+    """body: {skin} -> a tile PNG as a data URL."""
+    import base64
+    from ..core import skins
+    b = await asyncio.to_thread(_rig_call, skins.png_bytes, body.get("skin"))
+    return {"url": "data:image/png;base64," + base64.b64encode(b).decode()}
+
+
+@router.post("/skins/save")
+def skins_save(body: dict):
+    """body: {name, skin, image?: dataURL} -> a saved skin; image makes it a picture skin."""
+    from ..core import skins
+    s = body.get("skin") or {}
+    if body.get("image"):
+        n = skins._safe(body.get("name"))
+        _save_dataurl(body["image"], skins.SKINS / f"{n}.png")
+        s = {**s, "pattern": "image", "file": f"skins/{n}.png"}
+    return {"name": skins.save(body.get("name"), s)}
+
+
+@router.post("/skins/apply")
+async def skins_apply(body: dict):
+    """body: {src (GLB under projects/), skin, name?, parts?} -> projects/skins/<name>.glb"""
+    from ..core import skins
+    return await asyncio.to_thread(_rig_call, skins.apply_glb, body["src"], body.get("skin"), body.get("name") or "", body.get("parts"))
 
 
 # ---------------------------------------------------------------- 2D: frames workshop
