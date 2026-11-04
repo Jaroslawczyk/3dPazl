@@ -1,6 +1,6 @@
 # 3dPazl for AI agents
 
-**Read [docs/QUICKSTART.md](docs/QUICKSTART.md) first**: file map, how to view results in the app, budgets, the user's rules.
+**Read [docs/QUICKSTART.md](docs/QUICKSTART.md) first**, then **[docs/MISTAKES.md](docs/MISTAKES.md)** (every mistake made so far, its fix, and the tools): file map, how to view results in the app, budgets, the user's rules.
 
 Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`; Codex: `[mcp_servers.pazl]` in `~/.codex/config.toml`). Start by reading its `guide` tool.
 

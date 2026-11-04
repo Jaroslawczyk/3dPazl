@@ -1,5 +1,7 @@
 # 3dPazl in 2 minutes: read this first, then only the one doc your task needs
 
+Before building any model also read [MISTAKES.md](MISTAKES.md): every mistake made so far, its fix, and the tools.
+
 The goal: start working at once, without exploring the repo. Everything below was learned the expensive way.
 
 ## Where things are
