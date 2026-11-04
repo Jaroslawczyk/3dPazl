@@ -1249,15 +1249,20 @@ $('#markRun').onclick = async () => {
     'После правок проверь validate и render_views (только что отмеченное).'].filter(Boolean).join('\n');
   try {
     chatBusy(true); showTab('right', 'chat');
-    await api('chat', { text, scope, image: markShot() });
+    await api('chat', { text, scope, image: markShot(), chat: CH.cur });
     $('#chatText').value = '';
     setMarking(false);
   } catch (e) { chatBusy(false); chatItem({ role: 'error', text: e.message }); }
 };
 
 // ---------------------------------------------------------------- AI chat (any provider; runs on the server)
-const CH = { settings: null };
-function chatItem(it) {
+const CH = { settings: null, cur: '1', ids: ['1'], logs: { 1: [] }, busy: {}, prov: {} };   // several chats = several AIs working in parallel
+function chatItem(it, id) {
+  id = String(id || it.chat || CH.cur);
+  const L = (CH.logs[id] ||= []); L.push(it); if (L.length > 400) L.shift();
+  if (id === CH.cur) chatDraw(it);
+}
+function chatDraw(it) {
   const log = $('#chatLog');
   log.querySelector('.hint')?.remove();
   const d = document.createElement('div');
@@ -1267,10 +1272,38 @@ function chatItem(it) {
   log.appendChild(d);
   log.scrollTop = log.scrollHeight;
 }
-function chatBusy(b) { $('#chatSend').hidden = b; $('#chatStop').hidden = !b; }
+function chatBusy(b, id) {
+  id = String(id || CH.cur); CH.busy[id] = b;
+  if (id === CH.cur) { $('#chatSend').hidden = b; $('#chatStop').hidden = !b; }
+  chatTabs();
+}
 function chatEvent(ev) {
-  if (ev.role === 'done') { renderUsage(); return chatBusy(false); }
-  chatItem(ev);
+  const id = String(ev.chat || '1');
+  if (!CH.ids.includes(id)) { CH.ids.push(id); CH.logs[id] = []; }   // a chat opened elsewhere
+  if (ev.role === 'done') { renderUsage(); return chatBusy(false, id); }
+  chatItem(ev, id);
+}
+function chatTabs() {
+  const pt = (id) => (CH.settings?.providers.find((x) => x.id === CH.prov[id])?.title || '').split(' ')[0];
+  $('#chatTabs').innerHTML = CH.ids.map((id) => `<button data-c="${id}" class="${id === CH.cur ? 'on' : ''}" title="Отдельный ИИ со своей историей; работает параллельно с другими">${CH.busy[id] ? '● ' : ''}ИИ ${id}${pt(id) ? ' · ' + esc(pt(id)) : ''}</button>`).join('')
+    + '<button data-c="+" title="Добавить ещё одного ИИ (работает одновременно с остальными)">＋</button>'
+    + (CH.cur !== '1' ? '<button data-c="x" title="Закрыть этот чат">✕</button>' : '');
+  $('#chatTabs').querySelectorAll('button').forEach((b) => { b.onclick = () => chatTabClick(b.dataset.c); });
+}
+async function chatTabClick(c) {
+  try {
+    if (c === '+') { const r = await api('chats', { from: CH.cur }); CH.ids.push(r.id); CH.logs[r.id] = []; return chatSwitch(r.id); }
+    if (c === 'x') { const id = CH.cur; await api('chats/' + id, undefined, 'DELETE'); CH.ids = CH.ids.filter((x) => x !== id); return chatSwitch('1'); }
+    return chatSwitch(c);
+  } catch (e) { chatItem({ role: 'error', text: e.message }); }
+}
+async function chatSwitch(id) {
+  CH.cur = id;
+  const st = await api('chat?chat=' + id);
+  CH.settings = st.settings; CH.prov[id] = st.settings.provider; CH.logs[id] = st.transcript.slice();
+  $('#chatLog').innerHTML = ''; CH.logs[id].forEach(chatDraw);
+  if (!CH.logs[id].length) $('#chatLog').innerHTML = '<div class="hint">Напишите, что построить или изменить. Каждый чат — отдельный ИИ; можно запустить несколько сразу.</div>';
+  chatFill(); chatBusy(st.busy, id);
 }
 function chatFill() {
   const s = CH.settings, p = s.providers.find((x) => x.id === s.provider) || s.providers[0];
@@ -1307,12 +1340,11 @@ async function chatConsole(what) {
 $('#chatLogin').onclick = () => chatConsole('login');
 $('#chatInstall').onclick = () => chatConsole('install');
 window.addEventListener('focus', () => { const id = CH.settings?.provider; if (id && id in CH.settings.cli) chatAccount(id); });
-async function chatSave(upd) { CH.settings = await api('chat/settings', upd); chatFill(); }
+async function chatSave(upd) { CH.settings = await api('chat/settings', { ...upd, chat: CH.cur }); CH.prov[CH.cur] = CH.settings.provider; chatFill(); chatTabs(); }
 async function chatInit() {
-  const st = await api('chat');
-  CH.settings = st.settings; chatFill();
-  st.transcript.forEach(chatItem);
-  chatBusy(st.busy);
+  const list = await api('chats');
+  CH.ids = list.map((c) => c.id); list.forEach((c) => { CH.prov[c.id] = c.provider; CH.busy[c.id] = c.busy; CH.logs[c.id] = []; });
+  await chatSwitch('1');
 }
 $('#chatProvider').onchange = () => chatSave({ provider: $('#chatProvider').value });
 $('#chatModel').onchange = () => chatSave({ model: $('#chatModel').value });
@@ -1321,14 +1353,14 @@ $('#chatKey').onchange = () => chatSave({ api_key: $('#chatKey').value });
 $('#chatEffort').onchange = () => chatSave({ effort: $('#chatEffort').value });
 $('#chatVision').onchange = () => chatSave({ vision: $('#chatVision').checked });
 $('#chatReset').onclick = async () => {
-  try { await api('chat/reset', {}); $('#chatLog').innerHTML = '<div class="hint">Новый разговор.</div>'; }
+  try { await api('chat/reset', { chat: CH.cur }); CH.logs[CH.cur] = []; $('#chatLog').innerHTML = '<div class="hint">Новый разговор.</div>'; }
   catch (e) { chatItem({ role: 'error', text: e.message }); }
 };
-$('#chatStop').onclick = () => api('chat/stop', {});
+$('#chatStop').onclick = () => api('chat/stop', { chat: CH.cur });
 async function chatSend() {
   const text = $('#chatText').value.trim();
   if (!text) return;
-  try { chatBusy(true); await api('chat', { text }); $('#chatText').value = ''; }
+  try { chatBusy(true); await api('chat', { text, chat: CH.cur }); $('#chatText').value = ''; }
   catch (e) { chatBusy(false); chatItem({ role: 'error', text: e.message }); }
 }
 $('#chatSend').onclick = chatSend;

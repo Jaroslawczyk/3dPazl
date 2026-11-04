@@ -48,6 +48,7 @@ def broadcast(ev: dict):
 
 P = Project(broadcast)
 CHAT = Chat(broadcast, P)
+CHATS = {"1": CHAT}   # id -> Chat; every chat has its own AI, history and busy flag, so several AIs can work in parallel
 
 
 @app.on_event("startup")
@@ -371,15 +372,49 @@ def log(since: float = 0):
 
 # ------------------------------------------------------------------ live + static
 # ------------------------------------------------------------------ AI chat (any provider, same tools as MCP)
+def _chat(cid) -> Chat:
+    c = CHATS.get(str(cid or "1"))
+    if c is None:
+        raise HTTPException(404, "нет такого чата")
+    return c
+
+
 @app.get("/api/chat")
-def chat_state():
-    return CHAT.state()
+def chat_state(chat: str = "1"):
+    return _chat(chat).state()
+
+
+@app.get("/api/chats")
+def chats_list():
+    return [{"id": i, "provider": c.settings.get("provider"), "busy": c.busy} for i, c in CHATS.items()]
+
+
+@app.post("/api/chats")
+def chats_new(body: dict = Body(default={})):
+    """Another AI chat (copy of the settings of the chat it is made from); works in parallel with the others."""
+    import copy
+    src = _chat(body.get("from", "1"))
+    cid = str(max(int(i) for i in CHATS) + 1)
+    c = Chat(broadcast, P, cid)
+    c.settings = copy.deepcopy(src.settings)
+    CHATS[cid] = c
+    return {"id": cid}
+
+
+@app.delete("/api/chats/{cid}")
+def chats_close(cid: str):
+    c = _chat(cid)
+    if cid == "1":
+        raise HTTPException(400, "первый чат нельзя закрыть")
+    c.stop()
+    CHATS.pop(cid, None)
+    return {"ok": True}
 
 
 @app.post("/api/chat")
 def chat_send(body: dict = Body(...)):
     try:
-        CHAT.send(str(body.get("text", "")), scope=body.get("scope"), image=body.get("image"))
+        _chat(body.get("chat")).send(str(body.get("text", "")), scope=body.get("scope"), image=body.get("image"))
     except (RuntimeError, ValueError) as ex:
         raise HTTPException(409, str(ex))
     return {"ok": True}
@@ -387,7 +422,12 @@ def chat_send(body: dict = Body(...)):
 
 @app.post("/api/chat/settings")
 def chat_settings(body: dict = Body(...)):
-    return CHAT.save_settings(body)
+    c = _chat(body.get("chat"))
+    out = c.save_settings(body)
+    for o in CHATS.values():          # keys and URLs are shared by all chats; provider / model / effort stay per chat
+        if o is not c:
+            o.settings["keys"], o.settings["base_urls"] = c.settings.get("keys", {}), c.settings.get("base_urls", {})
+    return out
 
 
 def _usage():
@@ -493,15 +533,15 @@ def chat_console(body: dict = Body(...)):
 
 
 @app.post("/api/chat/stop")
-def chat_stop():
-    CHAT.stop()
+def chat_stop(body: dict = Body(default={})):
+    _chat(body.get("chat")).stop()
     return {"ok": True}
 
 
 @app.post("/api/chat/reset")
-def chat_reset():
+def chat_reset(body: dict = Body(default={})):
     try:
-        CHAT.reset()
+        _chat(body.get("chat")).reset()
     except RuntimeError as ex:
         raise HTTPException(409, str(ex))
     return {"ok": True}

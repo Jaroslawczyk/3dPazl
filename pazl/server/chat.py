@@ -166,7 +166,8 @@ def public_settings(s: dict) -> dict:
 
 # ------------------------------------------------------------------ session
 class Chat:
-    def __init__(self, broadcast, project=None):
+    def __init__(self, broadcast, project=None, cid="1"):
+        self.cid = cid                     # several chats (different AIs) can work at the same time
         self.broadcast = broadcast
         self.project = project
         self.settings = load_settings()
@@ -236,7 +237,7 @@ class Chat:
     def _emit(self, role, text, **extra):
         item = {"role": role, "text": text, **extra}
         self.transcript.append(item)
-        self.broadcast({"type": "chat", **item})
+        self.broadcast({"type": "chat", "chat": self.cid, **item})
 
     def _use(self, inp=0, out=0, cache_read=0, cache_write=0, cost=None, note=""):
         r = self.run
@@ -292,10 +293,10 @@ class Chat:
             except Exception as ex:  # usage must not break the chat
                 log_exception("usage", ex)
             self.busy = False
-            self.broadcast({"type": "chat", "role": "done", "text": ""})
+            self.broadcast({"type": "chat", "chat": self.cid, "role": "done", "text": ""})
 
     def _agent(self, p):
-        return "chat:" + p
+        return "chat:" + p + ("" if self.cid == "1" else "#" + self.cid)
 
     def _tool_call(self, p, name, args):
         self._emit("tool", name, args=args)
