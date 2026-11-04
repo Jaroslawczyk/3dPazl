@@ -352,6 +352,20 @@ def render_custom(az: float = -45, el: float = 25, dist: float | None = None, ta
 
 
 @tool
+def view_screenshot(size: int = 1280) -> list:
+    """Screenshot of the app's 3D view exactly as it is now (current camera, any opened GLB / workshop model) WITHOUT any
+    interface: no panels, buttons, gizmos or marks, only the scene. Use this instead of screenshotting the app window."""
+    import tempfile
+    _ensure()
+    r = httpx.get(BASE + "/api/snapshot", params={"size": size}, headers={"X-Agent": AGENT}, timeout=30)
+    if r.status_code != 200:
+        return [_j({"error": r.json().get("detail", r.text) if r.headers.get("content-type", "").startswith("application/json") else r.text})]
+    f = Path(tempfile.gettempdir()) / "pazl_view_screenshot.png"
+    f.write_bytes(r.content)
+    return [Image(path=str(f))]
+
+
+@tool
 def note(text: str) -> str:
     """Show a progress message to the user in the app's live log."""
     return _j(_call("POST", "/api/note", {"text": text}))

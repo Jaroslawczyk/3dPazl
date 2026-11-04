@@ -94,6 +94,16 @@ function updateClipRange() {
     camera.near = near; camera.far = far; camera.updateProjectionMatrix();
   }
 }
+// AI screenshots: the server asks the open tab for a clean picture of the 3D view (no panels, buttons, gizmo or marks)
+function sendSnapshot(id, max) {
+  const h = gizmo.getHelper(), vis = h.visible; h.visible = false;
+  renderer.render(scene, camera);
+  const src = renderer.domElement, k = Math.min(1, max / Math.max(src.width, src.height));
+  const cv = document.createElement('canvas'); cv.width = Math.round(src.width * k); cv.height = Math.round(src.height * k);
+  cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+  h.visible = vis; renderer.render(scene, camera);
+  fetch('/api/snapshot/' + id, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cv.toDataURL('image/png') }) });
+}
 function loop() {
   requestAnimationFrame(loop);
   orbit.update(); tickCamAnim(); tickDoors(); tickBoom();
@@ -1548,6 +1558,7 @@ function connect() {
     const ev = JSON.parse(m.data);
     if (ev.type === 'hello') return;
     if (ev.type === 'chat') { chatEvent(ev); return; }
+    if (ev.type === 'snapshot') { sendSnapshot(ev.id, ev.size || 1280); return; }
     feedLine(ev);
     if (ev.type === 'updated') {
       // flash elements the change touched

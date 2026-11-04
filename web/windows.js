@@ -181,8 +181,11 @@ function adopt(k, el, title) {
 
 window.pazlWin = { adopt, show, hide, toggle, isOpen, reset };
 
+function setClean(on) { document.body.classList.toggle('clean', on); requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }
 function init() {
   load();
+  if (new URLSearchParams(location.search).has('clean')) setClean(true);
+  addEventListener('keydown', (e) => { if (e.key === 'F10') { e.preventDefault(); setClean(!document.body.classList.contains('clean')); } });
   $('#btnHideL').onclick = () => toggle('left'); $('#btnHideR').onclick = () => toggle('right');
   $('#settingsWinReset')?.addEventListener('click', reset);
   watch($('#left'), 'left'); watch($('#wsLeft'), 'left'); watch($('#right'), 'right');

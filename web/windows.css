@@ -31,3 +31,9 @@ body.win-offl.win-offr #center { grid-column: 1 / -1; }
 
 #chatTabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 4px 0; flex: none; }
 #chatTabs button { padding: 2px 8px; font-size: 11px; border-radius: 10px; }
+
+/* clean view (?clean=1 or F10): only the 3D scene, for screenshots without any interface */
+body.clean { grid-template-rows: 0 1fr; }
+body.clean #top, body.clean main > .rail, body.clean #left, body.clean #wsLeft, body.clean #right, body.clean #vtools, body.clean #status,
+body.clean #busy, body.clean #glbPick, body.clean #markBar, body.clean .win-float { display: none !important; }
+body.clean main { grid-template-columns: 0 0 minmax(0, 1fr) 0 !important; } body.clean #center { grid-column: 3 !important; }

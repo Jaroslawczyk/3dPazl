@@ -6,6 +6,7 @@ Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`; Codex: `[mcp_servers
 
 **Never drive 3dPazl through its own «ИИ» chat tab or by clicking the UI to build.** That tab starts a second AI (Codex/Claude/Gemini) that re-reads everything, so tokens are paid twice and every screenshot costs more than a tool reply. Build with the MCP tools or the Python API (`docs/QUICKSTART.md`); open the browser only at the end to show the result. If the `pazl` tools are missing in your session, say so to the user instead of falling back to the UI.
 
+- Screenshots of the app for yourself: use the `view_screenshot` MCP tool (the 3D view only, no interface). If you drive a browser, open the app with `?clean=1` (F10 toggles it).
 - Buildings, items, rigs: [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - Vehicles and how to build good low-poly models: [docs/model_craft.md](docs/model_craft.md)
 - Characters, clothes, downloading textures from the internet, Roblox export: [docs/ROBLOX.md](docs/ROBLOX.md)

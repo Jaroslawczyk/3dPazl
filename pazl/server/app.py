@@ -288,6 +288,35 @@ def render(body: dict = Body(default={}), x_agent: str = Header("user")):
     return _run(P.render, body.get("views"), x_agent, tile, body.get("custom"))
 
 
+_SNAPS: dict = {}
+
+
+@app.get("/api/snapshot")
+def snapshot(size: int = 1280):
+    """What the open app shows in its 3D view RIGHT NOW (current camera and model, e.g. a GLB opened for viewing), as PNG with
+    no interface at all: no panels, buttons or gizmos. The browser tab renders it and uploads it back."""
+    import threading, uuid
+    rid = uuid.uuid4().hex[:10]
+    ev = _SNAPS[rid] = {"ev": threading.Event(), "png": None}
+    broadcast({"type": "snapshot", "id": rid, "size": max(256, min(2400, size))})
+    ok = ev["ev"].wait(8)
+    _SNAPS.pop(rid, None)
+    if not ok or not ev["png"]:
+        raise HTTPException(503, "нет открытого окна приложения (откройте 3dPazl в браузере или программе) — снимок не получен")
+    return Response(ev["png"], media_type="image/png")
+
+
+@app.post("/api/snapshot/{rid}")
+def snapshot_upload(rid: str, body: dict = Body(...)):
+    import base64
+    ev = _SNAPS.get(rid)
+    if ev is None:
+        raise HTTPException(404, "запрос снимка устарел")
+    ev["png"] = base64.b64decode(str(body.get("data", "")).split(",", 1)[-1])
+    ev["ev"].set()
+    return {"ok": True}
+
+
 @app.get("/api/render/latest.png")
 def latest_png():
     if not P.last_render:
