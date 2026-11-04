@@ -10,6 +10,7 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pazl.core import skins  # noqa: E402
+from pazl.core.rig import skeleton as chars_skeleton  # noqa: E402
 from pazl.core.chars import body, cloth, importer  # noqa: E402
 from pazl.core.chars.field import Grid, ellipsoid, surface_nets  # noqa: E402
 
@@ -27,7 +28,7 @@ def test_surface_nets_closed_sphere():
 def test_body_is_one_skin_on_the_ground(preset):
     kind, p = body.params_for(preset)
     m, bones = body.build(kind, p, cell=float(p["height"]) * .02)
-    assert len(m.split(only_watertight=False)) <= 3  # skin + two eyes
+    assert kind == "blocky" or len(m.split(only_watertight=False)) <= 3  # skin + two eyes
     assert abs(m.bounds[0][1]) < .02 and bones
 
 
@@ -135,10 +136,10 @@ def test_block_body_with_lowered_arms_is_straightened_and_measured():
         return m
     m = trimesh.util.concatenate([block((0, 1.5, 0), (.4, .4, .4)), block((0, 1, 0), (.6, .6, .3)), block((.45, 1, 0), (.3, .6, .3)),
                                   block((-.45, 1, 0), (.3, .6, .3)), block((.15, .35, 0), (.3, .7, .3)), block((-.15, .35, 0), (.3, .7, .3))])
-    V, crotch = importer.straighten(np.asarray(m.vertices), np.asarray(m.faces))
+    V, crotch, _ = importer.straighten(np.asarray(m.vertices), np.asarray(m.faces))
     assert abs(crotch - .7) < 1e-6 and V[:, 0].max() > .85  # arms went out from .6 to .9
     b = {x["name"]: x for x in body.fit_tpose(trimesh.sample.sample_surface(trimesh.Trimesh(V, m.faces, process=False), 40000, seed=1)[0], crotch)}
-    assert abs(b["hips"]["head"][1] - .7) < .01 and abs(b["upper_arm.L"]["head"][0] - .3) < .03 and b["head"]["head"][1] < 1.45
+    assert abs(b["hips"]["head"][1] - .7) < .01 and abs(b["shoulder.L"]["head"][0] - .3) < .03 and abs(b["upper_arm.L"]["head"][0] - .45) < .03 and b["head"]["head"][1] < 1.45
 
 
 def test_classic_template_and_r6_rest_pose():
@@ -154,3 +155,16 @@ def test_classic_template_and_r6_rest_pose():
     poses, _ = roblox.r6_poses(bones, clip, 0)
     for n in ("Left Arm", "Right Arm", "Left Leg", "Head"):  # idle arms hang down = almost the R6 rest pose
         assert np.trace(poses[n]) > 2.2, n
+
+
+def test_block_garment_is_a_closed_shell_per_block():
+    k, p = body.params_for("blocky")
+    m, bones = body.build(k, p, cell=.015)
+    names = chars_skeleton.order(bones)[0]
+    fit = cloth.Fit(np.asarray(m.vertices), m.faces, np.asarray(m.vertex_normals), bones, names)
+    V, F, N, L = cloth.make_blocks(fit, "longsleeve", {}, "humanoid")
+    assert {names[i] for i in np.unique(L)} >= {"chest", "upper_arm.L", "upper_arm.R"}
+    assert (L[F] == L[F[:, :1]]).all()  # no triangle spans two blocks, so none can stretch
+    tw = next(b for b in bones if b["name"] == "shoulder.L")["head"][0]
+    side = V[(L == names.index("chest")) & (V[:, 1] > bones[0]["tail"][1])]
+    assert side[:, 0].max() > tw  # the torso piece has its own side wall under the arm

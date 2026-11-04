@@ -183,7 +183,7 @@ async def chars_import(body: dict):
 
     def run():
         m = importer.convert(files, body.get("name") or "", float(body.get("height") or 0), body.get("up") or "auto", body.get("turn") or 0)
-        return {**chars.create(m["name"], src=m["src"], template=body.get("template") or "humanoid", quality=body.get("quality") or "high", crotch=m["crotch"]), "size_m": m["size_m"]}
+        return {**chars.create(m["name"], src=m["src"], template=body.get("template") or "humanoid", quality=body.get("quality") or "high", crotch=m["crotch"], torso=m["torso"]), "size_m": m["size_m"]}
     return await asyncio.to_thread(_rig_call, run)
 
 

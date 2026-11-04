@@ -206,10 +206,10 @@ def straighten(V, F):
     for fs in np.split(order, np.flatnonzero(np.diff(lab[order])) + 1):
         idx = np.unique(F[fs])
         lo, hi = V[idx].min(0), V[idx].max(0)
-        if (hi - lo)[1] > H * .1 and min((hi - lo)[0], (hi - lo)[2]) > H * .03:
+        if (hi - lo)[1] > H * .05 and min((hi - lo)[0], (hi - lo)[2]) > H * .03:
             parts.append({"i": idx, "lo": lo, "hi": hi, "c": (lo + hi) / 2})
     if len(parts) < 6 or np.ptp(V[:, 0]) > H * .9:  # not blocks, or the arms are already spread
-        return V, None
+        return V, None, None
     y0, y1 = V[:, 1].min(), V[:, 1].max()
     if sum(p["hi"][1] > y1 - H * .05 for p in parts) == 2 and sum(p["lo"][1] < y0 + H * .05 for p in parts) != 2:
         V = V * (1, -1, -1) + (0, y0 + y1, 0)  # two legs on top, one head below: the file is upside down
@@ -223,17 +223,23 @@ def straighten(V, F):
     torso = max(rest, key=lambda p: float(np.prod(p["hi"] - p["lo"])) * (abs(p["c"][0]) < H * .1))
     tw = (torso["hi"][0] - torso["lo"][0]) / 2
     V = V.copy()
-    for p in rest:
-        if p is torso or abs(p["c"][0]) < tw or p["hi"][1] < torso["c"][1]:
+    swung = 0
+    for s in (1, -1):  # an arm may be several pieces (sleeve, hand): they swing together
+        ps = [p for p in rest if p is not torso and p["c"][0] * s > tw and p["hi"][1] < torso["hi"][1] + H * .05 and p["lo"][1] > torso["lo"][1] - H * .2]
+        if not ps:
             continue
-        s = 1 if p["c"][0] > 0 else -1
-        aw = (p["hi"][0] - p["lo"][0]) / 2
-        if (p["hi"][1] - p["lo"][1]) < 2 * aw:
+        idx = np.concatenate([p["i"] for p in ps])
+        lo, hi = V[idx].min(0), V[idx].max(0)
+        aw = min((hi[0] - lo[0]) / 2, (hi[2] - lo[2]) / 2)
+        if hi[1] - lo[1] < 2 * aw:
             continue
-        piv = np.array([p["c"][0], p["hi"][1] - aw, p["c"][2]])
-        d = V[p["i"]] - piv
-        V[p["i"]] = piv + np.stack([-d[:, 1] * s, d[:, 0] * s, d[:, 2]], 1)
-    return V, float(torso["lo"][1])
+        piv = np.array([(lo[0] + hi[0]) / 2, hi[1] - aw, (lo[2] + hi[2]) / 2])
+        d = V[idx] - piv
+        V[idx] = piv + np.stack([-d[:, 1] * s, d[:, 0] * s, d[:, 2]], 1)
+        swung += 1
+    if swung != 2:  # no clean pair of block arms: treat it as an ordinary body
+        return V, None, None
+    return V, float(torso["lo"][1]), float(tw)
 
 
 def convert(files: dict[str, bytes], name="", height=0.0, up="auto", turn=0) -> dict:
@@ -267,11 +273,11 @@ def convert(files: dict[str, bytes], name="", height=0.0, up="auto", turn=0) -> 
     V = V - ((lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2)
     k = float(height) / (hi[1] - lo[1]) if height else 1.0
     V = V * k
-    V, crotch = straighten(V, F)
+    V, crotch, tw = straighten(V, F)
     m = trimesh.Trimesh(V, F, process=False)
     m.visual.vertex_colors = (np.clip(C, 0, 1) * 255).astype(np.uint8)
     out = IMPORTS / f"{name}.glb"
     out.parent.mkdir(parents=True, exist_ok=True)
     m.export(out)
     return {"src": out.relative_to(PROJECTS).as_posix(), "name": name, "verts": len(V), "tris": len(F),
-            "size_m": [round(float(x), 3) for x in np.ptp(V, 0)], "crotch": crotch}
+            "size_m": [round(float(x), 3) for x in np.ptp(V, 0)], "crotch": crotch, "torso": tw}

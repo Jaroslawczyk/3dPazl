@@ -179,11 +179,11 @@ def export_char(name):
     acc = [g for g in c["outfit"] if g["kind"] in ACCESSORY]
     if acc:
         V, F, N, _ = rig.load_mesh(r["src"])
-        fit = cloth.Fit(V, F, N, r["bones"])
-        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime]
+        fit = chars.fit_for(c, r, V, F, N)
+        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 5]
         (out / "accessories").mkdir()
         for g in acc:
-            v, f, _ = chars._garment(c, g, fit, stamp)
+            v, f, *_ = chars._garment(c, g, fit, stamp)
             v, f = decimate(np.asarray(v, float), np.asarray(f), ACC_TRIS)
             m = trimesh.Trimesh(v, f, process=False)
             col = body.rgb(g.get("color") or cloth.kinds_for(c["template"])[g["kind"]][2]["color"])

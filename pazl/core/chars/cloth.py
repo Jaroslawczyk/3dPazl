@@ -4,6 +4,8 @@ body, the same recipe fits a child, a goblin, an imported mesh; `wrap` needs no 
 Skin weights are copied from the nearest body vertices, so clothes follow every animation of the character."""
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import trimesh
 from scipy import ndimage
@@ -26,10 +28,10 @@ LEG = {"hips": (-.3, .75)}
 # cover: bone -> (from, to) along the bone; cut: bones whose tubes are removed; opts per kind
 KINDS = {
     "humanoid": {
-        "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (0, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
-        "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (0, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
+        "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
+        "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
         "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017}),
-        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (0, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather"}),
+        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather"}),
         "pants": ("Брюки", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, 1), "shin": (0, .92)})}, "color": "#333a4d", "ease": .01, "skin": "denim"}),
         "shorts": ("Шорты", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, .6)})}, "color": "#6d6a52", "ease": .011}),
         "skirt": ("Юбка", "Низ", {"band": ("spine", .1, "thigh.L", .75), "flare": .17, "color": "#8c3a5c"}),
@@ -76,12 +78,30 @@ def _tube(P, a, b, t0, t1, R):
     return np.maximum(rad - R, np.maximum(t0 * L - h, h - t1 * L))
 
 
-class Fit:
-    """Measurements of one body, shared by its garments."""
+def block_label(P, bones, names):
+    """Which block of a toy-like body a point is in: index of the one bone that block follows."""
+    by = {b["name"]: b for b in bones}
+    tw, neck, crotch = by["shoulder.L"]["head"][0], by["neck"]["head"][1], by["hips"]["head"][1]
+    ix = {k: i for i, k in enumerate(names)}
+    x, y = P[:, 0], P[:, 1]
+    lab = np.full(len(P), ix["chest"])
+    lab[y > neck * .999] = ix["head"]
+    low = y < crotch
+    lab[low & (x > 0)], lab[low & (x <= 0)] = ix["thigh.L"], ix["thigh.R"]
+    sh = by["shoulder.L"]
+    top = sh["head"][1] + (sh["tail"][0] - sh["head"][0]) * 1.1  # the arm is as thick as its joint is far from the torso edge
+    arm = (np.abs(x) > tw) & ~low & (y <= top)  # torso corners above it stay with the torso
+    lab[arm & (x > 0)], lab[arm & (x <= 0)] = ix["upper_arm.L"], ix["upper_arm.R"]
+    return lab
 
-    def __init__(self, V, F, N, bones):
+
+class Fit:
+    """Measurements of one body, shared by its garments. names: bone order of a block body."""
+
+    def __init__(self, V, F, N, bones, names=None):
         self.skin_tree = cKDTree(V)  # real vertices: skin weights come from them
-        if len(V) < 20000:  # low-poly body: measure on points spread over its faces, or the cloth would be lumpy
+        self.names, self.bones_raw = names, bones
+        if names or len(V) < 20000:  # low-poly body: measure on points spread over its faces, or the cloth would be lumpy
             m = trimesh.Trimesh(V, F, process=False)
             V, fi = trimesh.sample.sample_surface(m, 60000, seed=1)
             V, N = np.asarray(V, float), np.asarray(m.face_normals[fi], float)
@@ -98,12 +118,28 @@ class Fit:
                 self.reach[n] = .05
                 continue
             a, b = self.bones[n]
-            self.reach[n] = float(np.percentile(seg_dist(pts, a[None], b[None]), 96)) * 1.15 + .03
+            q = 96 if n.startswith("shoulder") else 100  # the whole limb, box corners too: a short reach cuts hems into arches
+            self.reach[n] = float(np.percentile(seg_dist(pts, a[None], b[None]), q)) * 1.15 + .03
         trunk = [n for n in ("hips", "spine", "chest") if n in self.reach]
         for n in trunk:  # one width for the whole trunk, or hems step in on boxy bodies
             self.reach[n] = max(self.reach[k] for k in trunk)
         self.lo, self.hi = V.min(0), V.max(0)
         self.H = float(self.hi[1] - self.lo[1])
+        if self.names:  # stepping just inside tells apart two faces that touch: torso side and arm end
+            self.lab = block_label(self.V - self.N * .004, bones, self.names)
+            box = self.V[self.lab == self.names.index("chest")]
+            for n in ("hips", "spine", "chest"):  # measured on the torso block itself, corners included
+                self.reach[n] = float(np.linalg.norm(box[:, [0, 2]], axis=1).max()) * 1.1 + .03
+            for s in (".L", ".R"):  # one sleeve width from the shoulder on, or the seam gets a step
+                self.reach["shoulder" + s] = self.reach["upper_arm" + s]
+
+    def only(self, lab):
+        """The same body measured on one block: its shell closes on every side, also where it touches a neighbour."""
+        f = copy.copy(self)
+        m = self.lab == lab
+        f.V, f.N = self.V[m], self.N[m]
+        f.tree = cKDTree(f.V)
+        return f
 
     def offset(self, P, ease):
         """Smooth signed distance to the body surface, minus ease."""
@@ -111,7 +147,8 @@ class Fit:
         w = 1 / np.maximum(d, 1e-4) ** 2
         w /= w.sum(1, keepdims=True)
         sd = (((P[:, None] - self.V[i]) * self.N[i]).sum(2) * w).sum(1)
-        return np.where(d[:, 0] > .05, np.sign(sd) * d[:, 0], sd) - ease
+        near = d[:, 0]  # beyond a box edge the plane distance drops to 0 and would grow false sheets: outside stays outside
+        return np.where(sd > -.3 * near, np.maximum(sd, .9 * near), sd) - ease
 
     def y_at(self, bone, t):
         a, b = self.bones[bone]
@@ -129,6 +166,8 @@ def _region(fit, o, P):
             r = np.maximum(r, -_tube(P, *fit.bones[n], t0, t1, fit.reach[n]))
     if "neck" in fit.bones and "head" in fit.bones and not {"neck", "head"} & set(o.get("cover", {})):
         r = np.maximum(r, P[:, 1] - fit.y_at("neck", .15))  # body clothes never climb the neck
+    if "foot.L" in o.get("cover", {}) and "shin.L" in o["cover"]:  # a flat top: the slanted foot tube must not arch above the shaft
+        r = np.maximum(r, P[:, 1] - fit.y_at("shin.L", o["cover"]["shin.L"][0]))
     return r
 
 
@@ -278,6 +317,34 @@ def make(fit, kind, spec, template, target=None):
     if o.get("ground"):
         V[:, 1] = np.maximum(V[:, 1], fit.lo[1])
     return V, np.asarray(m.faces), np.asarray(m.vertex_normals, float)
+
+
+def make_blocks(fit, kind, spec, template, target=None):
+    """(V, F, N, bone per vertex) for a block body: one closed shell per block, so nothing stretches between blocks."""
+    if kind not in kinds_for(template):
+        raise ValueError(f"«{kind}» не подходит к скелету {template}; есть: {', '.join(kinds_for(template))}")
+    o = kinds_for(template)[kind][2]
+    spec = {"wrinkle": .3, **spec}
+    if "hair" in o or "beard" in o or "brim" in o:
+        whole = fit.names.index("head")
+    elif o.get("cloak") or o.get("wrap") or "band" in o:
+        whole = fit.names.index("chest")
+    else:
+        whole = None
+    if whole is not None:
+        V, F, N = make(fit, kind, spec, template, target)
+        return V, F, N, np.full(len(V), whole)
+    res, off = [], 0
+    for lab in np.unique(fit.lab):
+        try:
+            V, F, N = make(fit.only(lab), kind, spec, template, max(1500, target // 3) if target else None)
+        except ValueError:
+            continue  # this garment does not reach this block
+        res.append((V, F + off, N, np.full(len(V), lab)))
+        off += len(V)
+    if not res:
+        raise ValueError(f"{kind}: поверхность не получилась")
+    return tuple(np.vstack([r[i] for r in res]) for i in range(3)) + (np.concatenate([r[3] for r in res]),)
 
 
 def _inverted(m, fit):

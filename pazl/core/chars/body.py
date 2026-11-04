@@ -247,8 +247,9 @@ def blocky_field(p, cell=None):
     for s, k in skeleton.SIDES:
         x = tw / 2 * k
         ax = tw * k
-        b += [_bone("shoulder" + s, "chest", (.03 * u * k, sy, 0), (ax, sy, 0)),
-              _bone("upper_arm" + s, "shoulder" + s, (ax, sy, 0), (ax + ar * .5 * k, sy, 0)),
+        pv = (tw + aw) * k  # the arm turns about its own centre, outside the torso
+        b += [_bone("shoulder" + s, "chest", (ax, sy, 0), (pv, sy, 0)),
+              _bone("upper_arm" + s, "shoulder" + s, (pv, sy, 0), (ax + ar * .5 * k, sy, 0)),
               _bone("forearm" + s, "upper_arm" + s, (ax + ar * .5 * k, sy, 0), (ax + ar * .88 * k, sy, 0)),
               _bone("hand" + s, "forearm" + s, (ax + ar * .88 * k, sy, 0), (ax + ar * k, sy, 0)),
               _bone("thigh" + s, "hips", (x, lg, 0), (x, lg * .5, 0)), _bone("shin" + s, "thigh" + s, (x, lg * .5, 0), (x, .07 * u, 0)),
@@ -261,17 +262,19 @@ def blocky_field(p, cell=None):
     box(g, f, (0, lg + .25 * u, 0), (tw, .25 * u, td), e)
     box(g, f, (0, top + .03 * u + hd / 2, 0), (hd * .56, hd / 2, hd * .52), e * 3)
     box(g, f, (0, top + .015 * u, 0), (.08 * u, .03 * u, .08 * u), e)
+    gap = cell * 2.2
     for k in (1, -1):
-        box(g, f, ((tw + ar / 2 - .002) * k, sy, 0), (ar / 2 + .002, aw, aw), e)
-        box(g, f, (tw / 2 * k, lg / 2, 0), (lw, lg / 2, td), e)
+        box(g, f, ((tw + gap + ar / 2) * k, sy, 0), (ar / 2, aw, aw), e)
+        box(g, f, (tw / 2 * k, (lg - gap) / 2, 0), (lw, (lg - gap) / 2, td), e)
     hy = top + .03 * u + hd * .58
     eyes = [(np.array((hd * .2 * k, hy, hd * .49)), hd * .075, (0, 0, 1)) for k in (1, -1)]
     return g, f, b, eyes, []
 
 
-def fit_tpose(V, crotch=None):
+def fit_tpose(V, crotch=None, torso=None):
     """Humanoid skeleton measured from the figure itself (any proportions, T-pose). None if arms are not spread."""
     V = np.asarray(V, float)
+    blocks = crotch is not None
     lo, hi = V.min(0), V.max(0)
     H = hi[1] - lo[1]
     if hi[0] - lo[0] < H * .6:
@@ -288,7 +291,7 @@ def fit_tpose(V, crotch=None):
         gap = np.flatnonzero((near > H * .0015) & (y < yb))
         crotch = float(y[gap[-1]]) if len(gap) else lo[1] + H * .45
     trunk = half[(y > crotch) & (y < yb)]
-    tw = float(np.median(trunk)) if len(trunk) else H * .12
+    tw = torso or (float(np.median(trunk)) if len(trunk) else H * .12)  # torso half width; the bust of a figure can be wider than its waist
     above = np.flatnonzero((y > yt) & (y < yt + (hi[1] - yt) * .35))  # the neck: not the rounded top of the head
     nh = float(y[above[half[above].argmin()]]) if len(above) else yt
     nb = yt
@@ -297,12 +300,13 @@ def fit_tpose(V, crotch=None):
     f = float(hi[2])
     bs = [_bone("hips", None, (0, crotch, 0), (0, crotch + .16 * T, 0)), _bone("spine", "hips", (0, crotch + .16 * T, 0), (0, crotch + .46 * T, 0)),
           _bone("chest", "spine", (0, crotch + .46 * T, 0), (0, nb, 0)), _bone("neck", "chest", (0, nb, 0), (0, nh, 0)), _bone("head", "neck", (0, nh, 0), (0, hi[1], 0))]
-    ar = ax - tw
+    pv = tw + (yt - yb) / 2 if blocks else tw  # shoulder joint; on block bodies shoulder.head marks the torso edge
+    ar = ax - pv
     for s, k in skeleton.SIDES:
         x = tw / 2 * k
-        bs += [_bone("shoulder" + s, "chest", (tw * .15 * k, sy, 0), (tw * k, sy, 0)),
-               _bone("upper_arm" + s, "shoulder" + s, (tw * k, sy, 0), ((tw + ar * .48) * k, sy, 0)),
-               _bone("forearm" + s, "upper_arm" + s, ((tw + ar * .48) * k, sy, 0), ((tw + ar * .86) * k, sy, 0)),
+        bs += [_bone("shoulder" + s, "chest", ((tw if blocks else tw * .15) * k, sy, 0), (pv * k, sy, 0)),
+               _bone("upper_arm" + s, "shoulder" + s, (pv * k, sy, 0), ((pv + ar * .48) * k, sy, 0)),
+               _bone("forearm" + s, "upper_arm" + s, ((pv + ar * .48) * k, sy, 0), ((pv + ar * .86) * k, sy, 0)),
                _bone("hand" + s, "forearm" + s, ((tw + ar * .86) * k, sy, 0), (ax * k, sy, 0)),
                _bone("thigh" + s, "hips", (x, crotch, 0), (x, lo[1] + (crotch - lo[1]) * .5, 0)),
                _bone("shin" + s, "thigh" + s, (x, lo[1] + (crotch - lo[1]) * .5, 0), (x, lo[1] + H * .05, 0)),
@@ -351,7 +355,9 @@ def build(kind, p, cell=None, target=None):
     V, F = surface_nets(f, g.lo, g.cell)
     m = trimesh.Trimesh(V, F, process=False)
     parts = m.split(only_watertight=False)  # drop stray specks
-    if len(parts) > 1:
+    if len(parts) > 1 and kind == "blocky":
+        m = trimesh.util.concatenate(parts)
+    elif len(parts) > 1:
         m = max(parts, key=lambda x: len(x.vertices))
     if m.volume < 0:
         m.invert()

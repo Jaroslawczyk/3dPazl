@@ -68,9 +68,10 @@ def _write_body(c):
     out.parent.mkdir(parents=True, exist_ok=True)
     if c.get("import"):
         V, F, N, C = rig.load_mesh(c["import"])
-        if _target(c) and len(F) > _target(c):  # colours follow the nearest original vertex
+        limit = _target(c) if c.get("quality") == "low" else max(_target(c) or 0, 20000)  # up to the Roblox mesh limit, keep painted faces sharp
+        if _target(c) and len(F) > limit:  # colours follow the nearest original vertex
             first, inv = rig.wts.weld(V, 1e-4)  # unwelded seams make the simplifier throw whole parts away
-            V2, F = decimate(V[first], inv[F], _target(c))
+            V2, F = decimate(V[first], inv[F], limit)
             C = C[cKDTree(V).query(V2)[1]]
             V = V2
         m = trimesh.Trimesh(V, F, process=False)
@@ -85,7 +86,7 @@ def _write_body(c):
     return out.relative_to(PROJECTS).as_posix(), bones, m
 
 
-def create(name, preset="man", params=None, src="", template="humanoid", cell=None, quality="high", crotch=None):
+def create(name, preset="man", params=None, src="", template="humanoid", cell=None, quality="high", crotch=None, torso=None):
     """New character from a preset (organic generated body) or from any GLB under projects/ (src)."""
     name = _safe(name)
     if quality not in body.QUALITY:
@@ -100,7 +101,7 @@ def create(name, preset="man", params=None, src="", template="humanoid", cell=No
         c.update({"kind": kind, "preset": preset, "params": p, "template": body.TEMPLATE[kind], "blocks": kind == "blocky"})
     rel, bones, m = _write_body(c)
     if not bones and template == "humanoid":
-        bones = body.fit_tpose(trimesh.sample.sample_surface(m, 80000, seed=1)[0], crotch)  # block bodies have too few vertices to measure
+        bones = body.fit_tpose(trimesh.sample.sample_surface(m, 80000, seed=1)[0], crotch, torso)  # block bodies have too few vertices to measure
     bones = bones or skeleton.fit(template, m.bounds)
     rn = _rn(name)
     old = rig._p(rn, ".rig.json")
@@ -188,30 +189,26 @@ def _garment(c, g, fit, stamp):
     p = CHARS / "cache" / c["name"] / f"{g['kind']}_{key}.npz"
     if p.exists():
         z = np.load(p)
-        return z["V"], z["F"], z["N"]
-    V, F, N = cloth.make(fit, g["kind"], g, c["template"], int(_target(c) * .5) if _target(c) else None)
+        return z["V"], z["F"], z["N"], z["L"]
+    t = int(_target(c) * .5) if _target(c) else None
+    V, F, N, L = cloth.make_blocks(fit, g["kind"], g, c["template"], t) if c.get("blocks") else (*cloth.make(fit, g["kind"], g, c["template"], t), np.zeros(0, int))
     p.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(p, V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
-    return V, F, N
+    np.savez_compressed(p, V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32), L=L)
+    return V, F, N, L
 
 
 def _rigid(V, bones, names_):
-    """Block bodies move like toys: each block follows one bone, so clothes on it do not stretch and tear."""
-    by = {b["name"]: b for b in bones}
-    tw, neck, crotch = by["upper_arm.L"]["head"][0], by["neck"]["head"][1], by["hips"]["head"][1]
-    side = np.where(V[:, 0] > 0, ".L", ".R")
-    n = np.full(len(V), "chest", dtype=object)
-    n[V[:, 1] > neck] = "head"
-    low = V[:, 1] < crotch
-    n[low] = np.char.add("thigh", side[low])
-    arm = (np.abs(V[:, 0]) > tw) & ~low
-    n[arm] = np.char.add("upper_arm", side[arm])
-    ix = {k: i for i, k in enumerate(names_)}
+    """Block bodies move like toys: each block follows one bone."""
     J = np.zeros((len(V), 4), np.uint16)
-    J[:, 0] = [ix[k] for k in n]
+    J[:, 0] = cloth.block_label(V, bones, names_)
     W = np.zeros((len(V), 4), np.float32)
     W[:, 0] = 1
     return J, W
+
+
+def fit_for(c, r, V, F, N):
+    names_ = skeleton.order(r["bones"])[0] if c.get("blocks") else None
+    return cloth.Fit(V, F, N, r["bones"], names_)
 
 
 def _textured(part, s):
@@ -243,15 +240,18 @@ def export_c(c):
     if c["outfit"]:
         Wd = np.zeros((len(V), len(names_)), np.float32)
         np.put_along_axis(Wd, J.astype(int), W.astype(np.float32), 1)
-        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime]
-        fit = cloth.Fit(V, F, N, r["bones"])
+        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 5]
+        fit = fit_for(c, r, V, F, N)
         for g in c["outfit"]:
-            Vg, Fg, Ng = _garment(c, g, fit, stamp)
+            Vg, Fg, Ng, Lg = _garment(c, g, fit, stamp)
             Vg, Ng = np.asarray(Vg, float), np.asarray(Ng, float)
-            Jg, Wg = cloth.transfer(fit, Vg, Wd, 1 if c.get("blocks") else cloth.soft(g["kind"], c["template"]), cloth.rigid_bone(g["kind"], c["template"], names_))
-            if c.get("blocks"):  # cloth does not stretch across a block joint: each block keeps its own piece
-                Fg = np.asarray(Fg)
-                Fg = Fg[(Jg[Fg, 0] == Jg[Fg[:, :1], 0]).all(1)]
+            if c.get("blocks"):
+                Jg = np.zeros((len(Vg), 4), np.uint16)
+                Jg[:, 0] = Lg
+                Wg = np.zeros((len(Vg), 4), np.float32)
+                Wg[:, 0] = 1
+            else:
+                Jg, Wg = cloth.transfer(fit, Vg, Wd, cloth.soft(g["kind"], c["template"]), cloth.rigid_bone(g["kind"], c["template"], names_))
             o = cloth.kinds_for(c["template"])[g["kind"]][2]
             col = body.rgb(g.get("color") or o["color"])
             skin = g.get("skin") or (None if g.get("color") else o.get("skin"))
