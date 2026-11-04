@@ -33,6 +33,18 @@
         "8768"
       ],
       "port": 8768
+    },
+    {
+      "name": "pazl-2d",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "pazl.server.app:app",
+        "--port",
+        "8769"
+      ],
+      "port": 8769
     }
   ]
 }
