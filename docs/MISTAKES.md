@@ -36,6 +36,9 @@ Every line here cost the user a round of "это криво". Check your plan ag
 | UV islands mirrored (xatlas v up vs glTF v down) | Flip v from xatlas; app's UV checker uses `flipY = false`. |
 | Original looks brighter | It is unlit (`KHR_materials_unlit`); ours is lit like Roblox. Not a texture error. |
 
+## Animation
+See [ANIMATION.md](ANIMATION.md) "Rules learned": joint balls against armpit/knee gaps, arms lowered like the rest pose, contact from joints (no shaking), big moves >= 0.5 s, spins <= 300 deg/s at 30 fps, QA neighbours through bones without blocks.
+
 ## Checker / fixer pitfalls (in the tools themselves)
 | Mistake | Fix |
 |---|---|

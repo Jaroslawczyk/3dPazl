@@ -24,5 +24,9 @@ Read docs/MISTAKES.md for every mistake and its fix; this page is the inventory 
 ## 1:1 rebuild of a Roblox avatar (`scripts/rebuild_roblox_avatar.py`)
 Original -> our frame -> R15-like parts measured on it (torso one piece neck->hips, head, arms/legs in 3 parts along their own axes) -> own UV layout -> original textures baked -> hair as solid locks, beanie as one dome with a rolled brim, pet wrapped and smooth -> T-pose bind with the measured pose as default -> character `galaxy_1to1` + Roblox export. About 4.7k triangles vs 5,078 in the original.
 
+## Animation (v0.73)
+- `pazl/core/rig/choreo.py`: long clips from key poses with eased transitions, whole-body flip/spin, automatic floor contact and a planted anchor (feet/head/hands); `qa()` / MCP `anim_qa` for gaps, ground, pass-through, jerks on block bodies.
+- `scripts/make_dance_headspin.py`: dance -> roll into a headstand -> headspin -> back up (14.2 s loop) for galaxy_1to1; joint balls in the rebuilt body close armpit/knee gaps. Rules: docs/ANIMATION.md.
+
 ## Docs
 - docs/QUICKSTART.md (start here), docs/MISTAKES.md (mistakes and fixes), docs/ROBLOX.md (characters, Roblox, 1:1 rebuild, hair/hat/torso rules), this file.

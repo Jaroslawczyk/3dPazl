@@ -8,6 +8,7 @@ Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`; Codex: `[mcp_servers
 
 - Screenshots of the app for yourself: use the `view_screenshot` MCP tool (the 3D view only, no interface). If you drive a browser, open the app with `?clean=1` (F10 toggles it).
 - After building or changing a model, run `mesh_check` (MCP) / `scripts/mesh_check.py`; run `mesh_fix` for what it can repair, fix the rest by hand, and only then show it to the user.
+- Long animations (dances, tricks, transitions): [docs/ANIMATION.md](docs/ANIMATION.md); check them with `anim_qa`.
 - Buildings, items, rigs: [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - Vehicles and how to build good low-poly models: [docs/model_craft.md](docs/model_craft.md)
 - Characters, clothes, downloading textures from the internet, Roblox export: [docs/ROBLOX.md](docs/ROBLOX.md); what exists now (tools, viewer modes, 1:1 rebuild): [docs/CHANGELOG_characters.md](docs/CHANGELOG_characters.md)

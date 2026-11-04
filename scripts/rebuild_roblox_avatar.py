@@ -156,6 +156,16 @@ def joints(pieces, o, d, L):
     return [float(np.mean(c)) for c in out if .05 * L < np.mean(c) < .95 * L]
 
 
+def _ball_uv(ball):
+    """Equirectangular UVs (world units) for a joint ball: one small island."""
+    c = ball.vertices.mean(0)
+    v = ball.vertices - c
+    r = np.linalg.norm(v, axis=1).max()
+    u = (np.arctan2(v[:, 0], v[:, 2]) / (2 * np.pi) + .5) * np.pi * r
+    w = (np.arccos(np.clip(v[:, 1] / r, -1, 1)) / np.pi) * np.pi * r
+    return np.c_[u, w]
+
+
 def r15_body(body, plist):
     """The body as 15 clean aligned parts like Roblox R15, each a loft of rings measured on the reference.
     Returns [(bone, mesh, islands)], joints {bone: (head, tail)} in the reference pose, arm data for the T-pose."""
@@ -192,6 +202,16 @@ def r15_body(body, plist):
                 mesh, isl = segment(S, M, -cuts[i], -cuts[i + 1], 3, 12, 6.0)
                 out.append((f"{nm}.{side}", mesh, isl))
                 J[f"{nm}.{side}"] = (o + d * cuts[i], o + d * cuts[i + 1])
+                # joint ball: fills the gap a rigid block opens when the joint bends (shoulder/elbow/wrist/hip/knee/ankle)
+                yj = -cuts[i] - (measure(S, -L * .1, 0)[2] if (i == 0 and limb == "arm") else 0)
+                band = L * .05
+                cx_, cz_, hx_, hz_ = measure(S, yj - band, yj + band)
+                rad = min(hx_, hz_) * .97
+                ball = trimesh.creation.icosphere(subdivisions=1, radius=1.0)
+                ball.apply_scale([rad, rad, rad])
+                ball.apply_translation(trimesh.transform_points([[cx_, yj, cz_]], M)[0])
+                bisl = [(np.arange(len(ball.vertices)), _ball_uv(ball), (np.pi * rad, np.pi * rad))]
+                out.append((f"{nm}.{side}", ball, bisl))
             if limb == "arm":
                 hx = measure(S, -L * .1, 0)[2]
                 arms[side] = (o + d * hx, float(np.degrees(np.arctan2(abs(d[0]), -d[1]))))

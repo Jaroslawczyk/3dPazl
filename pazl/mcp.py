@@ -633,6 +633,19 @@ def view_marks() -> list:
 
 
 @tool
+def anim_qa(name: str, clip: str) -> str:
+    """Check a character's clip the way a viewer sees it (block / R15 bodies included): gaps (neighbouring blocks part at
+    a joint), ground (body below the floor), pass-through (a block inside a non-neighbouring one), jerks (a point jumps
+    between frames). Frames listed for each problem. Build long dances with pazl/core/rig/choreo.py (docs/ANIMATION.md)."""
+    from .core import chars, rig
+    from .core.rig import choreo
+    r = rig.load(chars._rn(name))
+    if clip not in r["clips"]:
+        return _j({"error": f"no clip {clip}; have {list(r['clips'])}"})
+    return choreo.qa(choreo.body_points(name), r["bones"], r["clips"][clip])["text"]
+
+
+@tool
 def mesh_fix(path: str) -> str:
     """Repair a GLB under projects/ in place until mesh_check has nothing fixable: drops degenerate/sliver faces, closes
     small holes and zips cracks with existing vertices, pushes hats/hair/clothes out of the body. UVs, skin and
