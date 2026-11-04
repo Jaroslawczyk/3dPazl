@@ -177,6 +177,13 @@ def sheet(part: trimesh.Trimesh, cells=8):
     return m
 
 
+def is_curved(part, ratio=.12):
+    """Thin but bent (a cap, not a plate): vertices stray from the best plane by more than ratio x its width."""
+    V = np.asarray(part.vertices) - part.vertices.mean(0)
+    _, S, Vt = np.linalg.svd(V, full_matrices=False)
+    return np.abs(V @ Vt[2]).max() > ratio * np.ptp(V @ Vt[1])
+
+
 def is_flat(part, ratio=.3):
     e = np.sort(trimesh.bounds.oriented_bounds(part)[1])
     return e[0] < ratio * e[1]
@@ -189,8 +196,10 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
     for p in ref.split(only_watertight=False):
         if len(p.faces) <= small:
             out.append(ribbon(p, root_near) if root_near is not None else card(p))
-        elif is_flat(p):
+        elif is_flat(p) and not is_curved(p):
             out.append(sheet(p))
+        elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
+            out.append(shrinkwrap(p, 2, grow=1.3, iters=1))
         else:
             out.append(shrinkwrap(p, sub_for(len(p.faces))))
     return trimesh.util.concatenate(out)
