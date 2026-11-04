@@ -30,7 +30,7 @@ KINDS = {
     "humanoid": {
         "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
         "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
-        "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017}),
+        "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017, "neck_drop": .03}),
         "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True, "reach_k": 1.4, "seal": True}),
         "pants": ("Брюки", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, 1), "shin": (0, .92)})}, "color": "#333a4d", "ease": .01, "skin": "denim"}),
         "shorts": ("Шорты", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, .6)})}, "color": "#6d6a52", "ease": .011}),
@@ -176,7 +176,7 @@ def _region(fit, o, P):
         if n in fit.bones:
             r = np.maximum(r, -_tube(P, *fit.bones[n], t0, t1, fit.reach[n]))
     if "neck" in fit.bones and "head" in fit.bones and not {"neck", "head"} & set(o.get("cover", {})):
-        r = np.maximum(r, np.where(np.abs(P[:, 0]) < fit.reach.get("chest", 1e3) * .8, P[:, 1] - fit.y_at("neck", .15), -1))  # body clothes never climb the neck (arms are beyond it: their tops must stay covered)
+        r = np.maximum(r, np.where(np.abs(P[:, 0]) < fit.reach.get("chest", 1e3) * .8, P[:, 1] - fit.y_at("neck", .15) + o.get("neck_drop", 0), -1))  # body clothes never climb the neck (arms are beyond it: their tops must stay covered)
     if "foot.L" in o.get("cover", {}) and "shin.L" in o["cover"]:  # a flat top: the slanted foot tube must not arch above the shaft
         r = np.maximum(r, P[:, 1] - fit.y_at("shin.L", o["cover"]["shin.L"][0]))
     return r
@@ -231,7 +231,7 @@ def _shape(fit, kind, o, spec, P):
     if o.get("open"):  # unbuttoned front with a lapel ridge along each edge
         rc = fit.reach["chest"]
         yt, yl = fit.y_at("chest", .9), fit.y_at("spine", .35)
-        w = rc * (.2 + .16 * np.clip((y - yl) / max(yt - yl, 1e-3), 0, 1))
+        w = _open_w(fit, y)
         ax = np.abs(x)
         lap = .011 * np.clip(1 - np.abs(ax - w - .05 * rc) / (.07 * rc), 0, 1) * np.clip((y - yl) / .03, 0, 1) * (z > 0) * (y < yt + .02)
         O = fit.offset(P, ease + lap)
@@ -258,6 +258,12 @@ def _shape(fit, kind, o, spec, P):
         s = np.minimum(s, d)
         O = np.minimum(O, d)
     return s, O
+
+
+def _open_w(fit, y):
+    """Half width of the open front of a jacket at height y: wider at the chest."""
+    yt, yl = fit.y_at("chest", .9), fit.y_at("spine", .35)
+    return fit.reach["chest"] * (.2 + .16 * np.clip((y - yl) / max(yt - yl, 1e-3), 0, 1))
 
 
 def _lipcut(y, z, x, a, hh):
@@ -333,6 +339,10 @@ def make(fit, kind, spec, template, target=None):
     trimesh.smoothing.filter_taubin(m, iterations=4)
     if target and len(m.faces) > target:
         m = trimesh.Trimesh(*decimate(m.vertices, m.faces, target), process=False)
+        if o.get("open"):  # decimation bridges the open front with big triangles: cut it again
+            c = m.vertices[m.faces].mean(1)
+            m = trimesh.Trimesh(m.vertices, m.faces[~((np.abs(c[:, 0]) < _open_w(fit, c[:, 1])) & (c[:, 2] > 0))], process=False)
+            m.remove_unreferenced_vertices()
     V = np.array(m.vertices)
     d, i = fit.tree.query(V)
     if ((V - fit.V[i]) * fit.N[i]).sum(1).mean() < 0 or _inverted(m, fit):
