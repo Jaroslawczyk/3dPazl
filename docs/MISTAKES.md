@@ -22,7 +22,7 @@ Every line here cost the user a round of "это криво". Check your plan ag
 | 45k triangles (x9 the original): garments as 3D shells | Block bodies: clothes painted on the body (`cloth.PAINT`); budgets in docs/QUICKSTART.md. |
 | Body from a remeshed field: blobby, too heavy | Block bodies straight from boxes / R15 lofts measured on the reference (`r15_body`). |
 | Per-piece shrinkwrap: boxes rotated at random angles ("криво и косо") | Build each R15 part as a loft along its limb axis (`retopo.loft`), joints from the reference's joint discs. |
-| Lower torso wider/shifted: shirt "split in two, crooked" | Lower torso continues the upper torso's bottom section exactly. |
+| Lower torso wider/shifted, then still a separate block with a step: shirt "split in two, crooked" | The torso is ONE loft from the neck to the bottom of the lower torso (one surface, one UV strip, bone `chest`); never build R15 Upper/LowerTorso as two blocks. |
 | Arms in T-pose in a static file | Bind stays T-pose; the measured pose is the default node rotation (`rest_pose`). |
 | Model faced +Z in Roblox (they face -Z) | `roblox_export` turns model and accessories. |
 | Hat clipping into the head / hair | `push_out_faces`; weld vertices BEFORE pushing (a shared vertex pushed on one side tears the seam). |

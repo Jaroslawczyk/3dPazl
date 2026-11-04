@@ -29,7 +29,7 @@ Mistakes found on the way: glTF metallic defaults to 1 (set `metallicFactor=0` o
 - Strand roots are buried in the scalp on purpose: pushing (`push_out`), sliver cutting and edge collapsing must leave small closed pieces (< 60 faces) alone (`meshcheck.lock_faces`), or they lift into the air or tear.
 - Weld vertices BEFORE pushing anything out of the body: a shared vertex moved on one side only tears the seam.
 - A beanie = one dome loft along its own axis (`retopo.dome`) with a straight band at the bottom; all same-coloured brim layers merge into it (they may hang below the dome box). Separate brim rings leave a gap that shows the head.
-- Lower torso continues the upper torso's bottom section exactly (no wider, no shifted band): the shirt must read as one piece.
+- The torso is ONE loft from the neck down to the bottom of the lower torso (R15 Upper+LowerTorso merged): two blocks always showed a step at the waist.
 - mesh_check now also reports `floating` (a piece touching nothing, measured to surfaces) and `flat_sheet` (one-sided paper pieces not stitched to another part).
 
 ## Lessons from a real Roblox avatar (user's original, 2026-11-04, `projects/refs/roblox_galaxy/`)

@@ -161,21 +161,14 @@ def r15_body(body, plist):
     Returns [(bone, mesh, islands)], joints {bone: (head, tail)} in the reference pose, arm data for the T-pose."""
     groups = {k: [p for kk, p in plist if kk == k] for k in {k for k, _ in plist}}
     out, J, arms = [], {}, {}
-    for k, bone, power, n in (("torso", "chest", 6.0, 16), ("head", "head", 2.4, 20)):
-        m = trimesh.util.concatenate(groups[k])
-        S = trimesh.sample.sample_surface(m, 40000, seed=2)[0]
-        y0, y1 = m.bounds[1][1], m.bounds[0][1]
-        out.append((bone, *segment(S, np.eye(4), y0, y1, 7 if k == "head" else 5, n, power)))
-        if k == "torso":
-            t_bot = (y1, *measure(S, y1, y1 + (y0 - y1) * .14))
-    # lower torso (hips) continues the shirt straight down: same section as the torso's bottom, no wider crooked band
-    m = trimesh.util.concatenate(groups["hips"])
+    # torso = ONE piece from the neck down to the bottom of the lower torso: one surface, one UV strip, no seam
+    # (R15 splits Upper/LowerTorso; as two blocks the shirt read as cut in two with a step at the waist)
+    m = trimesh.util.concatenate(groups["torso"] + groups.get("hips", []))
+    S = trimesh.sample.sample_surface(m, 60000, seed=2)[0]
+    out.append(("chest", *segment(S, np.eye(4), m.bounds[1][1], m.bounds[0][1], 7, 16, 6.0)))
+    m = trimesh.util.concatenate(groups["head"])
     S = trimesh.sample.sample_surface(m, 40000, seed=2)[0]
-    y_end = m.bounds[0][1]
-    _, cx, cz, hx, hz = t_bot
-    lo = measure(S, y_end, y_end + (t_bot[0] - y_end) * .3)
-    rings = [(t_bot[0], cx, cz, hx, hz), (y_end, cx, cz, min(lo[2], hx), min(lo[3], hz))]
-    out.append(("hips", *retopo.loft(np.eye(4), rings, 16, 6.0)))
+    out.append(("head", *segment(S, np.eye(4), m.bounds[1][1], m.bounds[0][1], 7, 20, 2.4)))
     for side in ("L", "R"):
         for limb, names in (("arm", ("upper_arm", "forearm", "hand")), ("leg", ("thigh", "shin", "foot"))):
             ps = groups[f"{limb}.{side}"]
