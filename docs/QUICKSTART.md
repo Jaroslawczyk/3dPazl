@@ -26,7 +26,8 @@ The running app server keeps old Python code until it is restarted; the web file
 - Show any GLB under `projects/`: `await window.pazl.viewGlb('chars/hero.glb')` in `javascript_tool`. First switch to a non-building tab (`document.querySelector('#segWs button[data-ws="transport"]').click()`), otherwise the open building project reloads over your model.
 - Camera: `const {camera, orbit, modelBox, THREE} = window.pazl; const c = modelBox.getCenter(new THREE.Vector3()); orbit.target.copy(c); camera.position.set(c.x + .8, c.y + .4, c.z + 2.6); orbit.update();` Our models face **+Z**; the app's «Перед» button looks from -Z.
 - Use `computer screenshot` (with `scale: .6`). Both `zoom` and a screenshot right after a change can return the previous frame: call `invalidate(true)` twice with a pause, or take the screenshot twice.
-- Показ menu: «Каркас», «UV-чекер», «Нормали» work for every model.
+- Показ menu: «Каркас», «UV-чекер», «Нормали», «Перспектива» work for every model.
+- A GLB with clips gets a player at the bottom (clip list, ▶/⏸, frame slider). From code: `pazl.player.play(i)`, `pazl.player.setTime(seconds)`, `pazl.player.playing = false`.
 - Do not add `?r=N` to `viewGlb` paths: it breaks the file URL.
 
 ## Check the mesh by code before showing it

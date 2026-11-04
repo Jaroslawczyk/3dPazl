@@ -621,8 +621,8 @@ def mesh_check(path: str, openings: bool = False) -> str:
 @tool
 def view_marks() -> list:
     """Points the user clicked on the model in the app and sent with «📤 Агенту»: for each mark the point `at` (metres,
-    Y up, model faces +Z: the same numbers as mesh_check `at`), the part hit, the element ids, the user's note; plus the
-    screenshot with the numbered red marks. Read it when the user says "посмотри пометки / точки"."""
+    Y up, model faces +Z: the same numbers as mesh_check `at`), the part hit, the element ids, the user's note, and
+    `clip`/`time`/`frame` when an animation was open (the pose the marks were made on); plus the screenshot. Read it when the user says "посмотри пометки / точки"."""
     d = PROJECTS / "marks"
     if not (d / "last.json").exists():
         return [_j({"error": "пометок нет: в приложении «✎ Пометки» -> клик по модели -> «📤 Агенту»"})]

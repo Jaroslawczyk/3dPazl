@@ -205,7 +205,8 @@ def r15_body(body, plist):
                 # joint ball: fills the gap a rigid block opens when the joint bends (shoulder/elbow/wrist/hip/knee/ankle)
                 yj = -cuts[i] - (measure(S, -L * .1, 0)[2] if (i == 0 and limb == "arm") else 0)
                 band = L * .05
-                cx_, cz_, hx_, hz_ = measure(S, yj - band, yj + band)
+                cx_, cz_, _, _ = measure(S, yj - band, yj + band)
+                _, _, hx_, hz_ = measure(S, -cuts[i + 1], -cuts[i])  # thickness of the whole segment: a ball as wide as the limb
                 rad = min(hx_, hz_) * .97
                 ball = trimesh.creation.icosphere(subdivisions=1, radius=1.0)
                 ball.apply_scale([rad, rad, rad])

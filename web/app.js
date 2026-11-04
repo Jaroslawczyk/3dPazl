@@ -133,6 +133,7 @@ async function reloadModel(fit = false) {
     });
     root.clear();
     S.meshesById.clear();
+    S.viewing = null; window.pazl?.player?.attach(null);  // a project, not a GLB: no clip player (window.pazl: no TDZ at startup)
     const realistic = (S.state?.detail || 'realistic') === 'realistic';
     if (realistic && !S.texAvail) S.texAvail = await api('textures/available').catch(() => ({}));
     gltf.scene.traverse((o) => {
@@ -203,12 +204,48 @@ async function viewGlb(path) {
     invalidate(true); fitView(box, 'iso'); S.lastCenter = box.getCenter(new THREE.Vector3());
     $('#status').textContent = `просмотр GLB: ${path} · треугольников ${countTris().toLocaleString('ru')} · только просмотр (вернуться: выберите проект)`;
     $('#busy').hidden = true;
+    player.attach(gltf);
     return gltf;
   } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); }
   $('#busy').hidden = true;
 }
-// shared with the workshop modules (web/workspaces.js, web/ws/*.js)
-window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
+// ---------------------------------------------------------------- clip player for opened GLB files (dances, walks...)
+const player = {
+  mixer: null, clips: [], action: null, playing: true, last: 0,
+  attach(gltf) {
+    this.mixer = null; this.action = null;
+    this.clips = gltf?.animations || [];
+    $('#animBar').hidden = !this.clips.length;
+    if (!this.clips.length) return;
+    gltf.scene.traverse((o) => { if (o.isSkinnedMesh) o.frustumCulled = false; });
+    this.mixer = new THREE.AnimationMixer(gltf.scene);
+    $('#animClip').innerHTML = this.clips.map((c, i) => `<option value="${i}">${c.name} (${c.duration.toFixed(1)} с)</option>`).join('');
+    const pick = this.clips.findIndex((c) => !/^(idle|walk)$/.test(c.name));
+    this.play(pick >= 0 ? pick : 0);
+  },
+  play(i) {
+    this.mixer.stopAllAction();
+    this.action = this.mixer.clipAction(this.clips[+i]);
+    this.action.play();
+    $('#animClip').value = String(i);
+    this.playing = true; $('#animPlay').textContent = '⏸';
+  },
+  setTime(t) { if (this.action) { this.action.time = t; this.mixer.update(0); invalidate(); } },
+  tick(now) {
+    if (!this.mixer || !this.action) return;
+    const dt = Math.min(.1, (now - (this.last || now)) / 1000); this.last = now;
+    if (this.playing) { this.mixer.update(dt); invalidate(); }
+    const d = this.action.getClip().duration;
+    $('#animTime').value = String(Math.round((this.action.time % d) / d * 1000));
+    $('#animInfo').textContent = `${(this.action.time % d).toFixed(2)} / ${d.toFixed(1)} с · кадр ${Math.round((this.action.time % d) * 30)}`;
+  },
+};
+$('#animClip').onchange = (e) => player.play(e.target.value);
+$('#animPlay').onclick = () => { player.playing = !player.playing; $('#animPlay').textContent = player.playing ? '⏸' : '▶'; };
+$('#animTime').oninput = (e) => { player.playing = false; $('#animPlay').textContent = '▶'; const d = player.action?.getClip().duration || 0; player.setTime(+e.target.value / 1000 * d); };
+(function animLoop(now) { requestAnimationFrame(animLoop); if (document.body.dataset.ws !== 'build' || S.viewing) player.tick(now); })(0);
+// shared with the workspace modules (web/workspaces.js, web/ws/*.js)
+window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris, player };
 // perspective on/off: off = a very narrow lens from far away (looks orthographic, no near/far distortion), same framing
 const FOV = camera.fov;
 $('#chkPersp')?.addEventListener('change', (e) => {
@@ -1235,6 +1272,8 @@ function renderMarks() {
 }
 function setMarking(on) {
   S.marking = on;
+  const pl = window.pazl?.player;
+  if (on && pl?.action) { pl.playing = false; $('#animPlay').textContent = '▶'; }  // marks belong to ONE pose: pause the clip
   $('#btnMark').classList.toggle('on', on);
   renderer.domElement.style.cursor = on ? 'crosshair' : '';
   orbit.mouseButtons = on ? { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
@@ -1262,6 +1301,7 @@ async function marksToAgent() {
     model: S.viewing || S.state?.name || '',  // the opened GLB (viewGlb) or the building project
     coords: 'метры, как в GLB-файле: Y вверх, модель смотрит в +Z (те же числа, что в mesh_check "at")',
     camera: { position: r3(camera.position), target: r3(orbit.target) },
+    ...(player.action ? { clip: player.action.getClip().name, time: +player.action.time.toFixed(3), frame: Math.round(player.action.time * 30) } : {}),
     task: $('#chatText')?.value.trim() || '',
     marks: S.marks.map((m, i) => ({ n: i + 1, kind: m.kind, at: r3(m.pts[0]), ...(m.kind === 'stroke' ? { to: r3(m.pts.at(-1)), path: m.pts.map(r3) } : {}),
       part: (m.parts || [])[0] || '', elements: m.eids, note: m.note })),

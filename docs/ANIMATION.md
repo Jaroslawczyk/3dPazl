@@ -26,6 +26,10 @@ shoulder - `use_rest()` in the example); then x<0 raises the arm forward/up, z o
 | headspin 540 deg/s = 29 cm/frame at the feet | 300 deg/s (about 1 turn in 1.2 s) reads as fast and stays smooth at 30 fps |
 | false "head inside chest", "thigh inside chest" | blocks joined through bones without a block (neck, shoulder, hips) are neighbours |
 
+## Look at it
+Open the GLB in the app: a player appears at the bottom (clip, ▶/⏸, frame slider). Marks made with «✎ Пометки»
+pause the clip and are saved with `clip` / `time` / `frame`, so `view_marks` tells which pose they belong to.
+
 ## Iterate fast
 `scripts/make_dance_headspin.py` rebuilds the clip + QA in seconds; `--export` writes the character GLB (slow, it is
 repaired too); `--check-only` re-runs the QA. Look at it in the app: «Персонажи» -> the character -> clip, or load the

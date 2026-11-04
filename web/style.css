@@ -258,3 +258,9 @@ body.hide-left.hide-right #center { grid-column: 1 / -1; }
 .tree-bar { display: flex; gap: 4px; margin: 4px 0 6px; } .tree-bar input { flex: 1; min-width: 0; }
 #tree .n { color: var(--mute); font-size: 10px; opacity: .8; }
 #tree .grp { color: var(--mute); }
+
+/* clip player of the GLB viewer */
+#animBar { position: absolute; left: 12px; bottom: 44px; display: flex; gap: 6px; align-items: center; background: var(--panel, #1f2227); padding: 6px 8px; border-radius: 10px; z-index: 5; }
+#animBar[hidden] { display: none; }
+#animBar #animTime { width: 220px; }
+#animBar #animInfo { font-size: 12px; opacity: .8; min-width: 90px; }
