@@ -453,32 +453,76 @@ async function refreshAll(fit = false) {
   else if (S.selected) { attachGizmo(); showProps(S.selected); }
 }
 
+const treeOpen = new Set();  // expanded element ids and folded groups 'g:<parent>:<first id>'; all closed by default
 function renderTree() {
   const kids = new Map();
   S.tree.forEach((t) => { const p = t.host || ''; if (!kids.has(p)) kids.set(p, []); kids.get(p).push(t); });
+  const byId = new Map(S.tree.map((t) => [t.id, t]));
+  const q = ($('#treeFind')?.value || '').trim().toLowerCase();
+  const hit = new Set();  // with a search: matches and their ancestors only
+  if (q) S.tree.forEach((t) => { if ((t.id + ' ' + t.type).toLowerCase().includes(q)) for (let x = t; x && !hit.has(x.id); x = byId.get(x.host)) hit.add(x.id); });
+  for (let x = byId.get(byId.get(S.selected)?.host); x; x = byId.get(x.host)) treeOpen.add(x.id);  // reveal selection
+  const countIn = (id) => (kids.get(id) || []).reduce((n, c) => n + 1 + countIn(c.id), 0);
+  const row = (t) => {
+    const has = kids.has(t.id), open = q || treeOpen.has(t.id);
+    return `<div data-id="${esc(t.id)}" class="${t.id === S.selected ? 'sel' : ''}"><span class="tog" data-k="${esc(t.id)}">${has ? (open ? '▾' : '▸') : ''}</span>`
+      + `<span class="${t.error ? 'err' : ''}">${esc(t.id.split('/').pop())}</span> <span class="t">${esc(t.type === '_group' ? 'макрос' : t.type)}</span>`
+      + `${has ? ` <span class="n">${countIn(t.id)}</span>` : ''}${t.error ? ' <span class="err" title="' + esc(t.error) + '">⚠</span>' : ''}</div>`;
+  };
+  const item = (t) => {
+    const li = document.createElement('li'); li.innerHTML = row(t);
+    if (kids.has(t.id) && (q || treeOpen.has(t.id))) li.appendChild(build(t.id));
+    return li;
+  };
   const build = (parent) => {
     const ul = document.createElement('ul');
-    (kids.get(parent) || []).forEach((t) => {
-      const li = document.createElement('li');
-      const has = kids.has(t.id);
-      const short = t.id.split('/').pop();
-      li.innerHTML = `<div data-id="${esc(t.id)}" class="${t.id === S.selected ? 'sel' : ''}"><span class="tog">${has ? '▾' : ''}</span>`
-        + `<span class="${t.error ? 'err' : ''}">${esc(short)}</span> <span class="t">${esc(t.type === '_group' ? 'макрос' : t.type)}</span>`
-        + `${t.error ? ' <span class="err" title="' + esc(t.error) + '">⚠</span>' : ''}</div>`;
-      if (has) li.appendChild(build(t.id));
-      ul.appendChild(li);
-    });
+    const rows = (kids.get(parent) || []).filter((t) => !q || hit.has(t.id));
+    for (let i = 0; i < rows.length;) {
+      const t = rows[i], m = t.id.split('/').pop().match(/^(.*?)\d+$/);
+      let j = i + 1;  // runs like awL0..awL5 (same prefix and type, no children) fold into one group row
+      if (m && !kids.has(t.id)) {
+        const re = new RegExp('^' + m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\d+$');
+        while (j < rows.length && rows[j].type === t.type && !kids.has(rows[j].id) && re.test(rows[j].id.split('/').pop())) j++;
+      }
+      if (j - i > 2 && !q) {
+        const gk = `g:${parent}:${t.id}`, open = treeOpen.has(gk), last = rows[j - 1].id.split('/').pop().slice(m[1].length);
+        const li = document.createElement('li');
+        li.innerHTML = `<div class="grp" data-k="${esc(gk)}"><span class="tog" data-k="${esc(gk)}">${open ? '▾' : '▸'}</span><span>${esc(t.id.split('/').pop())}..${esc(last)}</span> <span class="t">${esc(t.type)}</span> <span class="n">×${j - i}</span></div>`;
+        if (open) { const sub = document.createElement('ul'); rows.slice(i, j).forEach((c) => sub.appendChild(item(c))); li.appendChild(sub); }
+        ul.appendChild(li);
+      } else rows.slice(i, j).forEach((c) => ul.appendChild(item(c)));
+      i = j;
+    }
     return ul;
   };
   const t = $('#tree'); t.innerHTML = ''; t.appendChild(build(''));
   t.querySelectorAll('li > div').forEach((d) => d.addEventListener('click', (e) => {
-    if (e.target.classList.contains('tog') && e.target.textContent) {
-      const ul = d.parentElement.querySelector(':scope > ul'); ul.hidden = !ul.hidden;
-      e.target.textContent = ul.hidden ? '▸' : '▾'; return;
+    const tog = e.target.closest('.tog');
+    if ((tog && tog.textContent) || !d.dataset.id) {
+      const k = (tog || d).dataset.k;
+      treeOpen.has(k) ? treeOpen.delete(k) : treeOpen.add(k); renderTree(); return;
     }
     select(d.dataset.id);
   }));
 }
+$('#treeFind').oninput = () => renderTree();
+$('#treeOpen').onclick = () => {
+  S.tree.forEach((t) => treeOpen.add(t.id));
+  S.tree.forEach((t) => treeOpen.add(`g:${t.host || ''}:${t.id}`));
+  renderTree();
+};
+$('#treeFold').onclick = () => { treeOpen.clear(); renderTree(); };
+// ---------------------------------------------------------------- hide / show side panels (◧ ◨)
+function readPanels() { try { return JSON.parse(localStorage.getItem('pazl.panels') || '{}'); } catch (e) { return {}; } }
+function applyPanels(st) {
+  document.body.classList.toggle('hide-left', !!st.l); document.body.classList.toggle('hide-right', !!st.r);
+  $('#btnHideL').classList.toggle('on', !!st.l); $('#btnHideR').classList.toggle('on', !!st.r);
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+const flipPanel = (k) => { const st = readPanels(); st[k] = !st[k]; try { localStorage.setItem('pazl.panels', JSON.stringify(st)); } catch (e) { /* */ } applyPanels(st); };
+$('#btnHideL').onclick = () => flipPanel('l');
+$('#btnHideR').onclick = () => flipPanel('r');
+applyPanels(readPanels());
 
 // ---------------------------------------------------------------- properties panel
 const catalogByType = () => Object.fromEntries(S.catalog.map((c) => [c.type, c]));

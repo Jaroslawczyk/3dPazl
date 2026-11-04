@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 
@@ -170,8 +171,49 @@ def redo(x_agent: str = Header("user")):
 
 
 @app.get("/api/tree")
-def tree():
-    return _run(P.tree)
+def tree(compact: bool = False, root: str = "", depth: int = 99):
+    """compact=1 -> indented text outline (few tokens): runs of same-type siblings named like awL0..awL5 fold
+    into one line `awL0..5 hull x6`; `root` limits it to one subtree, `depth` to N levels."""
+    items = _run(P.tree)
+    return Response(tree_outline(items, root, depth), media_type="text/plain") if compact else items
+
+
+def tree_outline(items, root="", depth=99) -> str:
+    kids: dict[str, list] = {}
+    for t in items:
+        kids.setdefault(t.get("host") or "", []).append(t)
+    out: list[str] = []
+
+    def walk(parent, lvl):
+        if lvl >= depth:
+            return
+        rows = kids.get(parent, [])
+        i = 0
+        while i < len(rows):
+            t = rows[i]
+            short = t["id"].split("/")[-1]
+            m = re.fullmatch(r"(.*?)(\d+)", short)
+            j = i + 1
+            if m and t["id"] not in kids:  # fold leaf runs with the same prefix and type
+                while j < len(rows) and rows[j]["type"] == t["type"] and rows[j]["id"] not in kids \
+                        and re.fullmatch(re.escape(m.group(1)) + r"\d+", rows[j]["id"].split("/")[-1]):
+                    j += 1
+            pad = "  " * lvl
+            if j - i > 1:
+                last = rows[j - 1]["id"].split("/")[-1][len(m.group(1)):]
+                out.append(f"{pad}{short}..{last} {t['type']} x{j - i}")
+            else:
+                err = f" !{t['error']}" if t.get("error") else ""
+                more = f" (+{_count(t['id'])})" if lvl + 1 >= depth and t["id"] in kids else ""
+                out.append(f"{pad}{short} {t['type']}{more}{err}")
+                walk(t["id"], lvl + 1)
+            i = j
+
+    def _count(eid):
+        return sum(1 + _count(c["id"]) for c in kids.get(eid, []))
+
+    walk(root, 0)
+    return "\n".join(out)
 
 
 @app.get("/api/element/{eid:path}")

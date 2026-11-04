@@ -95,6 +95,7 @@
   <aside id="left">
     <section data-pane="tree" class="pane on">
       <div class="hint">Клик — выбрать. Элементы вложены по тому, к чему прикреплены.</div>
+      <div class="tree-bar"><input id="treeFind" placeholder="Найти элемент…" spellcheck="false"><button id="treeOpen" class="icon" title="Развернуть всё">⊞</button><button id="treeFold" class="icon" title="Свернуть всё">⊟</button></div>
       <ul id="tree"></ul>
     </section>
     <section data-pane="lib" class="pane">
@@ -144,6 +145,9 @@
     <div id="viewport"></div>
     <div id="vtools">
       <div class="vrow">
+        <button id="btnHideL" class="icon" title="Скрыть / показать левую панель (элементы)">◧</button>
+        <button id="btnHideR" class="icon" title="Скрыть / показать правую панель (свойства, ИИ, журнал)">◨</button>
+        <span class="sep"></span>
         <button data-mode="select" class="on icon" title="Выбор (Q)">⬚</button>
         <button data-mode="translate" class="icon" title="Двигать (W)">✥</button>
         <button data-mode="rotate" class="icon" title="Вращать вокруг вертикали (E)">⟳</button>

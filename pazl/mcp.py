@@ -148,7 +148,8 @@ def tree(full: bool = False, root: str = "", depth: int = 99) -> str:
     if full:
         return _j(_call("GET", "/api/tree"))
     from urllib.parse import quote
-    return _call("GET", f"/api/tree?compact=1&root={quote(root)}&depth={depth}")
+    r = _call("GET", f"/api/tree?compact=1&root={quote(root)}&depth={depth}", raw=True)
+    return r.decode("utf-8") if isinstance(r, bytes) else _j(r)
 
 
 @tool
