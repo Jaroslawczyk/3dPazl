@@ -618,6 +618,15 @@ def mesh_check(path: str, openings: bool = False) -> str:
     return _j(meshcheck.check(path, openings=openings))
 
 
+@tool
+def mesh_fix(path: str) -> str:
+    """Repair a GLB under projects/ in place until mesh_check has nothing fixable: drops degenerate/sliver faces, closes
+    small holes and zips cracks with existing vertices, pushes hats/hair/clothes out of the body. UVs, skin and
+    animation stay. Returns mesh_check summaries before/after and per round. Characters get it automatically on export."""
+    from .core import meshfix
+    return _j(meshfix.fix(path))
+
+
 def main():
     mcp.run()
 

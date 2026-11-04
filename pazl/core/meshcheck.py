@@ -48,7 +48,7 @@ def _sheetlike(piece):
 
 
 def _closed(g):
-    return [x for x in g.split(only_watertight=False) if x.is_watertight and x.volume > 0 and len(x.faces) >= 12]
+    return [x for x in g.split(only_watertight=False, repair=False) if x.is_watertight and x.volume > 0 and len(x.faces) >= 12]
 
 
 def _inside(pieces, Q):
@@ -65,7 +65,7 @@ def _holes(name, g, lo, hi, min_len, solids, seams=None):
     is an expected opening; one with nothing inside it is a tear you can see through. Open sheets are skipped."""
     res = []
     V = g.vertices
-    for piece in g.split(only_watertight=False):
+    for piece in g.split(only_watertight=False, repair=False):
         if _sheetlike(piece):
             continue
         uniq, cnt = np.unique(piece.edges_sorted, axis=0, return_counts=True)
@@ -96,7 +96,7 @@ def _holes(name, g, lo, hi, min_len, solids, seams=None):
 
 def _orientation(name, g, lo, hi):
     res = []
-    for p in g.split(only_watertight=False):
+    for p in g.split(only_watertight=False, repair=False):
         if len(p.faces) < 8:
             continue
         if not p.is_winding_consistent:
@@ -137,7 +137,7 @@ def _between(parts, lo, hi, scale, samples):
     Z-fighting: two parts' surfaces on top of each other facing the same way - they flicker."""
     res = []
     for i, (na, A) in enumerate(parts):
-        solid = [x for x in A.split(only_watertight=False) if not _sheetlike(x)]
+        solid = [x for x in A.split(only_watertight=False, repair=False) if not _sheetlike(x)]
         if not solid:
             continue
         A = trimesh.util.concatenate(solid)  # hair cards / strand roots are buried in the scalp on purpose

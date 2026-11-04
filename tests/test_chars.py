@@ -317,3 +317,19 @@ def test_push_out_lifts_a_sunk_hat_but_not_hair_cards():
     out = meshcheck.push_out_faces(m, head)
     assert not meshcheck._inside(meshcheck._closed(head), out.vertices[:len(hat.vertices)]).any()
     assert np.allclose(out.vertices[len(hat.vertices):], card.vertices)  # cards untouched
+
+
+def test_mesh_fix_closes_a_gap_and_keeps_uv(tmp_path):
+    """The repair loop works on the file: a small hole in a textured ball is closed with existing vertices, UVs stay."""
+    from PIL import Image
+    from pazl.core import meshcheck, meshfix
+    ball = trimesh.creation.icosphere(subdivisions=2, radius=.5)
+    m = trimesh.Trimesh(ball.vertices, ball.faces[1:], process=False)  # one triangle missing
+    m.visual = trimesh.visual.TextureVisuals(uv=np.c_[m.vertices[:, 0] + .5, m.vertices[:, 1] + .5], image=Image.new("RGB", (8, 8)))
+    f = tmp_path / "ball.glb"
+    m.export(f)
+    assert meshcheck.check(f)["summary"].get("hole")
+    r = meshfix.fix(f)
+    assert not r["after"].get("hole")
+    g = trimesh.load(f, force="mesh")
+    assert g.visual.uv is not None and len(g.faces) == len(ball.faces)

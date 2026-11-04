@@ -33,6 +33,12 @@ The running app server keeps old Python code until it is restarted; the web file
 ```
 Finds: `hole` (a tear you see through; sleeves/collars that a limb passes through are skipped, `--openings` lists them), `poke_through` (body through clothes, hat into hair, with depth), `inside_out`, `mixed_winding`, `z_fighting`, `non_manifold`, `sliver`, `degenerate`. Each has a world point `at` and a place like "спереди слева, 62% высоты": point the camera there to confirm, fix, run again until empty.
 
+## Repair automatically
+```bash
+.venv/Scripts/python.exe scripts/mesh_fix.py chars/hero.glb       # MCP: mesh_fix(path)
+```
+Fixes the finished GLB in place, round after round until mesh_check is clean: drops degenerate/sliver faces, closes small holes with existing vertices (UVs, skin, clips stay), zips cracks shut, pushes hats/hair/clothes out of the body. Characters up to 60k triangles get it automatically on every export (recipe `"no_fix": true` turns it off). Note: `trimesh` `split()` fills holes unless `repair=False` - never check holes after a plain split.
+
 ## Compare with the user's original (do this before any change)
 ```bash
 .venv/Scripts/python.exe -I scripts/glb_compare.py projects/refs/<case>/original.glb projects/refs/<case>/mine.glb

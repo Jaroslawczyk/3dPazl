@@ -551,6 +551,10 @@ def export_c(c):
         H = float(np.max([b["tail"][1] for b in r["bones"]]))
         rest = {k: v.as_quat() for k, v in rig.anim._humanoid_pose("idle", 0, H).items() if k.startswith(("shoulder", "upper_arm"))}
     size = gltf.write_parts(out, parts, r["bones"], r["clips"], rest)
+    if sum(len(p["F"]) for p in parts) <= 60000 and not c.get("no_fix"):  # check + repair the very file that is shown/exported
+        from .. import meshfix
+        meshfix.fix(out)
+        size = out.stat().st_size
     return {"name": c["name"], "path": out.relative_to(PROJECTS).as_posix(), "kb": round(size / 1e3), "clips": list(r["clips"]),
             "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "max_part": int(max(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"]}
 
