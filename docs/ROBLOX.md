@@ -7,9 +7,17 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 2. `char_wear(name, kind, color=..., skin=...)`. Kinds: tshirt longsleeve tank jacket pants shorts skirt dress cloak boots shoes gloves scarf belt beanie hat hair_short hair_long beard.
 3. Look at the result in the app: tabs Персонажи, Одежда.
 
-Extras: `print="skins/prints/<file>.png"` (+ `print_size`, share of chest width) on a top puts a picture on the chest, also on the Roblox shirt front; kind `bird` is a pet on the right shoulder (`side="L"` for the left), exported as `accessories/bird.glb`; skin preset `galaxy` is a space pattern. Example: character `galaxy_woof` (blocky, longsleeve+pants `galaxy`, white `tank` with `ease=.03` and the husky print from `scripts/make_husky_print.py`, grey shoes, galaxy hair, beanie, bird).
+## Lessons from a real Roblox avatar (user's original, 2026-11-04, `projects/refs/roblox_galaxy/`)
+- Real avatar: 5,078 triangles. Body = ONE mesh of 2,436 tris; shirt, pants, face are all texture on it. Hair + beanie 1,520, pet 1,122.
+- My first try had 45,451 (x9): every garment was a second 3D shell. Now on block bodies `tshirt longsleeve tank jacket pants shorts boots shoes gloves` are **painted onto the body faces** (`cloth.PAINT`); hair/hats stay 3D but are capped at 1,200 tris. Set `cloth3d: true` in the recipe to get the old shells.
+- Block bodies are built straight from boxes on a grid (`body.blocky_mesh`), head rounded like a Roblox head: ~1.8k tris at `mid`, clean clothing lines (sampled at grid-quad centres).
+- Preset `roblox` has R15 proportions: legs 0.47 of the height (to the top of the head), torso 0.33, head 0.23, torso width 0.4.
+- Roblox avatars face **-Z**, ours +Z: `roblox_export` now turns `model.glb` and accessories half round.
+- Still different from the original: it stands arms-down (ours T-pose for rigging), its hair is many thin spiky cards and the beanie hangs on the back of the head, its face is a texture.
 
-Viewport checks (menu Показ, every workshop): «UV-чекер» swaps materials for a numbered grid (magenta = no UVs), «Нормали» draws vertex normals, they follow the animation.
+Extras: `print="skins/prints/<file>.png"` (+ `print_size`, share of chest width) on a top puts a picture on the chest, also on the Roblox shirt front; kind `bird` is a pet on the right shoulder (`side="L"` for the left), exported as `accessories/bird.glb`; skin preset `galaxy` is a space pattern. Example: character `galaxy_woof` (blocky, longsleeve+pants `galaxy`, white `tank` with a chest print, grey shoes, galaxy hair, beanie, bird).
+
+Viewport checks (menu Показ, every workshop): «Каркас» white wire overlay, «UV-чекер» swaps materials for a numbered grid (magenta = no UVs), «Нормали» draws vertex normals, they follow the animation.
 
 A file with several figures (separate meshes standing apart) becomes `<name>_1`, `<name>_2`, ... Block bodies (R6 style) are dressed block by block, so cloth does not tear when they walk.
 

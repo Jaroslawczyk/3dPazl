@@ -60,6 +60,11 @@ KINDS = {
 }
 
 
+# On block bodies these are painted onto the body faces (like Roblox classic clothing), not built as a second shell:
+# 3D shells cost ~9x the triangles of a real Roblox avatar and their edges stand out of the blocks.
+PAINT = {"tshirt", "longsleeve", "tank", "jacket", "pants", "shorts", "boots", "shoes", "gloves"}
+
+
 def kinds_for(template):
     return {**KINDS.get(template, {}), **KINDS["any"]}
 
@@ -354,7 +359,7 @@ def make_blocks(fit, kind, spec, template, target=None):
             continue  # a jacket must not leave a thin rim on the head or the legs
         sub = fit.only(lab)
         try:
-            V, F, N = make(sub, kind, spec, template, max(3000, target // 2) if target else None)
+            V, F, N = make(sub, kind, spec, template, max(target // 2, min(target, 3000)) if target else None)
         except ValueError:
             continue  # this garment does not reach this block
         pad = .05 + float(spec.get("ease") or o.get("ease", .012))  # nothing may stray from its own block

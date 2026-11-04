@@ -187,3 +187,28 @@ def test_figures_with_own_materials_are_split_but_head_stays():
     M = np.repeat([0, 1, 2], [len(p.vertices) for p in parts])
     g = importer.groups(np.asarray(m.vertices), np.asarray(m.faces), M)
     assert sorted(len(x) for x in g) == [8, 16]
+
+
+def test_block_body_is_lowpoly_like_a_roblox_avatar():
+    """Lesson from a real Roblox avatar (5k triangles, body 2.4k): the block body is built from boxes, not a remeshed field."""
+    k, p = body.params_for("roblox")
+    m, bones = body.build(k, p, None, 8000)
+    assert len(m.faces) < 2600
+    for part in m.split(only_watertight=False):
+        assert part.is_winding_consistent
+    assert m.bounds[0][1] >= 0
+
+
+def test_roblox_glb_turn_faces_minus_z(tmp_path):
+    from pazl.core import roblox
+    import json
+    t = trimesh.Trimesh([[0, 0, 0], [1, 0, 0], [0, 1, 1]], [[0, 1, 2]])
+    f = tmp_path / "m.glb"
+    t.export(f)
+    roblox._turn_glb(f)
+    b = f.read_bytes()
+    n = struct.unpack_from("<I", b, 12)[0]
+    js = json.loads(b[20:20 + n])
+    assert js["nodes"][js["scenes"][0]["nodes"][0]]["rotation"] == [0, 1, 0, 0]
+    assert struct.unpack_from("<I", b, 8)[0] == len(b)
+    assert abs(trimesh.load(f, force="scene").bounds[0][2] + 1) < 1e-6  # z 1 -> -1

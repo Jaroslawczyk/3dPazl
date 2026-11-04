@@ -1,7 +1,8 @@
 // Viewport checks for any model on screen (project, GLB viewer, every workshop):
 // UV checker — a numbered coloured grid instead of the materials, shows stretching, seams and flipped islands;
 // vertex normals — a short line out of every vertex, coloured by its direction. Meshes without UVs turn magenta.
-export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox }) {
+// Wireframe (the «Каркас» box) is drawn here as a white overlay for GLB views and workshops; the project view handles it itself.
+export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox, wireBox }) {
   const D = { model: null, lines: null, meshes: [], tex: null, len: 0 };
 
   function checker() {
@@ -28,7 +29,7 @@ export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox }) {
 
   function setUV(on) {
     root.traverse((o) => {
-      if (!o.isMesh) return;
+      if (!o.isMesh || o.userData.dbgWire) return;
       if (on && !o.userData.dbgMat) {
         D.tex ||= checker();
         o.userData.dbgMat = o.material;
@@ -51,7 +52,7 @@ export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox }) {
     if (box.isEmpty()) return;
     D.len = box.getSize(new THREE.Vector3()).length() * .012;
     let total = 0;
-    root.traverse((o) => { if (o.isMesh && o.geometry.attributes.normal) { D.meshes.push(o); total += o.geometry.attributes.position.count; } });
+    root.traverse((o) => { if (o.isMesh && !o.userData.dbgWire && o.geometry.attributes.normal) { D.meshes.push(o); total += o.geometry.attributes.position.count; } });
     D.step = Math.max(1, Math.ceil(total / 150000));  // huge scenes: every k-th vertex, keeps it interactive
     const count = D.meshes.reduce((s, o) => s + Math.ceil(o.geometry.attributes.position.count / D.step), 0);
     const geo = new THREE.BufferGeometry();
@@ -84,16 +85,34 @@ export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox }) {
     D.lines.geometry.attributes.position.needsUpdate = D.lines.geometry.attributes.color.needsUpdate = true;
   }
 
+  function setWire(on) {
+    const ms = [];
+    root.traverse((o) => { if (o.isMesh && !o.userData.dbgWire) ms.push(o); });
+    for (const o of ms) {
+      if (on && !o.userData.wire && ![].concat(o.userData.dbgMat || o.material).some((m) => m.wireframe)) {
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: .6 });
+        const w = o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry, mat) : new THREE.Mesh(o.geometry, mat);
+        if (o.isSkinnedMesh) { w.bind(o.skeleton, o.bindMatrix); w.position.copy(o.position); w.quaternion.copy(o.quaternion); w.scale.copy(o.scale); o.parent.add(w); } else o.add(w);
+        w.userData.dbgWire = true; w.frustumCulled = false; w.raycast = () => {};
+        o.userData.wire = w;
+      } else if (!on && o.userData.wire) {
+        o.userData.wire.material.dispose(); o.userData.wire.removeFromParent(); delete o.userData.wire;
+      }
+    }
+  }
+
   const apply = () => {
     D.model = root.children[0] || null;
+    setWire(wireBox.checked);
     setUV(uvBox.checked);
     if (nBox.checked) buildNormals(); else dropNormals();
     invalidate();
   };
   uvBox.onchange = apply; nBox.onchange = apply;
+  wireBox.addEventListener('change', apply);  // the project view also rebuilds its own wireframe on this box
   // called from the render loop: a newly loaded model gets the active checks; skinned normals follow the animation
   return function tick() {
-    if (!uvBox.checked && !nBox.checked) { if (D.lines) dropNormals(); return; }
+    if (!uvBox.checked && !nBox.checked && !wireBox.checked) { if (D.lines) dropNormals(); return; }
     if ((root.children[0] || null) !== D.model) apply();
     else if (D.lines && D.skinned) { root.updateMatrixWorld(true); updateNormals(); }
   };

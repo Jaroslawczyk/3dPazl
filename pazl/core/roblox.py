@@ -163,6 +163,24 @@ def _readme(out, keys, notes=()):
     (out / "README.txt").write_text("Как загрузить в Roblox\n\n" + "\n\n".join(STEPS[k] for k in keys) + ("\n\nВнимание:\n" + "\n".join(notes) if notes else "") + "\n", "utf-8")
 
 
+TURN = trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0])  # our figures face +Z, Roblox avatars face -Z
+
+
+def _turn_glb(path):
+    """Turn a (skinned) GLB half round about Y by putting its scene under one rotated root node."""
+    import json
+    import struct
+    b = Path(path).read_bytes()
+    n = struct.unpack_from("<I", b, 12)[0]
+    js, rest = json.loads(b[20:20 + n]), b[20 + n:]
+    sc = js["scenes"][js.get("scene", 0)]
+    js["nodes"].append({"name": "RobloxFront", "rotation": [0, 1, 0, 0], "children": sc["nodes"]})
+    sc["nodes"] = [len(js["nodes"]) - 1]
+    j = json.dumps(js, separators=(",", ":")).encode()
+    j += b" " * (-len(j) % 4)
+    Path(path).write_bytes(b[:8] + struct.pack("<I", 20 + len(j) + len(rest)) + struct.pack("<I4s", len(j), b"JSON") + j + rest)
+
+
 def export_char(name):
     c = chars.load(name)
     r = rig.load(chars._rn(name))
@@ -171,6 +189,7 @@ def export_char(name):
     out.mkdir(parents=True)
     res = chars.export_c(c)
     shutil.copy(PROJECTS / res["path"], out / "model.glb")
+    _turn_glb(out / "model.glb")
     H = float(np.max([b["tail"][1] for b in r["bones"]]))
     files, keys, notes = ["model.glb"], ["model"], []
     if res["max_part"] > MESH_TRIS:
@@ -196,12 +215,12 @@ def export_char(name):
                 ms, _ = chars.pet_mesh(c, r, V, g)
                 for m, col in ms:
                     m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.r_[col * 255, 255].astype(np.uint8))
-                trimesh.util.concatenate([m for m, _ in ms]).export(out / "accessories" / "bird.glb")
+                trimesh.util.concatenate([m for m, _ in ms]).apply_transform(TURN).export(out / "accessories" / "bird.glb")
                 files.append("accessories/bird.glb")
                 continue
             v, f, *_ = chars._garment(c, g, fit, stamp)
             v, f = decimate(np.asarray(v, float), np.asarray(f), ACC_TRIS)
-            m = trimesh.Trimesh(v, f, process=False)
+            m = trimesh.Trimesh(v, f, process=False).apply_transform(TURN)
             col = body.rgb(g.get("color") or cloth.kinds_for(c["template"])[g["kind"]][2]["color"])
             m.visual = trimesh.visual.TextureVisuals(material=trimesh.visual.material.PBRMaterial(baseColorFactor=[*col, 1], roughnessFactor=.8))
             m.export(out / "accessories" / f"{g['kind']}.glb")

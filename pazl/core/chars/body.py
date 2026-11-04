@@ -28,6 +28,7 @@ PRESETS = {
     "chibi": ("Чиби", "human", {"height": 1.0, "head": 2.3, "build": 1.0, "legs": .72, "arms": .8, "nose": .5, "ears": .8}),
     "blocky": ("Кубик", "blocky", {}),
     "blocky_slim": ("Кубик стройный", "blocky", {"build": .8, "legs": 1.15, "shirt_color": "#c0436b", "legs_color": "#2f3f6d"}),
+    "roblox": ("Роблокс (пропорции R15)", "blocky", {"height": 1.5, "build": 1.1, "head": .95, "legs": 1.18, "color": "#eec39a"}),
     "blocky_big": ("Кубик-здоровяк", "blocky", {"height": 1.7, "build": 1.3, "head": .85, "shirt_color": "#5a7a3a", "legs_color": "#4a3a2a", "color": "#9fb0c0"}),
     "dog": ("Собака", "beast", {}),
     "cat": ("Кошка", "beast", {"height": .32, "length": .5, "build": .84, "snout": .42, "color": "#7d7d85", "belly_color": "#e8e8ea", "eyes": "#6e9c2e"}),
@@ -254,21 +255,64 @@ def blocky_field(p, cell=None):
               _bone("hand" + s, "forearm" + s, (ax + ar * .88 * k, sy, 0), (ax + ar * k, sy, 0)),
               _bone("thigh" + s, "hips", (x, lg, 0), (x, lg * .5, 0)), _bone("shin" + s, "thigh" + s, (x, lg * .5, 0), (x, .07 * u, 0)),
               _bone("foot" + s, "shin" + s, (x, .07 * u, 0), (x, 0, td))]
-    cell = cell or .0075 * u
+    only = cell == "boxes"
+    cell = .0075 * u if only or not cell else cell
     span = tw + ar + .05
-    g = Grid((-span, -.02, -.3 * u * B - .05), (span, H + .04, .3 * u * B + .05), cell)
     e = .012 * u
-    f = g.empty()
-    box(g, f, (0, lg + .25 * u, 0), (tw, .25 * u, td), e)
-    box(g, f, (0, top + .03 * u + hd / 2, 0), (hd * .56, hd / 2, hd * .52), e * 3)
-    box(g, f, (0, top + .015 * u, 0), (.08 * u, .03 * u, .08 * u), e)
     gap = cell * 2.2
+    # (centre, half sizes, edge radius, roundness of the direct mesh: superellipsoid power, lower = rounder)
+    boxes = [((0, lg + .25 * u, 0), (tw, .25 * u, td), e, 14), ((0, top + .03 * u + hd / 2, 0), (hd * .56, hd / 2, hd * .52), e * 3, 3.2),
+             ((0, top + .015 * u, 0), (.08 * u, .03 * u, .08 * u), e, 8)]
     for k in (1, -1):
-        box(g, f, ((tw + gap + ar / 2) * k, sy, 0), (ar / 2, aw, aw), e)
-        box(g, f, (tw / 2 * k, (lg - gap) / 2, 0), (lw, (lg - gap) / 2, td), e)
+        boxes += [(((tw + gap + ar / 2) * k, sy, 0), (ar / 2, aw, aw), e, 12), ((tw / 2 * k, (lg - gap) / 2, 0), (lw, (lg - gap) / 2, td), e, 12)]
     hy = top + .03 * u + hd * .58
     eyes = [(np.array((hd * .2 * k, hy, hd * .49)), hd * .075, (0, 0, 1)) for k in (1, -1)]
+    if only:
+        return boxes, b, eyes, u
+    g = Grid((-span, -.02, -.3 * u * B - .05), (span, H + .04, .3 * u * B + .05), cell)
+    f = g.empty()
+    for c, h, r, _ in boxes:
+        box(g, f, c, h, r)
     return g, f, b, eyes, []
+
+
+def _box_mesh(c, half, step, power):
+    """Closed box surface on a regular grid (cuts between clothes land on grid lines), corners rounded by a superellipsoid."""
+    c, half = np.asarray(c, float), np.asarray(half, float)
+    n = np.maximum(1, np.round(2 * half / step)).astype(int)
+    if power > 5:  # flat block: fine in height and along its length (clothes end there), coarse across
+        n = np.where((np.arange(3) == half.argmax()) | (np.arange(3) == 1), n, np.maximum(1, np.round(n / 2.5))).astype(int)
+    Vs, Fs, off = [], [], 0
+    for ax in range(3):
+        a, b = [i for i in range(3) if i != ax]
+        for sgn in (1, -1):
+            ua, ub = np.linspace(-1, 1, n[a] + 1), np.linspace(-1, 1, n[b] + 1)
+            A, Bm = np.meshgrid(ua, ub, indexing="ij")
+            q = np.zeros((A.size, 3))
+            q[:, a], q[:, b], q[:, ax] = A.ravel(), Bm.ravel(), sgn
+            i = np.arange(A.size).reshape(A.shape)
+            t1 = np.stack([i[:-1, :-1], i[1:, :-1], i[1:, 1:]], -1).reshape(-1, 3)
+            t2 = np.stack([i[:-1, :-1], i[1:, 1:], i[:-1, 1:]], -1).reshape(-1, 3)
+            F = np.vstack([t1, t2])
+            if (sgn > 0) != ((ax + 1) % 3 == a):  # outward winding
+                F = F[:, ::-1]
+            Vs.append(q), Fs.append(F + off)
+            off += len(q)
+    m = trimesh.Trimesh(np.vstack(Vs), np.vstack(Fs), process=False)
+    m.merge_vertices()
+    q = np.asarray(m.vertices)
+    q = q / (np.abs(q) ** power).sum(1, keepdims=True) ** (1 / power) * np.abs(q).max(1, keepdims=True)
+    m.vertices = q * half + c
+    m.fix_normals()
+    return m
+
+
+def blocky_mesh(p, target=None):
+    """Block body built straight from boxes: ~2 thousand triangles like a real Roblox avatar, not a remeshed field."""
+    boxes, bones, eyes, u = blocky_field(p, "boxes")
+    step = u * (.02 if target is None else .03 if target >= 25000 else .05 if target >= 8000 else .08)
+    m = trimesh.util.concatenate([_box_mesh(c, h, step, pw) for c, h, _, pw in boxes])
+    return m, bones, eyes
 
 
 def fit_tpose(V, crotch=None, torso=None):
@@ -351,23 +395,28 @@ def _paint(kind, V, p, bones, marks):
 
 def build(kind, p, cell=None, target=None):
     """(mesh, bones): vertex-coloured trimesh in metres; eyes are added as separate little balls."""
-    g, f, bones, eyes, marks = FIELDS[kind](p, cell)
-    V, F = surface_nets(f, g.lo, g.cell)
-    m = trimesh.Trimesh(V, F, process=False)
-    parts = m.split(only_watertight=False)  # drop stray specks
-    if len(parts) > 1 and kind == "blocky":
-        m = trimesh.util.concatenate(parts)
-    elif len(parts) > 1:
-        m = max(parts, key=lambda x: len(x.vertices))
-    if m.volume < 0:
-        m.invert()
-    trimesh.smoothing.filter_taubin(m, iterations=4)
-    V, F = decimate(np.array(m.vertices), np.asarray(m.faces), target)
+    if kind == "blocky" and not cell:
+        m, bones, eyes = blocky_mesh(p, target)
+        marks = []
+        V, F = np.array(m.vertices), np.asarray(m.faces)
+    else:
+        g, f, bones, eyes, marks = FIELDS[kind](p, cell)
+        V, F = surface_nets(f, g.lo, g.cell)
+        m = trimesh.Trimesh(V, F, process=False)
+        parts = m.split(only_watertight=False)  # drop stray specks
+        if len(parts) > 1 and kind == "blocky":
+            m = trimesh.util.concatenate(parts)
+        elif len(parts) > 1:
+            m = max(parts, key=lambda x: len(x.vertices))
+        if m.volume < 0:
+            m.invert()
+        trimesh.smoothing.filter_taubin(m, iterations=4)
+        V, F = decimate(np.array(m.vertices), np.asarray(m.faces), target)
     V[:, 1] = np.maximum(V[:, 1], 0)  # soles stand on the ground
     C = _paint(kind, V, p, bones, marks)
     Vs, Fs, Cs, off = [V], [F], [C], len(V)
     for c, r, fwd in eyes:
-        v, fa, col = _eye(np.asarray(c, float), r, fwd, rgb(p["eyes"]), 2 if target and target < 5000 else 3)
+        v, fa, col = _eye(np.asarray(c, float), r, fwd, rgb(p["eyes"]), 1 if kind == "blocky" else 2 if target and target < 5000 else 3)
         Vs.append(v); Fs.append(fa + off); Cs.append(col); off += len(v)
     out = trimesh.Trimesh(np.vstack(Vs), np.vstack(Fs), process=False)
     out.visual.vertex_colors = (np.clip(np.vstack(Cs), 0, 1) * 255).astype(np.uint8)

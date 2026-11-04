@@ -198,7 +198,7 @@ async function viewGlb(path) {
 }
 // shared with the workshop modules (web/workspaces.js, web/ws/*.js)
 window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
-debugTick = initDebugView({ THREE, scene, root, invalidate, uvBox: $('#chkUV'), nBox: $('#chkNormals') });
+debugTick = initDebugView({ THREE, scene, root, invalidate, uvBox: $('#chkUV'), nBox: $('#chkNormals'), wireBox: $('#chkWire') });
 $('#btnGlbView').onclick = async () => {
   const list = await fetch('/api/glbs').then((r) => r.json());
   let box = $('#glbPick');

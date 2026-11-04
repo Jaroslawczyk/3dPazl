@@ -1,5 +1,7 @@
 # 3dPazl for AI agents
 
+**Read [docs/QUICKSTART.md](docs/QUICKSTART.md) first**: file map, how to view results in the app, budgets, the user's rules.
+
 Use the `pazl` MCP server (`.mcp.json`, `.cursor/mcp.json`). Start by reading its `guide` tool.
 
 - Buildings, items, rigs: [docs/AI_GUIDE.md](docs/AI_GUIDE.md)

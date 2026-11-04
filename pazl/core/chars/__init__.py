@@ -185,12 +185,14 @@ def copy_outfit(src, dst):
 
 def _garment(c, g, fit, stamp):
     """Cached fit of one garment (V, F, N)."""
-    key = hashlib.sha1(json.dumps([{k: v for k, v in g.items() if k in ("kind", "ease", "length", "flare", "wrinkle", "from", "to", "seed")}, stamp], sort_keys=True).encode()).hexdigest()[:12]
+    t = int(_target(c) * .5) if _target(c) else None
+    if c.get("blocks") and g["kind"] not in cloth.PAINT:  # hair and hats on a ~2k block avatar: a real one spends ~1.5k on both
+        t = min(t or 1200, 1200)
+    key = hashlib.sha1(json.dumps([{k: v for k, v in g.items() if k in ("kind", "ease", "length", "flare", "wrinkle", "from", "to", "seed")}, stamp, t], sort_keys=True).encode()).hexdigest()[:12]
     p = CHARS / "cache" / c["name"] / f"{g['kind']}_{key}.npz"
     if p.exists():
         z = np.load(p)
         return z["V"], z["F"], z["N"], z["L"]
-    t = int(_target(c) * .5) if _target(c) else None
     V, F, N, L = cloth.make_blocks(fit, g["kind"], g, c["template"], t) if c.get("blocks") else (*cloth.make(fit, g["kind"], g, c["template"], t), np.zeros(0, int))
     p.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(p, V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32), L=L)
@@ -308,6 +310,46 @@ def pet_part(c, r, V, g):
     return {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .5}
 
 
+def _paint_outfit(c, r, V, F, N, C, J, W, painted, names_):
+    """Block body: every face takes the colour/skin of the last garment that covers it (later ones lie on top)."""
+    fit = fit_for(c, r, V, F, N)
+    eye = _eyes(C)[F].all(1)
+    own = np.full(len(F), -1)
+    T = V[F]
+    e = np.stack([np.linalg.norm(T[:, 1] - T[:, 2], axis=1), np.linalg.norm(T[:, 2] - T[:, 0], axis=1), np.linalg.norm(T[:, 0] - T[:, 1], axis=1)], 1).argmax(1)
+    k = np.arange(len(F))
+    P = (T[k, (e + 1) % 3] + T[k, (e + 2) % 3]) / 2  # middle of the long edge = centre of the grid quad: both halves agree, no saw teeth
+    for i, g in enumerate(painted):
+        o = cloth.kinds_for(c["template"])[g["kind"]][2]
+        own[(cloth._region(fit, o, P) < 0) & ~eye] = i
+    out = []
+    for i in range(-1, len(painted)):
+        Fi = F[own == i]
+        if not len(Fi):
+            continue
+        use, Fi = np.unique(Fi, return_inverse=True)
+        Fi = Fi.reshape(-1, 3)
+        part = {"name": "Body" if i < 0 else painted[i]["kind"], "V": V[use], "F": Fi, "N": N[use], "C": C[use].copy(), "J": J[use], "W": W[use], "rough": .85}
+        if i < 0:
+            ey = eye[own == -1]
+            if c.get("skin") and (~ey).any():  # the body skin texture, eyes keep their colours
+                sk = _textured({**part, "F": Fi[~ey]}, c["skin"])
+                out += [sk] + ([{**part, "name": "Eyes", "F": Fi[ey]}] if ey.any() else [])
+            else:
+                out.append(part)
+            continue
+        g = painted[i]
+        o = cloth.kinds_for(c["template"])[g["kind"]][2]
+        part["C"][:] = body.rgb(g.get("color") or o["color"])
+        skin = g.get("skin") or (None if g.get("color") else o.get("skin"))
+        out.append(_textured(part, skin) if skin else part)
+        if g.get("print"):
+            pp = print_part(g, part["V"], r["bones"], names_)
+            if pp:
+                out.append(pp)
+    return out
+
+
 def export_c(c):
     rn = _rn(c["name"])
     r = rig.load(rn)
@@ -326,12 +368,18 @@ def export_c(c):
         else:
             parts = [_textured(parts[0], c["skin"])]
     fits = []
+    painted = [g for g in c["outfit"] if c.get("blocks") and not c.get("cloth3d") and g["kind"] in cloth.PAINT]
+    if painted:
+        parts = _paint_outfit(c, r, V, F, N, C, J, W, painted, names_)
+        fits += [{"kind": g["kind"], "tris": 0, "painted": True} for g in painted]
     if c["outfit"]:
         Wd = np.zeros((len(V), len(names_)), np.float32)
         np.put_along_axis(Wd, J.astype(int), W.astype(np.float32), 1)
         stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         fit = fit_for(c, r, V, F, N)
         for g in c["outfit"]:
+            if any(g is x for x in painted):
+                continue
             o = cloth.kinds_for(c["template"])[g["kind"]][2]
             if o.get("pet"):
                 parts.append(pet_part(c, r, V, g))
