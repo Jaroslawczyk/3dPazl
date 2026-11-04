@@ -31,7 +31,7 @@ KINDS = {
         "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
         "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
         "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017}),
-        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather"}),
+        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True}),
         "pants": ("Брюки", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, 1), "shin": (0, .92)})}, "color": "#333a4d", "ease": .01, "skin": "denim"}),
         "shorts": ("Шорты", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, .6)})}, "color": "#6d6a52", "ease": .011}),
         "skirt": ("Юбка", "Низ", {"band": ("spine", .1, "thigh.L", .75), "flare": .17, "color": "#8c3a5c"}),
@@ -228,6 +228,16 @@ def _shape(fit, kind, o, spec, P):
         collar = np.maximum(collar, -_tube(P, *fit.bones["upper_arm.L"], .25, 1.2, fit.reach["upper_arm.L"]))
         collar = np.maximum(collar, -_tube(P, *fit.bones["upper_arm.R"], .25, 1.2, fit.reach["upper_arm.R"]))
         return np.minimum(np.maximum(sheet, r), collar), -np.minimum(np.abs(sheet), np.abs(O))
+    if o.get("open"):  # unbuttoned front with a lapel ridge along each edge
+        rc = fit.reach["chest"]
+        yt, yl = fit.y_at("chest", .9), fit.y_at("spine", .35)
+        w = rc * (.2 + .16 * np.clip((y - yl) / max(yt - yl, 1e-3), 0, 1))
+        ax = np.abs(x)
+        lap = .011 * np.clip(1 - np.abs(ax - w - .05 * rc) / (.07 * rc), 0, 1) * np.clip((y - yl) / .03, 0, 1) * (z > 0) * (y < yt + .02)
+        O = fit.offset(P, ease + lap)
+        cut = np.maximum(ax - w, -z)  # < 0 inside the front strip that stays open
+        s = np.maximum(np.maximum(O, _region(fit, o, P)), -cut)
+        return s, O
     s = np.maximum(O, _region(fit, o, P)) if "cover" in o else np.full(len(P), 1.0)
     if "band" in o:  # skirts: a bell around the hips from a waist down to a hem
         b0, t0, b1, t1 = o["band"]
@@ -363,7 +373,7 @@ def make_blocks(fit, kind, spec, template, target=None):
             continue  # a jacket must not leave a thin rim on the head or the legs
         sub = fit.only(lab)
         try:
-            V, F, N = make(sub, kind, spec, template, max(target // 2, min(target, 3000)) if target else None)
+            V, F, N = make(sub, kind, spec, template, int(spec["block_tris"]) if spec.get("block_tris") else (max(target // 2, min(target, 3000)) if target else None))
         except ValueError:
             continue  # this garment does not reach this block
         pad = .05 + float(spec.get("ease") or o.get("ease", .012))  # nothing may stray from its own block

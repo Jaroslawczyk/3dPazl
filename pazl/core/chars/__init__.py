@@ -214,7 +214,7 @@ def _garment(c, g, fit, stamp):
     t = int(_target(c) * .5) if _target(c) else None
     if c.get("blocks") and g["kind"] not in cloth.PAINT:  # hair and hats on a ~2k block avatar: a real one spends ~1.5k on both
         t = min(t or 1200, 1200)
-    key = hashlib.sha1(json.dumps([{k: v for k, v in g.items() if k in ("kind", "ease", "length", "flare", "wrinkle", "from", "to", "seed")}, stamp, t], sort_keys=True).encode()).hexdigest()[:12]
+    key = hashlib.sha1(json.dumps([{k: v for k, v in g.items() if k in ("kind", "ease", "length", "flare", "wrinkle", "from", "to", "seed", "block_tris")}, stamp, t], sort_keys=True).encode()).hexdigest()[:12]
     p = CHARS / "cache" / c["name"] / f"{g['kind']}_{key}.npz"
     if p.exists():
         z = np.load(p)

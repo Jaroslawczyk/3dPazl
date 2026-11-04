@@ -31,7 +31,7 @@ chars.create("roblox_outfit", preset="roblox", quality="mid")
 c = chars.load("roblox_outfit")
 c["cloth3d"], c["quality"] = True, "low"
 chars.save(c)
-for kind, skin, col in (("pants", "web_dark_pants", "#23282a"), ("tshirt", "web_dark_jersey", "#26332f"),
-                        ("jacket", "web_olive_canvas", "#7c7c45"), ("shoes", None, "#1c1c1f")):
-    chars.wear("roblox_outfit", kind, color=col, skin=skin)
+for kind, skin, col, bt in (("pants", "web_dark_pants", "#23282a", 450), ("tshirt", "web_dark_jersey", "#26332f", 450),
+                            ("jacket", "web_olive_canvas", "#7c7c45", 600), ("shoes", None, "#1c1c1f", 400)):
+    chars.wear("roblox_outfit", kind, color=col, skin=skin, block_tris=bt)
 print(chars.export("roblox_outfit")["tris"])
