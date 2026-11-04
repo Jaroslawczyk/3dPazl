@@ -57,6 +57,18 @@
         "8769"
       ],
       "port": 8769
+    },
+    {
+      "name": "pazl-transport",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "pazl.server.app:app",
+        "--port",
+        "8772"
+      ],
+      "port": 8772
     }
   ]
 }

@@ -13,6 +13,8 @@ from .project import PROJECTS
 WORKSHOPS = {
     "items": {"title": "Предметы", "dir": "items",
               "about": "Мелкие объекты и декали: посуда, еда, книги, инструменты, мелочи для интерьера."},
+    "transport": {"title": "Транспорт", "dir": "transport",
+                  "about": "Машины, поезда, суда и самолёты: низкополигональные, с одной текстурой-палитрой, номерами и декалями. Колёса и винты — отдельные узлы."},
     "chars": {"title": "Персонажи", "dir": "chars",
               "about": "Живое цельное тело вместо примитивов: люди, звери, существа или ваш GLB. Пропорции, лепка, скин, анимация."},
     "clothes": {"title": "Одежда", "dir": "chars",
@@ -72,6 +74,27 @@ async def item_make(body: dict):
     name = re.sub(r"[^\w\-]+", "_", body.get("name") or kind).strip("_") or kind
     path = PROJECTS / WORKSHOPS["items"]["dir"] / f"{name}.glb"
     info = await asyncio.to_thread(items.export_glb, kind, body.get("params") or {}, path)
+    return {**info, "path": path.relative_to(PROJECTS).as_posix()}
+
+
+# ---------------------------------------------------------------- transport workshop
+@router.get("/transport/kinds")
+def transport_kinds():
+    from ..core import vehicles
+    return vehicles.catalog()
+
+
+@router.post("/transport/make")
+async def transport_make(body: dict):
+    """body: {kind, name?, params: {color, color2, livery, text, detail, length, size, seed}} -> projects/transport/<name>.glb."""
+    import re
+    from ..core import vehicles
+    kind = body.get("kind", "")
+    if kind not in vehicles.FUNCS:
+        raise HTTPException(400, f"unknown vehicle kind {kind}")
+    name = re.sub(r"[^\w\-]+", "_", body.get("name") or kind).strip("_") or kind
+    path = PROJECTS / WORKSHOPS["transport"]["dir"] / f"{name}.glb"
+    info = await asyncio.to_thread(vehicles.export_glb, kind, body.get("params") or {}, path)
     return {**info, "path": path.relative_to(PROJECTS).as_posix()}
 
 

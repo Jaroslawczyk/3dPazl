@@ -149,6 +149,11 @@ projects, log?since=; POST new, load, save, patch {ops,note}, undo, redo, valida
 export {format,lod_tris,force}, textures/manifest, note {text}, camera {az,el,dist,target}.
 GET preview.glb (per element), model.glb (welded, textured), render/latest.png.
 
+## Transport
+- `make_vehicle(kind, ...)` writes `projects/transport/<name>.glb`: cars, trucks, a bus, tractor, motorcycle, steam train and wagons, boats and ships, planes, a helicopter. Empty `kind` lists everything.
+- `color`, `color2`, `livery`, `text` (plate, route or side number), `detail` 1-3, `length`, `seed`. Metres, Y up, facing +Z; wheels and rotors are separate nodes with their pivot on the axle.
+- New vehicles: `pazl/core/vehicles/`. Follow [model_craft.md](model_craft.md): one palette atlas, colour cut into the surface with `Kit.paint`, thin parts for detail, inset windows.
+
 ## Characters, clothes, skins
 - `char_make(name, preset)` grows a one-piece organic body (not primitives) with skeleton and idle/walk clips; `src` makes a character from any GLB. `char_make(name, params={...})` reshapes it and refits clothes.
 - `char_import` makes a character from an OBJ, binary FBX, GLB, DAE, STL or PLY file.

@@ -102,6 +102,18 @@ def make_item(kind: str = "", name: str = "", size: float = 1.0, width: float = 
 
 
 @tool
+def make_vehicle(kind: str = "", name: str = "", color: str = "", color2: str = "", livery: str = "plain", text: str = "",
+                 detail: int = 2, length: float = 1.0, size: float = 1.0, seed: int = 1) -> str:
+    """Transport workshop: generate a vehicle GLB into projects/transport/<name>.glb (metres, Y up, facing +Z, wheels and rotors
+    are separate nodes, one palette texture). Empty kind lists kinds and liveries. color/color2 '#rrggbb', text = plate, route or
+    side number, detail 1-3 (3 adds the smallest parts), length 0.7-1.5 stretches the body, seed picks a variant."""
+    if not kind:
+        return _j(_call("GET", "/api/ws/transport/kinds"))
+    return _j(_call("POST", "/api/ws/transport/make", {"kind": kind, "name": name, "params": {
+        "color": color, "color2": color2, "livery": livery, "text": text, "detail": detail, "length": length, "size": size, "seed": seed}}))
+
+
+@tool
 def rig_auto(src: str = "", name: str = "", template: str = "humanoid") -> str:
     """Rig workshop (native, no Blender): fit a skeleton template (humanoid|quadruped|simple) to a GLB under projects/
     (e.g. 'items/x.glb'). Empty src builds a test mannequin. Then: rig_weights -> anim_make -> anim_check -> rig_export."""
