@@ -157,6 +157,7 @@
         <button data-mode="translate" class="icon" title="Двигать (W)">✥</button>
         <button data-mode="rotate" class="icon" title="Вращать вокруг вертикали (E)">⟳</button>
         <button id="btnMark" title="Пометки для ИИ: клик — точка, протянуть — нарисовать. Вращать камеру — правой кнопкой">✎ Пометки</button>
+        <button id="btnMarkAgent" hidden title="Отправить поставленные точки (координаты, деталь, комментарий) и скриншот ИИ-агенту — Claude Code / Codex прочитает их инструментом view_marks">📤 Агенту</button>
         <span class="sep"></span>
         <button id="vFront" title="Вид спереди">Перед</button>
         <button id="vSide" title="Вид сбоку">Бок</button>
@@ -220,6 +221,7 @@
           <div id="markList"></div>
           <div class="row">
             <button id="markRun" class="act" title="ИИ поменяет только отмеченные элементы, остальное заблокировано">▶ ИИ: переделать отмеченное</button>
+            <button id="markAgent" title="Сохранить точки с координатами и скриншот для ИИ-агента (Claude Code, Codex): он прочитает их инструментом view_marks">📤 Агенту</button>
             <button id="markClear">Очистить пометки</button>
           </div>
           <div class="hint">Текст ниже — общая задача (необязательно).</div>

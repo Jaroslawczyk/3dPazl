@@ -206,7 +206,7 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
     card, flat -> one-layer sheet, bulky -> shrinkwrapped icosphere."""
     out = []
     pieces = ref.split(only_watertight=False, repair=False)
-    caps = [p for p in pieces if not p.is_watertight and len(p.faces) >= 150]
+    caps = [p for p in pieces if is_cap(p)]
     if caps and color is not None:  # a cap's brim / fold is often a separate ring of the same colour: one hat, no gap
         cols = [color(p) for p in pieces]
         groups = {id(c): [c] for c in caps}
@@ -217,7 +217,7 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
                 cc = cols[next(i for i, x in enumerate(pieces) if x is c)]
                 lo, hi = c.bounds[0] - c.extents * .1, c.bounds[1] + c.extents * .1
                 inside = np.all((p.vertices > lo) & (p.vertices < hi), axis=1).mean()
-                if inside > .8 and np.linalg.norm(col - cc) < .12:
+                if inside > .4 and np.linalg.norm(col - cc) < .12:  # brim layers hang below the dome box
                     groups[id(c)].append(p)
                     break
         merged = {id(x) for g in groups.values() for x in g}
@@ -230,11 +230,11 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
         elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
             out.append(prune(shrinkwrap(p, 2, grow=1.3, iters=1), p))
         else:
-            if not p.is_watertight and len(p.faces) >= 150:  # a cap (beanie): one clean dome, no torn fold
+            if is_cap(p) or (len(p.faces) >= 150 and any(np.allclose(p.bounds, c.bounds) for c in caps)):  # a cap (beanie): one clean dome, no torn fold
                 out.append(dome(p))
                 continue
             w = shrinkwrap(p, sub_for(len(p.faces)))
-            out.append(w if p.is_watertight else prune(w, p))  # open pieces must not be closed across the head
+            out.append(w)  # bulky pieces stay closed (pruning tore holes in the pet); open caps went to dome() above
     return trimesh.util.concatenate(out)
 
 
@@ -375,6 +375,15 @@ def ribbon(part: trimesh.Trimesh, root_near):
     tip = V[np.argmax(t)]
     v = np.vstack([pts, [tip]])
     return trimesh.Trimesh(v, [[0, 1, 3], [0, 3, 2], [2, 3, 4]], process=False)
+
+
+def is_cap(p, min_faces=150):
+    """Open piece whose opening is about as wide as the piece (beanie, helmet, hood) - not a ball with a small hole."""
+    if p.is_watertight or len(p.faces) < min_faces:
+        return False
+    e, cnt = np.unique(p.edges_sorted, axis=0, return_counts=True)
+    rim = p.vertices[np.unique(e[cnt == 1])]
+    return len(rim) > 6 and np.ptp(rim, 0).max() > .6 * p.extents.max()
 
 
 def dome(part: trimesh.Trimesh, rings=9, n=20):

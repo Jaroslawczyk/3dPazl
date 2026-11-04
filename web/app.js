@@ -178,9 +178,10 @@ async function reloadModel(fit = false) {
 }
 // ---------------------------------------------------------------- GLB viewer (script-built models, references)
 async function viewGlb(path) {
+  S.viewing = path;
   $('#busy').hidden = false;
   try {
-    const buf = await (await fetch('/files/' + path.split('/').map(encodeURIComponent).join('/'))).arrayBuffer();
+    const buf = await (await fetch('/files/' + path.split('/').map(encodeURIComponent).join('/'), { cache: 'no-store' })).arrayBuffer();  // a rebuilt file must not come from the cache
     const gltf = await loader.parseAsync(buf, '');
     root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
     root.clear(); S.meshesById.clear();
@@ -1179,7 +1180,7 @@ window.addEventListener('pointerup', (e) => {
   const d = drawing; drawing = null;
   const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6;
   if (!d.pts.length || (moved && d.pts.length < 2)) return invalidate();
-  S.marks.push({ kind: moved ? 'stroke' : 'point', pts: moved ? d.pts : d.pts.slice(0, 1), eids: [...d.eids], note: '' });
+  S.marks.push({ kind: moved ? 'stroke' : 'point', pts: moved ? d.pts : d.pts.slice(0, 1), eids: [...d.eids], parts: [...(d.parts || [])], note: '' });
   renderMarks(); invalidate();
   setTimeout(() => $(`#markList input[data-i="${S.marks.length - 1}"]`)?.focus(), 0);
 });
@@ -1188,6 +1189,7 @@ function markAdd(d, e) {
   if (!h) return;
   d.pts.push(h.point.clone());
   if (h.object.userData.eid) d.eids.add(h.object.userData.eid);
+  (d.parts ||= new Set()).add(h.object.name || h.object.parent?.name || 'mesh');  // GLB views: which part was hit
 }
 function drawMarks() {
   const w = vp.clientWidth, h = vp.clientHeight, k = renderer.getPixelRatio();
@@ -1212,6 +1214,7 @@ function drawMarks() {
 function typeOf(id) { return S.tree.find((t) => t.id === id)?.type || ''; }
 function renderMarks() {
   $('#markBar').hidden = !S.marks.length;
+  if ($('#btnMarkAgent')) $('#btnMarkAgent').hidden = !S.marks.length;
   $('#markList').innerHTML = S.marks.map((m, i) => {
     const what = m.eids.length ? m.eids.map((id) => `${esc(id)} <i>${esc(typeOf(id))}</i>`).join(', ') : 'без элемента (точка в пространстве)';
     return `<div class="mk"><b>${i + 1}</b><span class="what" title="${m.kind === 'stroke' ? 'рисунок' : 'точка'}">${m.kind === 'stroke' ? '〰' : '•'} ${what}</span>
@@ -1240,6 +1243,24 @@ function markShot() {  // the view with the marks drawn on top, as the AI should
   c.drawImage(src, 0, 0, cv.width, cv.height); c.drawImage(markCv, 0, 0, cv.width, cv.height);
   return cv.toDataURL('image/png');
 }
+// marks for an outside AI agent (Claude Code / Codex over MCP): saved with a screenshot, read by the view_marks tool
+async function marksToAgent() {
+  if (!S.marks.length) { $('#status').textContent = 'Сначала поставьте точки: «✎ Пометки», клик по модели'; return; }
+  const r3 = (v) => [+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)];
+  const body = {
+    model: S.viewing || S.state?.name || '',  // the opened GLB (viewGlb) or the building project
+    coords: 'метры, как в GLB-файле: Y вверх, модель смотрит в +Z (те же числа, что в mesh_check "at")',
+    camera: { position: r3(camera.position), target: r3(orbit.target) },
+    task: $('#chatText')?.value.trim() || '',
+    marks: S.marks.map((m, i) => ({ n: i + 1, kind: m.kind, at: r3(m.pts[0]), ...(m.kind === 'stroke' ? { to: r3(m.pts.at(-1)), path: m.pts.map(r3) } : {}),
+      part: (m.parts || [])[0] || '', elements: m.eids, note: m.note })),
+    image: markShot(),
+  };
+  const r = await fetch('/api/marks/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
+  $('#status').textContent = `📤 Отправлено агенту: ${r.points} пометок (projects/${r.file}). Скажите ИИ: «посмотри пометки»`;
+}
+$('#markAgent')?.addEventListener('click', marksToAgent);
+$('#btnMarkAgent')?.addEventListener('click', marksToAgent);
 $('#markRun').onclick = async () => {
   if (!S.marks.length) return;
   const task = $('#chatText').value.trim();

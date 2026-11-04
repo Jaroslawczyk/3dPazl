@@ -128,6 +128,25 @@ def _quality(T):
     return A, L
 
 
+def _manifold(F, w, P):
+    """Duplicate faces out; on an edge shared by more than two faces keep the two biggest (a collapsed fold)."""
+    Fw = w[F]
+    _, first = np.unique(np.sort(Fw, 1), axis=0, return_index=True)
+    keep = np.zeros(len(F), bool)
+    keep[first] = True
+    keep &= (Fw[:, 0] != Fw[:, 1]) & (Fw[:, 1] != Fw[:, 2]) & (Fw[:, 0] != Fw[:, 2])
+    A = np.linalg.norm(np.cross(P[Fw[:, 1]] - P[Fw[:, 0]], P[Fw[:, 2]] - P[Fw[:, 0]]), axis=1)
+    edges = {}
+    for i in np.flatnonzero(keep):
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            edges.setdefault(tuple(sorted((Fw[i, a], Fw[i, b]))), []).append(i)
+    for fs in edges.values():
+        if len(fs) > 2:
+            for i in sorted(fs, key=lambda i: -A[i])[2:]:
+                keep[i] = False
+    return F[keep], int((~keep).sum())
+
+
 def _drop_bad(P, F, scale):
     T = P[F]
     A, L = _quality(T)
@@ -207,6 +226,8 @@ def fix(path, rounds=5, max_hole=12, log=None):
     p = Path(path)
     p = p if p.is_absolute() else PROJECTS / p
     before = meshcheck.check(p)["summary"]
+    score = lambda rep: sum(rep.values())  # noqa: E731
+    best, best_score = p.read_bytes(), score(before)  # never hand back a file worse than it came in
     hist = []
     for r in range(rounds):
         g = Glb(p)
@@ -219,7 +240,9 @@ def fix(path, rounds=5, max_hole=12, log=None):
         changed = {"dropped": 0, "filled": 0, "pushed": 0}
         for name, prim, M, P, F in parts:
             w = _weld(P)
-            F2, d = _drop_bad(P, F, scale)
+            F2, nm = _manifold(F, w, P)
+            F2, d = _drop_bad(P, F2, scale)
+            d += nm
             F2, f, cracks = _fill(P, F2, w, max_hole)
             zipped = 0
             for loop in cracks:
@@ -261,11 +284,18 @@ def fix(path, rounds=5, max_hole=12, log=None):
             break
         g.save()
         rep = meshcheck.check(p)["summary"]
+        if hist and rep == hist[-1]["left"] and not changed["dropped"] and not changed["filled"]:
+            hist.append({**changed, "left": rep})
+            break  # only pushes that change nothing: stop
         hist.append({**changed, "left": rep})
+        if score(rep) < best_score:
+            best, best_score = p.read_bytes(), score(rep)
         if log:
             log(f"round {r + 1}: {changed} -> {rep or 'clean'}")
         if not rep:
             break
+    if p.read_bytes() != best:
+        p.write_bytes(best)
     return {"model": str(path), "before": before, "after": meshcheck.check(p)["summary"], "rounds": hist}
 
 

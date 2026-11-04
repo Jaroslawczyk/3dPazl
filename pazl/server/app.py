@@ -317,6 +317,27 @@ def snapshot_upload(rid: str, body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.post("/api/marks/save")
+def marks_save(body: dict = Body(...)):
+    """Points the user clicked on the model (+ the view with them drawn) for an outside AI agent (Claude Code, Codex):
+    projects/marks/last.json + last.png; MCP view_marks() reads them."""
+    import base64
+    import time
+    d = PROJECTS / "marks"
+    d.mkdir(parents=True, exist_ok=True)
+    img = str(body.pop("image", "") or "")
+    body["saved"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    txt = json.dumps(body, ensure_ascii=False, indent=1)
+    (d / "last.json").write_text(txt, "utf-8")
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    (d / f"marks_{stamp}.json").write_text(txt, "utf-8")
+    if img:
+        png = base64.b64decode(img.split(",", 1)[-1])
+        (d / "last.png").write_bytes(png)
+        (d / f"marks_{stamp}.png").write_bytes(png)
+    return {"ok": True, "points": len(body.get("marks", [])), "file": "marks/last.json"}
+
+
 @app.get("/api/render/latest.png")
 def latest_png():
     if not P.last_render:

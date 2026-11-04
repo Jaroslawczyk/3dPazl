@@ -33,6 +33,11 @@ The running app server keeps old Python code until it is restarted; the web file
 ```
 Finds: `hole` (a tear you see through; sleeves/collars that a limb passes through are skipped, `--openings` lists them), `poke_through` (body through clothes, hat into hair, with depth), `inside_out`, `mixed_winding`, `z_fighting`, `non_manifold`, `sliver`, `degenerate`. Each has a world point `at` and a place like "спереди слева, 62% высоты": point the camera there to confirm, fix, run again until empty.
 
+## The user points at a problem
+In the app: «✎ Пометки» -> click (or drag) on the model -> optional note -> «📤 Агенту». It saves `projects/marks/last.json`
+(each mark: `at` in metres, Y up, model faces +Z - the same numbers as mesh_check; the part hit; the note; the camera) and
+`last.png` (the view with numbered red marks). Read them with the MCP tool `view_marks` when the user says "посмотри пометки".
+
 ## Repair automatically
 ```bash
 .venv/Scripts/python.exe scripts/mesh_fix.py chars/hero.glb       # MCP: mesh_fix(path)

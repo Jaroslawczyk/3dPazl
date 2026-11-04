@@ -619,6 +619,20 @@ def mesh_check(path: str, openings: bool = False) -> str:
 
 
 @tool
+def view_marks() -> list:
+    """Points the user clicked on the model in the app and sent with «📤 Агенту»: for each mark the point `at` (metres,
+    Y up, model faces +Z: the same numbers as mesh_check `at`), the part hit, the element ids, the user's note; plus the
+    screenshot with the numbered red marks. Read it when the user says "посмотри пометки / точки"."""
+    d = PROJECTS / "marks"
+    if not (d / "last.json").exists():
+        return [_j({"error": "пометок нет: в приложении «✎ Пометки» -> клик по модели -> «📤 Агенту»"})]
+    out = [(d / "last.json").read_text("utf-8")]
+    if (d / "last.png").exists():
+        out.append(Image(path=str(d / "last.png")))
+    return out
+
+
+@tool
 def mesh_fix(path: str) -> str:
     """Repair a GLB under projects/ in place until mesh_check has nothing fixable: drops degenerate/sliver faces, closes
     small holes and zips cracks with existing vertices, pushes hats/hair/clothes out of the body. UVs, skin and

@@ -234,7 +234,7 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     head_c = trimesh.util.concatenate([p for k, p in plist if k == "head"]).bounds.mean(0)
     hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c, color=_mean_color(hair, huv, himg))], 512, max_hole=8, body=trimesh.Trimesh(V, F, process=False))
     textured(hV, hF, hUV, htex).export(out / "hair_hat.glb")
-    pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256, body=trimesh.Trimesh(V, F, process=False))
+    pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256, sharp=None, body=trimesh.Trimesh(V, F, process=False))
     textured(pV, pF, pUV, ptex).export(out / "pet.glb")
     sc = trimesh.Scene([trimesh.load(out / f, force="mesh") for f in ("body_pose.glb", "hair_hat.glb", "pet.glb")])
     sc.export(out / "posed_all.glb")  # whole figure in the reference pose, to compare in the app
