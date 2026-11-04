@@ -24,6 +24,7 @@ export function initDebugView({ THREE, scene, root, invalidate, uvBox, nBox, wir
     for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * c, 0); g.lineTo(i * c, S); g.moveTo(0, i * c); g.lineTo(S, i * c); g.stroke(); }
     const t = new THREE.CanvasTexture(cv);
     t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+    t.flipY = false;  // glTF UVs: v = 0 is the top of the picture, like GLTFLoader textures (otherwise every label reads mirrored)
     return t;
   }
 

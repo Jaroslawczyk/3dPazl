@@ -85,21 +85,96 @@ def textured(V, F, UV, img):
 def build_piece(ref, uv, img, meshes, size, sharp=60):
     m = trimesh.util.concatenate(meshes)
     V, F, UV = retopo.unwrap(m, sharp)
+    UV[:, 1] = 1 - UV[:, 1]  # xatlas gives v up; glTF wants v down (otherwise every island is mirrored)
     s = retopo.Sampler(ref, uv, img, count=1500000 if size >= 1024 else 600000)
     return V, F, UV, retopo.bake(V, F, UV, s, size)
 
 
-def arm_pose(part, side):
-    """(pivot, angle): pivot = top centre of the arm lowered by half its thickness; angle from straight down."""
-    V = np.asarray(part.vertices)
-    c = V.mean(0)
-    ax = np.linalg.svd(V - c)[2][0]
-    ax = ax if ax[1] < 0 else -ax  # pointing down
-    top = V[:, 1].max()
-    thick = np.ptp(V[V[:, 1] < top - (top - V[:, 1].min()) * .5][:, 0]) if len(V) else .1
-    y = top - thick / 2  # the joint: on the arm's own axis, half a thickness below its top
-    piv = c + ax * ((y - c[1]) / ax[1])
-    return piv, float(np.degrees(np.arctan2(abs(ax[0]), -ax[1]))), thick
+def measure(S, y0, y1):
+    """(cx, cz, hx, hz) of the reference samples S (part's local frame) with local y between y0 and y1."""
+    lo, hi = min(y0, y1), max(y0, y1)
+    sel = S[(S[:, 1] >= lo) & (S[:, 1] <= hi)]
+    if len(sel) < 20:
+        sel = S[np.argsort(np.abs(S[:, 1] - (lo + hi) / 2))[:200]]
+    a, b = np.percentile(sel, 3, 0), np.percentile(sel, 97, 0)
+    return (a[0] + b[0]) / 2, (a[2] + b[2]) / 2, (b[0] - a[0]) / 2, (b[2] - a[2]) / 2
+
+
+def segment(S, frame, y_top, y_bot, k=3, n=12, power=6.0):
+    """One R15 part: k measured rings from y_top down to y_bot in the frame -> loft."""
+    L = y_top - y_bot
+    rings = []
+    for f in np.linspace(0, 1, k):
+        y = y_top - L * f
+        band = L * .14
+        rings.append((y, *measure(S, y - band if f == 0 else y - band / 2, y + band if f == 1 else y + band / 2)))
+    return retopo.loft(frame, rings, n, power)
+
+
+def limb_frame(mesh, down):
+    """Local frame of a limb: origin at its top centre, local -Y along `down`, +Z towards the front."""
+    d = down / np.linalg.norm(down)
+    Y = -d
+    Z = np.array([0, 0, 1.]) - Y * Y[2]
+    Z /= np.linalg.norm(Z)
+    X = np.cross(Y, Z)
+    V = np.asarray(mesh.vertices)
+    t = (V - V.mean(0)) @ d
+    o = V.mean(0) + d * t.min()
+    M = np.eye(4)
+    M[:3, 0], M[:3, 1], M[:3, 2], M[:3, 3] = X, Y, Z, o
+    return M, d, float(t.max() - t.min())
+
+
+def joints(pieces, o, d, L):
+    """Positions along a limb (0 = top, L = bottom) of its flat joint discs, clustered."""
+    ts = sorted(float((p.centroid - o) @ d) for p in pieces if retopo.is_flat(p, .25) and len(p.faces) > 24)
+    out = []
+    for t in ts:
+        if out and t - out[-1][-1] < .06:
+            out[-1].append(t)
+        else:
+            out.append([t])
+    return [float(np.mean(c)) for c in out if .05 * L < np.mean(c) < .95 * L]
+
+
+def r15_body(body, plist):
+    """The body as 15 clean aligned parts like Roblox R15, each a loft of rings measured on the reference.
+    Returns [(bone, mesh, islands)], joints {bone: (head, tail)} in the reference pose, arm data for the T-pose."""
+    groups = {k: [p for kk, p in plist if kk == k] for k in {k for k, _ in plist}}
+    out, J, arms = [], {}, {}
+    for k, bone, power, n in (("torso", "chest", 6.0, 16), ("hips", "hips", 6.0, 16), ("head", "head", 2.4, 20)):
+        m = trimesh.util.concatenate(groups[k])
+        S = trimesh.sample.sample_surface(m, 40000, seed=2)[0]
+        y0, y1 = m.bounds[1][1], m.bounds[0][1]
+        out.append((bone, *segment(S, np.eye(4), y0, y1, 7 if k == "head" else 5, n, power)))
+    for side in ("L", "R"):
+        for limb, names in (("arm", ("upper_arm", "forearm", "hand")), ("leg", ("thigh", "shin", "foot"))):
+            ps = groups[f"{limb}.{side}"]
+            m = trimesh.util.concatenate(ps)
+            if limb == "arm":
+                V = np.asarray(m.vertices)
+                d = np.linalg.svd(V - V.mean(0))[2][0]
+                d = d if d[1] < 0 else -d
+            else:
+                d = np.array([0, -1., 0])
+            M, d, L = limb_frame(m, d)
+            o = M[:3, 3]
+            S = trimesh.transform_points(trimesh.sample.sample_surface(m, 40000, seed=3)[0], np.linalg.inv(M))
+            js = joints(ps, o, d, L)
+            if limb == "arm":
+                cut = [js[0] if js else .43 * L, .88 * L]
+            else:
+                cut = js[:2] if len(js) >= 2 else [.53 * L, .81 * L]
+            cuts = [0.0, *sorted(cut), L]
+            for i, nm in enumerate(names):
+                mesh, isl = segment(S, M, -cuts[i], -cuts[i + 1], 3, 12, 6.0)
+                out.append((f"{nm}.{side}", mesh, isl))
+                J[f"{nm}.{side}"] = (o + d * cuts[i], o + d * cuts[i + 1])
+            if limb == "arm":
+                hx = measure(S, -L * .1, 0)[2]
+                arms[side] = (o + d * hx, float(np.degrees(np.arctan2(abs(d[0]), -d[1]))))
+    return out, J, arms
 
 
 def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
@@ -110,35 +185,37 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     (body, buv, bimg), (hair, huv, himg), (pet, puv, pimg) = refs[:3]
 
     plist, tw, crotch, neck = body_parts(body)
-    pieces, owner = [], []
-    for k, p in plist:  # shading split at 30 deg on blocks, 70 on the round head
-        m, ang = piece_mesh(k, p)
-        pieces.append(trimesh.graph.smooth_shade(m, angle=np.radians(ang)))
-        owner.append(np.full(len(pieces[-1].vertices), k, object))
-    parts = {k: trimesh.util.concatenate([p for kk, p in plist if kk == k]) for k in {k for k, _ in plist}}
-    V, F, UV, tex = build_piece(body, buv, bimg, pieces, 1024, sharp=None)
-    owner = np.concatenate(owner)
-    m_all = trimesh.util.concatenate(pieces)
-    from scipy.spatial import cKDTree
-    who = owner[cKDTree(m_all.vertices).query(V)[1]]
+    parts, J, arms = r15_body(body, plist)
+    meshes, islands, bones, off = [], [], [], 0
+    for bone, m, isl in parts:
+        meshes.append(m)
+        islands += [(ids + off, uv, wh) for ids, uv, wh in isl]
+        bones += [bone] * len(m.vertices)
+        off += len(m.vertices)
+    mb = trimesh.util.concatenate(meshes)
+    V, F, who = np.asarray(mb.vertices), np.asarray(mb.faces), np.array(bones)
+    UV = retopo.pack(islands, 1024)
+    tex = retopo.bake(V, F, UV, retopo.Sampler(body, buv, bimg, count=1500000), 1024)
     textured(V, F, UV, tex).export(out / "body_pose.glb")  # as in the reference, for comparing
 
     Vt = V.copy()
-    rest, pivots = {}, {}
+    rest, Jt = {}, dict(J)
     for side, k in (("L", 1), ("R", -1)):
-        piv, ang, thick = arm_pose(parts["arm." + side], side)
+        piv, ang = arms[side]
         R = trimesh.transformations.rotation_matrix(np.radians(k * (90 - ang)), [0, 0, 1], piv)
-        sel = who == "arm." + side
+        sel = np.array([w.endswith("." + side) and w.split(".")[0] in ("upper_arm", "forearm", "hand") for w in who])
         Vt[sel] = trimesh.transform_points(V[sel], R)
+        for nm in ("upper_arm", "forearm", "hand"):
+            Jt[f"{nm}.{side}"] = tuple(trimesh.transform_points(np.array(J[f"{nm}.{side}"]), R))
+        Jt[f"upper_arm.{side}"] = (trimesh.transform_points([piv], R)[0], Jt[f"upper_arm.{side}"][1])
         q = trimesh.transformations.quaternion_from_matrix(np.linalg.inv(R))  # w, x, y, z
         rest["upper_arm." + side] = [float(q[1]), float(q[2]), float(q[3]), float(q[0])]
-        pivots[side] = piv
-        print(f"arm.{side}: {ang:.1f} deg from vertical, pivot {np.round(piv, 3)}")
+        print(f"arm.{side}: {ang:.1f} deg from vertical, shoulder {np.round(piv, 3)}")
     textured(Vt, F, UV, tex).export(out / "body_t.glb")
-    bone = {"head": "head", "torso": "chest", "hips": "hips", "arm.L": "upper_arm.L", "arm.R": "upper_arm.R", "leg.L": "thigh.L", "leg.R": "thigh.R"}
-    np.savez_compressed(out / "body_t.labels.npz", P=Vt, bone=np.array([bone[w] for w in who]))  # which bone each block follows
+    np.savez_compressed(out / "body_t.labels.npz", P=Vt, bone=who)  # which bone each part follows
 
-    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair)], 512)
+    head_c = trimesh.util.concatenate([p for k, p in plist if k == "head"]).bounds.mean(0)
+    hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair, root_near=head_c)], 512)
     textured(hV, hF, hUV, htex).export(out / "hair_hat.glb")
     pV, pF, pUV, ptex = build_piece(pet, puv, pimg, [retopo.rebuild(pet)], 256)
     textured(pV, pF, pUV, ptex).export(out / "pet.glb")
@@ -150,12 +227,13 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     chars.create(name, src=rel, template="humanoid", crotch=float(crotch), torso=float(tw), quality="ultra")
     from pazl.core import rig
     rg = rig.load(chars._rn(name))
-    for b in rg["bones"]:  # the arm turns about the same point it was raised about, so the default pose is the reference one
-        for side, piv in pivots.items():
-            if b["name"] == "upper_arm." + side:
-                b["head"] = [float(v) for v in piv]
-            if b["name"] == "shoulder." + side:
-                b["tail"] = [float(v) for v in piv]
+    for b in rg["bones"]:  # every part turns about its own joint (R15 style): elbows and knees bend without gaps
+        if b["name"] in Jt:
+            h, t = Jt[b["name"]]
+            b["head"], b["tail"] = [float(v) for v in h], [float(v) for v in t]
+        side = b["name"][-2:]
+        if b["name"].startswith("shoulder") and f"upper_arm{side}" in Jt:
+            b["tail"] = [float(v) for v in Jt[f"upper_arm{side}"][0]]
     rig.save(rg)
     c = chars.load(name)
     c["rest_pose"] = rest

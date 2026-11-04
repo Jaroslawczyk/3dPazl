@@ -182,13 +182,13 @@ def is_flat(part, ratio=.3):
     return e[0] < ratio * e[1]
 
 
-def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2):  # noqa: E731
-    """Every connected piece of the reference rebuilt: up to `small` triangles -> card, flat -> one-layer sheet,
-    bulky -> shrinkwrapped icosphere."""
+def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2, root_near=None):  # noqa: E731
+    """Every connected piece of the reference rebuilt: up to `small` triangles -> ribbon growing from root_near (hair) or
+    card, flat -> one-layer sheet, bulky -> shrinkwrapped icosphere."""
     out = []
     for p in ref.split(only_watertight=False):
         if len(p.faces) <= small:
-            out.append(card(p))
+            out.append(ribbon(p, root_near) if root_near is not None else card(p))
         elif is_flat(p):
             out.append(sheet(p))
         else:
@@ -237,3 +237,99 @@ def bake(V, F, UV, sampler: Sampler, size=512, pad=4):
         grown = im.filter(ImageFilter.MaxFilter(3))
         im = Image.alpha_composite(grown, im)
     return im.convert("RGB")
+
+
+# ---------------------------------------------------------------- clean parametric parts with a tidy UV layout
+def ring(hx, hz, n=16, power=6.0):
+    """Closed cross-section (superellipse, power 2 = ellipse, high = rounded rectangle). Starts at the back centre and
+    runs through -X, front, +X, so the seam is at the back and the front reads left-to-right from outside."""
+    t = np.pi + np.linspace(0, 2 * np.pi, n, endpoint=False)
+    s, c = np.sin(t), np.cos(t)
+    return np.c_[np.sign(s) * np.abs(s) ** (2 / power) * hx, np.sign(c) * np.abs(c) ** (2 / power) * hz]
+
+
+def loft(frame, rings, n=16, power=6.0, caps=(True, True)):
+    """Part along its own axis. frame: 4x4 local->world (local Y = part axis, +Z = front); rings: [(y, cx, cz, hx, hz)] from
+    top to bottom. Returns (mesh, islands): islands = [(vertex ids, local uv (w units), (w, h))] for the atlas packer.
+    Side = one strip (u around, v down the part), each cap = one island; vertices are split along island borders."""
+    V, F, isl = [], [], []
+    P = [np.c_[ring(hx, hz, n, power)[:, 0] + cx, np.full(n, y), ring(hx, hz, n, power)[:, 1] + cz] for y, cx, cz, hx, hz in rings]
+    # side strip: n + 1 columns (seam duplicated)
+    per = [np.r_[0, np.cumsum(np.linalg.norm(np.diff(np.vstack([p, p[:1]]), axis=0), axis=1))] for p in P]
+    W = max(x[-1] for x in per)
+    vs = np.r_[0, np.cumsum([np.linalg.norm(np.mean(P[i + 1], 0) - np.mean(P[i], 0)) for i in range(len(P) - 1)])]
+    ids = []
+    for i, p in enumerate(P):
+        pp = np.vstack([p, p[:1]])
+        ids.append(np.arange(len(V), len(V) + n + 1))
+        V += list(pp)
+    uv = np.vstack([np.c_[per[i] / per[i][-1] * W, np.full(n + 1, vs[i])] for i in range(len(P))])
+    for i in range(len(P) - 1):
+        a, b = ids[i], ids[i + 1]
+        for j in range(n):
+            F += [[a[j], b[j], b[j + 1]], [a[j], b[j + 1], a[j + 1]]]
+    isl.append((np.concatenate(ids), uv, (W, vs[-1])))
+    for k, (on, p, top) in enumerate(((caps[0], P[0], True), (caps[1], P[-1], False))):
+        if not on:
+            continue
+        c0 = len(V)
+        V += list(p) + [p.mean(0)]
+        for j in range(n):
+            f = [c0 + j, c0 + (j + 1) % n, c0 + n]
+            F.append(f if top else f[::-1])
+        q = np.vstack([p, p.mean(0)])[:, [0, 2]]
+        q = q - q.min(0)
+        if not top:
+            q[:, 1] = q[:, 1].max() - q[:, 1]  # bottom seen from below
+        isl.append((np.arange(c0, c0 + n + 1), q, tuple(q.max(0))))
+    m = trimesh.Trimesh(trimesh.transform_points(np.array(V), frame), np.array(F), process=False)
+    if m.volume < 0:
+        m.invert()
+    return m, isl
+
+
+def pack(islands, size=1024, pad=6):
+    """Shelf-pack islands [(ids, uv in world units, (w, h))] into one square atlas with the same texel density.
+    Returns uv per vertex (glTF convention) for ids 0..max."""
+    order = sorted(range(len(islands)), key=lambda i: -islands[i][2][1])
+    area = sum(w * h for _, _, (w, h) in islands)
+    s = np.sqrt(area) * 1.25
+    while True:  # find a shelf width that fits
+        x = y = row = 0.0
+        place = {}
+        for i in order:
+            w, h = islands[i][2]
+            if x + w > s:
+                x, y, row = 0.0, y + row, 0.0
+            place[i] = (x, y)
+            x += w + s * pad / size
+            row = max(row, h + s * pad / size)
+        if y + row <= s:
+            break
+        s *= 1.08
+    n = max(int(ids.max()) for ids, _, _ in islands) + 1
+    UV = np.zeros((n, 2))
+    for i, (ids, uv, _) in enumerate(islands):
+        UV[ids] = (uv + place[i]) / s
+    return UV
+
+
+def ribbon(part: trimesh.Trimesh, root_near):
+    """A hair strand as a flat tapering ribbon along its own centre line: root (the end closer to root_near) wide, tip a point."""
+    V = np.asarray(part.vertices)
+    c = V.mean(0)
+    _, _, Vt = np.linalg.svd(V - c, full_matrices=False)
+    ax, wide = Vt[0], Vt[1]
+    t = (V - c) @ ax
+    if np.linalg.norm(c + ax * t.max() - root_near) < np.linalg.norm(c + ax * t.min() - root_near):
+        ax, t = -ax, -t
+    lo, hi = t.min(), t.max()
+    pts = []
+    for f, wf in ((0, 1), (.5, .6)):
+        sel = np.abs(t - (lo + (hi - lo) * f)) <= (hi - lo) * .3
+        cen = V[sel].mean(0) if sel.any() else c + ax * (lo + (hi - lo) * f)
+        w = max(np.ptp((V[sel] - c) @ wide) if sel.sum() > 1 else 0, (hi - lo) * .08) * wf
+        pts += [cen - wide * w / 2, cen + wide * w / 2]
+    tip = V[np.argmax(t)]
+    v = np.vstack([pts, [tip]])
+    return trimesh.Trimesh(v, [[0, 1, 3], [0, 3, 2], [2, 3, 4]], process=False)

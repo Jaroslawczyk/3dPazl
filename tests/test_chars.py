@@ -262,3 +262,19 @@ def test_retopo_open_side_gets_flat_cap_and_flat_piece_one_layer():
     assert retopo.is_flat(plate)
     s = retopo.sheet(plate, 4)
     assert np.ptp(s.vertices[:, 1]) < .012 and len(s.faces) <= 2 * 4 * 4
+
+
+def test_loft_part_has_upright_unmirrored_uv_and_packs():
+    """R15-style part: a loft with one side strip (front reads left-to-right from outside, top at v = 0) and two caps."""
+    from pazl.core import retopo
+    m, isl = retopo.loft(np.eye(4), [(1.0, 0, 0, .1, .08), (0.5, 0, 0, .1, .08)], n=12)
+    assert m.volume > 0 and len(isl) == 3
+    UV = retopo.pack(isl, 256)
+    assert UV.min() >= 0 and UV.max() <= 1
+    ids, uv, _ = isl[0]
+    V = m.vertices[ids]
+    front = (V[:, 2] > .07) & (V[:, 1] > .9)
+    order = np.argsort(V[front, 0])
+    assert np.all(np.diff(UV[ids][front][order, 0]) > 0)  # u grows with +X on the front
+    top, bot = UV[ids][V[:, 1] > .9, 1].mean(), UV[ids][V[:, 1] < .6, 1].mean()
+    assert top < bot  # glTF: the top of the part is higher in the picture
