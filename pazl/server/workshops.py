@@ -17,13 +17,18 @@ WORKSHOPS = {
                 "about": "Одежда для разных персонажей: подгонка под тело, слои, ткань."},
     "rig": {"title": "Риг и анимация", "dir": "rigs",
             "about": "Кости, веса, анимации и проверка движения: пересечения, растяжения, реалистичность."},
+    # ---- 2D
+    "frames": {"title": "Кадры и анимация", "dir": "frames2d", "dim": "2d",
+               "about": "Рисованная 2D-анимация: ключевые кадры, промежуточные кадры (интерполяция), калька, раскраска скетчей."},
+    "sprites": {"title": "Спрайты", "dir": "sprites", "dim": "2d",
+                "about": "2D-объекты для игр: спрайты, листы анимации (sprite sheets), иконки, декали."},
 }
 router = APIRouter(prefix="/api/ws")
 
 
 @router.get("")
 def workshops():
-    return [{"id": k, "title": v["title"], "about": v["about"]} for k, v in WORKSHOPS.items()]
+    return [{"id": k, "title": v["title"], "about": v["about"], "dir": v["dir"], "dim": v.get("dim", "3d")} for k, v in WORKSHOPS.items()]
 
 
 @router.get("/blender")
@@ -39,7 +44,7 @@ def models(wid: str):
     d = PROJECTS / WORKSHOPS[wid]["dir"]
     d.mkdir(parents=True, exist_ok=True)
     return [{"path": p.relative_to(PROJECTS).as_posix(), "name": p.stem, "kb": round(p.stat().st_size / 1e3)}
-            for p in sorted(d.rglob("*.glb"))]
+            for p in sorted(d.rglob("*.png" if WORKSHOPS[wid].get("dim") == "2d" else "*.glb"))]
 
 
 # ---------------------------------------------------------------- items workshop

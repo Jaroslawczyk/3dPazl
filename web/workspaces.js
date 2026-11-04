@@ -36,7 +36,7 @@ async function renderWs(id) {
     const box = $('#wsModels');
     if (!box) return list;
     box.innerHTML = list.length ? list.map((m) => `<div class="ws-model" data-p="${esc(m.path)}">${esc(m.name)} <span class="hint">${m.kb} КБ</span></div>`).join('')
-      : `<div class="hint">Пока пусто: модели появятся в projects/${esc(id === 'rig' ? 'rigs' : id)}/.</div>`;
+      : `<div class="hint">Пока пусто: файлы появятся в projects/${esc(info.dir || id)}/.</div>`;
     box.querySelectorAll('.ws-model').forEach((m) => { m.onclick = () => open(m.dataset.p); });
     return list;
   };
@@ -49,7 +49,19 @@ async function renderWs(id) {
   } catch (e) { $('#wsTools').innerHTML = `<div class="hint">Ошибка модуля: ${esc(e.message)}</div>`; }
 }
 
+// 2D / 3D: which group of workspaces the header shows; each group remembers its last workspace
+const dimOf = (id) => document.querySelector(`#segWs button[data-ws="${id}"]`)?.dataset.dim || '3d';
+const lastIn = { '2d': 'frames', '3d': 'build' };
+function showDim(dim) {
+  document.body.dataset.dim = dim;
+  document.querySelectorAll('#segDim button').forEach((b) => b.classList.toggle('on', b.dataset.dim === dim));
+  document.querySelectorAll('#segWs button').forEach((b) => { b.hidden = b.dataset.dim !== dim; });
+}
+document.querySelectorAll('#segDim button').forEach((b) => { b.onclick = () => setWs(lastIn[b.dataset.dim]); });
+
 function setWs(id) {
+  if (!document.querySelector(`#segWs button[data-ws="${id}"]`)) id = 'build';
+  lastIn[dimOf(id)] = id; showDim(dimOf(id));
   document.body.dataset.ws = id;
   document.querySelectorAll('#segWs button').forEach((b) => b.classList.toggle('on', b.dataset.ws === id));
   try { localStorage.setItem(KEY, id); } catch (e) { /* storage blocked */ }

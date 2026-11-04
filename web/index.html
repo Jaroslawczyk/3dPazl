@@ -15,8 +15,11 @@
 <body data-ws="build">
 <header id="top">
   <div class="brand" id="brand" title="О программе">3d<b>Pazl</b></div>
-  <div class="seg" id="segWs" title="Рабочее пространство: здания, предметы, одежда, риг и анимация">
-    <button data-ws="build" class="on">🏛 Здания</button><button data-ws="items">🍽 Предметы</button><button data-ws="clothes">👕 Одежда</button><button data-ws="rig">🦴 Риг и анимация</button>
+  <div class="seg" id="segDim" title="2D (кадры, спрайты, рисованная анимация) или 3D (здания, предметы, одежда, риг)">
+    <button data-dim="2d">2D</button><button data-dim="3d" class="on">3D</button>
+  </div>
+  <div class="seg" id="segWs" title="Рабочее пространство">
+    <button data-ws="build" data-dim="3d" class="on">🏛 Здания</button><button data-ws="items" data-dim="3d">🍽 Предметы</button><button data-ws="clothes" data-dim="3d">👕 Одежда</button><button data-ws="rig" data-dim="3d">🦴 Риг и анимация</button><button data-ws="frames" data-dim="2d" hidden>🎞 Кадры и анимация</button><button data-ws="sprites" data-dim="2d" hidden>🖼 Спрайты</button>
   </div>
   <input id="projName" class="ws-build" title="Название проекта" spellcheck="false">
   <details class="menu ws-build"><summary title="Новый, открыть, автосохранения">Проект ▾</summary><div class="menu-pop">
