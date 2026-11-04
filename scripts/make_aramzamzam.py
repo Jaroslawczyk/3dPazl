@@ -90,7 +90,7 @@ con = anim.contacts(rg["bones"])
 rest = np.tile([0, 0, 0, 1.0], (len(names), 1))
 _, P0 = anim.fk(par, heads, rest, np.zeros(3))
 T0 = anim.tails_world(np.tile(np.eye(3), (len(names), 1, 1)), P0, heads, tails)
-ground, z0 = T0[con, 1].min(), T0[con, 2].mean()
+ground, X0, Z0 = T0[con, 1].min(), T0[con, 0], T0[con, 2]
 keys, root = {n: [] for n in names}, []
 for f in range(FRAMES + 1):
     pz = pose(f % FRAMES)
@@ -104,7 +104,9 @@ for f in range(FRAMES + 1):
     R, P = anim.fk(par, heads, rots, np.zeros(3))
     T = anim.tails_world(R, P, heads, tails)
     dy = ground - np.vstack([T[con], P[con]])[:, 1].min()
-    root.append([f, 0.0, round(float(dy), 5), round(float(z0 - T[con, 2].mean()), 5)])  # feet stay under the body: no leaning
+    w = np.exp(-(T[con, 1] - T[con, 1].min()) / .03)  # the foot on the ground carries the body: the hips move over it
+    w /= w.sum()
+    root.append([f, round(float((w * (X0 - T[con, 0])).sum()), 5), round(float(dy), 5), round(float((w * (Z0 - T[con, 2])).sum()), 5)])
 rg["clips"]["aramzamzam"] = {"preset": "custom", "fps": FPS, "frames": FRAMES, "loop": True, "keys": {n: k for n, k in keys.items() if k}, "root": root}
 rig.save(rg)
 print(chars.export(CHAR)["clips"])
