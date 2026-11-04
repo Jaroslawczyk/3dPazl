@@ -41,28 +41,44 @@ def load_ref(path):
 
 
 def body_parts(m):
-    """Cut the body into head, torso, arms, legs. Whole pieces of the reference are assigned by their centre, so a shoulder
-    cap never ends up in the torso. The torso is the biggest piece around the centre line; it gives the limits."""
+    """Every piece of the reference body with the block it belongs to (R15-like: head, upper torso, lower torso = hips,
+    arms, legs). Whole pieces are assigned by their centre, so a shoulder cap never lands in the torso and the hip piece
+    that spans both legs stays one block. The upper torso is the biggest wide piece on the centre line; it gives the limits."""
     comps = m.split(only_watertight=False)
     mid = [p for p in comps if abs(p.centroid[0]) < .05]
     t = max(mid, key=lambda p: len(p.faces) * (p.bounds[0][1] < np.median(m.vertices[:, 1]) * 1.6) * (p.extents[0] > p.extents[2]))
     tw, crotch, neck = t.extents[0] / 2, t.bounds[0][1], t.bounds[1][1]
-    groups = {}
+    out = []
     for p in comps:
         x, y, _ = p.centroid
-        k = ("head" if y > neck - .02 and abs(x) < tw * .75 and p.extents[0] < tw * 1.6 else ("arm.L" if x > 0 else "arm.R") if abs(x) > tw * .98
-             else "legs" if y < crotch else "torso")
-        groups.setdefault(k, []).append(p)
-    out = {k: trimesh.util.concatenate(v) for k, v in groups.items()}
-    legs = out.pop("legs")  # a pants piece may wrap both legs: split by side per triangle
-    x = legs.triangles_center[:, 0]
-    out["leg.L"], out["leg.R"] = legs.submesh([np.flatnonzero(x >= 0)], append=True), legs.submesh([np.flatnonzero(x < 0)], append=True)
+        if y > neck - .02 and abs(x) < tw * .75 and p.extents[0] < tw * 1.6:
+            k = "head"
+        elif abs(x) > tw * .98:
+            k = "arm.L" if x > 0 else "arm.R"
+        elif abs(x) < .05 and p.extents[0] > tw * 1.2 and y < crotch + .06:
+            k = "hips"
+        elif y < crotch:
+            k = "leg.L" if x >= 0 else "leg.R"
+        else:
+            k = "torso"
+        out.append((k, p))
     return out, tw, crotch, neck
+
+
+def piece_mesh(k, p):
+    """Our mesh for one reference piece: round head -> icosphere; flat joint discs -> one-layer sheet; blocks -> grid box
+    (resolution follows the size), all pulled onto the piece."""
+    if k == "head" and len(p.faces) > 100:
+        return retopo.shrinkwrap(p, 2, grow=1.3), 70
+    if retopo.is_flat(p, .25):
+        return retopo.sheet(p, 3), 30
+    res = int(np.clip(round(5 * p.extents.max() / .5), 1, 6))  # ~2.4k triangles for the whole body, like the original
+    return retopo.shrinkwrap(p, grow=1.08, box=res), 30
 
 
 def textured(V, F, UV, img):
     m = trimesh.Trimesh(V, F, process=False)
-    m.visual = trimesh.visual.TextureVisuals(uv=np.c_[UV[:, 0], 1 - UV[:, 1]], material=trimesh.visual.material.PBRMaterial(baseColorTexture=img, roughnessFactor=.8, metallicFactor=0))
+    m.visual = trimesh.visual.TextureVisuals(uv=np.c_[UV[:, 0], 1 - UV[:, 1]], material=trimesh.visual.material.PBRMaterial(baseColorTexture=img, roughnessFactor=.8, metallicFactor=0, doubleSided=True))
     return m
 
 
@@ -93,14 +109,16 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
     refs.sort(key=lambda r: -len(r[0].faces))  # body, hair+hat, pet
     (body, buv, bimg), (hair, huv, himg), (pet, puv, pimg) = refs[:3]
 
-    parts, tw, crotch, neck = body_parts(body)
-    # crisp grid boxes for the blocks, a sphere for the round head; shading split at 30 deg on blocks, 70 on the head
-    pieces = {k: retopo.shrinkwrap(p, 2, grow=1.3) if k == "head" else retopo.shrinkwrap(p, grow=1.08, box=8) for k, p in parts.items()}
-    pieces = {k: trimesh.graph.smooth_shade(p, angle=np.radians(70 if k == "head" else 30)) for k, p in pieces.items()}
-    V, F, UV, tex = build_piece(body, buv, bimg, list(pieces.values()), 1024, sharp=None)
-    # which piece each new vertex came from (arms get raised for the bind pose)
-    owner = np.concatenate([np.full(len(p.vertices), k, object) for k, p in pieces.items()])
-    m_all = trimesh.util.concatenate(list(pieces.values()))
+    plist, tw, crotch, neck = body_parts(body)
+    pieces, owner = [], []
+    for k, p in plist:  # shading split at 30 deg on blocks, 70 on the round head
+        m, ang = piece_mesh(k, p)
+        pieces.append(trimesh.graph.smooth_shade(m, angle=np.radians(ang)))
+        owner.append(np.full(len(pieces[-1].vertices), k, object))
+    parts = {k: trimesh.util.concatenate([p for kk, p in plist if kk == k]) for k in {k for k, _ in plist}}
+    V, F, UV, tex = build_piece(body, buv, bimg, pieces, 1024, sharp=None)
+    owner = np.concatenate(owner)
+    m_all = trimesh.util.concatenate(pieces)
     from scipy.spatial import cKDTree
     who = owner[cKDTree(m_all.vertices).query(V)[1]]
     textured(V, F, UV, tex).export(out / "body_pose.glb")  # as in the reference, for comparing
@@ -117,7 +135,7 @@ def main(src="projects/refs/roblox_galaxy/original.glb", name="galaxy_1to1"):
         pivots[side] = piv
         print(f"arm.{side}: {ang:.1f} deg from vertical, pivot {np.round(piv, 3)}")
     textured(Vt, F, UV, tex).export(out / "body_t.glb")
-    bone = {"head": "head", "torso": "chest", "arm.L": "upper_arm.L", "arm.R": "upper_arm.R", "leg.L": "thigh.L", "leg.R": "thigh.R"}
+    bone = {"head": "head", "torso": "chest", "hips": "hips", "arm.L": "upper_arm.L", "arm.R": "upper_arm.R", "leg.L": "thigh.L", "leg.R": "thigh.R"}
     np.savez_compressed(out / "body_t.labels.npz", P=Vt, bone=np.array([bone[w] for w in who]))  # which bone each block follows
 
     hV, hF, hUV, htex = build_piece(hair, huv, himg, [retopo.rebuild(hair)], 512)

@@ -15,6 +15,7 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 4. Arms raised about their joint for a T-pose bind; the measured arm angle is stored as `rest_pose`, so the file shows the reference pose and clips still work. Block -> bone map in `body_t.labels.npz` (`labels` in the recipe).
 5. Hair+hat and pet are `acc_head` / `acc_chest` (textured GLB that follows a bone), so nothing clips: they keep the reference placement.
 Outputs in `projects/refs/<case>/rebuild/`: `posed_all.glb` (compare with the original in the app), `body_t.glb`, `hair_hat.glb`, `pet.glb`.
+Fixes after the user's wireframe check (v0.61.2): the body is rebuilt piece by piece like R15 (head, upper torso, lower torso = `hips`, arms, legs; the hip piece spanning both legs stays whole); an open side of a piece (shirt hem) gets a flat cap instead of a funnel (`shrinkwrap(box=...)`); flat pieces (hair locks, hat fold, joint discs) become one-layer sheets (`retopo.sheet`), never slabs. The original is exported unlit (`KHR_materials_unlit`), so it always looks brighter than a lit model.
 Mistakes found on the way: glTF metallic defaults to 1 (set `metallicFactor=0` or the model renders dark); snapping to surface samples makes flat faces ripple (project onto the triangles); a mirrored oriented box turns a primitive inside out (check the determinant); cutting by triangle centres puts shoulder caps into the torso (cut by whole pieces).
 
 ## Lessons from a real Roblox avatar (user's original, 2026-11-04, `projects/refs/roblox_galaxy/`)

@@ -248,3 +248,17 @@ def test_retopo_shrinkwrap_box_and_bake():
     V, F, UV = retopo.unwrap(m)
     tex = np.asarray(retopo.bake(V, F, UV, s, 128))
     assert tex.reshape(-1, 3).max(0)[0] > 200 and tex.reshape(-1, 3).max(0)[2] > 200
+
+
+def test_retopo_open_side_gets_flat_cap_and_flat_piece_one_layer():
+    """Open hem: the bottom stays a flat cap instead of a funnel into the part. Flat lock of hair: one layer, not a slab."""
+    from pazl.core import retopo
+    box = trimesh.creation.box([.5, .5, .3])
+    open_box = box.submesh([np.flatnonzero(box.face_normals[:, 1] > -.5)], append=True)  # no bottom
+    m = retopo.shrinkwrap(open_box, grow=1.08, box=6)
+    bottom = m.vertices[m.vertices[:, 1] < -.24]
+    assert len(bottom) and np.ptp(bottom[:, 1]) < .01  # flat, at the hem
+    plate = trimesh.creation.box([.4, .01, .3])
+    assert retopo.is_flat(plate)
+    s = retopo.sheet(plate, 4)
+    assert np.ptp(s.vertices[:, 1]) < .012 and len(s.faces) <= 2 * 4 * 4

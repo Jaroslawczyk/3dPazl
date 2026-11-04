@@ -111,6 +111,7 @@ def shrinkwrap(part: trimesh.Trimesh, sub=2, grow=1.6, iters=3, sampler=None, bo
     else:
         m = trimesh.creation.icosphere(subdivisions=sub)
         m.vertices = m.vertices * ext / 2 * grow
+    base = np.asarray(m.vertices) / grow if box else None  # the same grid lying on the oriented box itself
     m.apply_transform(np.linalg.inv(T))
     V = np.asarray(m.vertices)
     for it in range(iters):
@@ -120,6 +121,10 @@ def shrinkwrap(part: trimesh.Trimesh, sub=2, grow=1.6, iters=3, sampler=None, bo
             for a, b in m.edges_unique:
                 nb[a].append(b), nb[b].append(a)
             V = np.array([.5 * V[i] + .5 * V[n].mean(0) for i, n in enumerate(nb)])
+    if box:  # an open side (shirt hem, trouser top) has no surface nearby: keep a flat cap on the box face instead of a funnel
+        G = trimesh.transform_points(base, np.linalg.inv(T))
+        far = np.linalg.norm(V - G, axis=1) > .15 * ext.min()
+        V[far] = G[far]
     out = trimesh.Trimesh(V, m.faces, process=False)
     if np.linalg.det(T[:3, :3]) < 0:  # a mirrored frame turns the primitive inside out
         out.invert()
@@ -146,12 +151,46 @@ def card(part: trimesh.Trimesh):
     return m
 
 
+def sheet(part: trimesh.Trimesh, cells=8):
+    """A flat or gently bent piece (hair lock, hat fold) as ONE layer: a grid on its mid-plane pulled onto it, cut to its
+    outline. A closed primitive here collapses into a thick slab."""
+    T, ext = trimesh.bounds.oriented_bounds(part)
+    thin = int(np.argmin(ext))
+    a, b = [i for i in range(3) if i != thin]
+    cell = max(ext) / cells
+    na, nb = max(1, int(round(ext[a] / cell))), max(1, int(round(ext[b] / cell)))
+    A, B = np.meshgrid(np.linspace(-ext[a] / 2, ext[a] / 2, na + 1), np.linspace(-ext[b] / 2, ext[b] / 2, nb + 1), indexing="ij")
+    L = np.zeros((A.size, 3))
+    L[:, a], L[:, b] = A.ravel(), B.ravel()
+    inv = np.linalg.inv(T)
+    s = Sampler(part, count=max(20000, len(part.faces) * 400))
+    P = s.project(trimesh.transform_points(L, inv))[0]
+    lat = trimesh.transform_points(P, T) - L
+    ok = np.hypot(lat[:, a], lat[:, b]) < .75 * max(ext[a] / na, ext[b] / nb)
+    i = np.arange(A.size).reshape(A.shape)
+    q = np.stack([i[:-1, :-1], i[1:, :-1], i[1:, 1:], i[:-1, 1:]], -1).reshape(-1, 4)
+    q = q[ok[q].all(1)]
+    if not len(q):
+        return card(part)
+    m = trimesh.Trimesh(P, np.vstack([q[:, [0, 1, 2]], q[:, [0, 2, 3]]]), process=False)
+    m.remove_unreferenced_vertices()
+    return m
+
+
+def is_flat(part, ratio=.3):
+    e = np.sort(trimesh.bounds.oriented_bounds(part)[1])
+    return e[0] < ratio * e[1]
+
+
 def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 2):  # noqa: E731
-    """Every connected piece of the reference rebuilt: pieces up to `small` triangles as cards, others shrinkwrapped."""
+    """Every connected piece of the reference rebuilt: up to `small` triangles -> card, flat -> one-layer sheet,
+    bulky -> shrinkwrapped icosphere."""
     out = []
     for p in ref.split(only_watertight=False):
         if len(p.faces) <= small:
             out.append(card(p))
+        elif is_flat(p):
+            out.append(sheet(p))
         else:
             out.append(shrinkwrap(p, sub_for(len(p.faces))))
     return trimesh.util.concatenate(out)
