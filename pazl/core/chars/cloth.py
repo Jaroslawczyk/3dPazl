@@ -11,7 +11,7 @@ from scipy.spatial import cKDTree
 
 from ..rig import skeleton
 from ..rig.weights import seg_dist
-from .field import surface_nets
+from .field import decimate, surface_nets
 
 ARM = ("shoulder", "upper_arm", "forearm")
 
@@ -80,6 +80,11 @@ class Fit:
     """Measurements of one body, shared by its garments."""
 
     def __init__(self, V, F, N, bones):
+        self.skin_tree = cKDTree(V)  # real vertices: skin weights come from them
+        if len(V) < 20000:  # low-poly body: measure on points spread over its faces, or the cloth would be lumpy
+            m = trimesh.Trimesh(V, F, process=False)
+            V, fi = trimesh.sample.sample_surface(m, 60000, seed=1)
+            V, N = np.asarray(V, float), np.asarray(m.face_normals[fi], float)
         self.V, self.N = V, N
         self.tree = cKDTree(V)
         self.bones = {b["name"]: (np.array(b["head"], float), np.array(b["tail"], float)) for b in bones}
@@ -94,6 +99,9 @@ class Fit:
                 continue
             a, b = self.bones[n]
             self.reach[n] = float(np.percentile(seg_dist(pts, a[None], b[None]), 96)) * 1.15 + .03
+        trunk = [n for n in ("hips", "spine", "chest") if n in self.reach]
+        for n in trunk:  # one width for the whole trunk, or hems step in on boxy bodies
+            self.reach[n] = max(self.reach[k] for k in trunk)
         self.lo, self.hi = V.min(0), V.max(0)
         self.H = float(self.hi[1] - self.lo[1])
 
@@ -226,7 +234,7 @@ def _bounds(fit, kind, o, spec):
     return lo, hi
 
 
-def make(fit, kind, spec, template):
+def make(fit, kind, spec, template, target=None):
     """(V, F, N) of an open garment shell; raises ValueError if it does not suit this body."""
     if kind not in kinds_for(template):
         raise ValueError(f"«{kind}» не подходит к скелету {template}; есть: {', '.join(kinds_for(template))}")
@@ -261,6 +269,8 @@ def make(fit, kind, spec, template):
     big = max(len(p.faces) for p in parts)
     m = trimesh.util.concatenate([p for p in parts if len(p.faces) > big * .02])
     trimesh.smoothing.filter_taubin(m, iterations=4)
+    if target and len(m.faces) > target:
+        m = trimesh.Trimesh(*decimate(m.vertices, m.faces, target), process=False)
     V = np.array(m.vertices)
     d, i = fit.tree.query(V)
     if ((V - fit.V[i]) * fit.N[i]).sum(1).mean() < 0 or _inverted(m, fit):
@@ -277,7 +287,7 @@ def _inverted(m, fit):
 
 def transfer(fit, Vg, Wd, k=4, rigid=None):
     """Skin weights for garment vertices: inverse-distance mix of the k nearest body vertices (Wd: dense n x bones)."""
-    d, i = fit.tree.query(Vg, k=k, workers=-1)
+    d, i = fit.skin_tree.query(Vg, k=k, workers=-1)
     w = 1 / np.maximum(d, 1e-3) ** 2
     w /= w.sum(1, keepdims=True)
     W = (Wd[i] * w[..., None]).sum(1)

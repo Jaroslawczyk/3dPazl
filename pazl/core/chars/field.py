@@ -83,6 +83,24 @@ def loft(g, f, a, b, prof, k=0.0, side=(1, 0, 0)):
     f[sl] = smin(f[sl], d, k)
 
 
+def box(g, f, c, half, r=0.0):
+    """Hard union of a box with rounded edges (centre c, half sizes, edge radius r)."""
+    c, half = np.asarray(c, float), np.asarray(half, float)
+    sl, x, y, z = g.window(c - half - 2 * g.cell, c + half + 2 * g.cell)
+    qx, qy, qz = np.abs(x - c[0]) - half[0] + r, np.abs(y - c[1]) - half[1] + r, np.abs(z - c[2]) - half[2] + r
+    out = np.sqrt(np.maximum(qx, 0) ** 2 + np.maximum(qy, 0) ** 2 + np.maximum(qz, 0) ** 2)
+    f[sl] = np.minimum(f[sl], out + np.minimum(np.maximum(np.maximum(qx, qy), qz), 0) - r)
+
+
+def decimate(V, F, target):
+    """Fewer triangles, same shape: this is what the quality levels use."""
+    if not target or len(F) <= target:
+        return V, F
+    import fast_simplification
+    v, f = fast_simplification.simplify(np.asarray(V, np.float32), np.asarray(F, np.int32), target_reduction=1 - target / len(F))
+    return np.asarray(v, float), np.asarray(f)
+
+
 def cone(g, f, a, b, ra, rb, k=0.0):
     """Round tapered limb between two points."""
     loft(g, f, a, b, [(0, ra, ra, 0), (1, rb, rb, 0)], k)

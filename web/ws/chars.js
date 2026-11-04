@@ -3,7 +3,7 @@ import { esc, post, getJson, viewer } from './charview.js';
 
 const LABELS = { height: 'Рост, м', length: 'Длина, м', build: 'Комплекция', muscle: 'Мышцы', head: 'Голова', shoulders: 'Плечи', chest: 'Грудь', waist: 'Талия',
   hips: 'Бёдра', belly: 'Живот', bust: 'Бюст', legs: 'Ноги', arms: 'Руки', nose: 'Нос', ears: 'Уши', ear_tip: 'Острые уши', snout: 'Морда', tail: 'Хвост' };
-const COLORS = { color: 'Тело', belly_color: 'Живот', eyes: 'Глаза' };
+const COLORS = { color: 'Тело', belly_color: 'Живот', eyes: 'Глаза', shirt_color: 'Торс', legs_color: 'Ноги' };
 const range = (k) => (k === 'height' || k === 'length' ? [.2, 2.5, .01] : ['belly', 'bust', 'muscle', 'ear_tip'].includes(k) ? [0, 2, .05] : k === 'nose' || k === 'ears' ? [.4, 3, .05] : [.5, 2, .01]);
 
 export async function mount(el, ctx) {
@@ -14,6 +14,7 @@ export async function mount(el, ctx) {
   const skinOpts = `<option value="">без скина (цвет тела)</option>${Object.entries(cat.skins.presets).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}${cat.skins.saved.map((k) => `<option>${esc(k)}</option>`).join('')}`;
   el.innerHTML = `<h4>1. Новый персонаж</h4>
     <div ${row}><input id="chName" placeholder="имя" style="flex:1"><select id="chPreset">${Object.entries(cat.presets).map(([k, v]) => `<option value="${k}">${esc(v.title)}</option>`).join('')}</select></div>
+    <div ${row} class="hint"><span style="width:76px">Качество</span><select id="chQ" style="flex:1">${Object.entries(cat.quality).map(([k, v]) => `<option value="${k}"${k === 'high' ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
     <button id="chNew" style="width:100%">Создать тело</button>
     <div ${row}><select id="chSrc" style="flex:1"><option value="">— или своя модель (GLB) —</option>${glbs.filter((g) => !g.path.startsWith('chars/')).map((g) => `<option>${esc(g.path)}</option>`).join('')}</select>
       <select id="chTpl"><option value="humanoid">человек</option><option value="quadruped">зверь</option><option value="simple">объект</option></select></div>
@@ -56,6 +57,7 @@ export async function mount(el, ctx) {
   const open = async (name, res) => {
     C = await getJson('/api/ws/chars/get/' + encodeURIComponent(name));
     sliders();
+    $('#chQ').value = C.quality || 'high';
     const clips = Object.keys(C.clips);
     $('#chClip').innerHTML = '<option value="">поза (без движения)</option>' + clips.map((c) => `<option>${esc(c)}</option>`).join('');
     $('#chClip').value = V.clip && clips.includes(V.clip) ? V.clip : '';
@@ -71,11 +73,12 @@ export async function mount(el, ctx) {
     fillOpen(c.chars, r.name); await open(r.name, r);
   };
   fillOpen(cat.chars);
-  $('#chNew').onclick = () => busy('вылепливаю тело, ставлю скелет…', () => create({ name: $('#chName').value || $('#chPreset').value, preset: $('#chPreset').value }));
+  $('#chNew').onclick = () => busy('вылепливаю тело, ставлю скелет…', () => create({ name: $('#chName').value || $('#chPreset').value, preset: $('#chPreset').value, quality: $('#chQ').value }));
   $('#chImp').onclick = () => busy('ставлю скелет на модель…', () => {
     const src = $('#chSrc').value; if (!src) throw new Error('выберите GLB');
-    return create({ name: $('#chName').value || src.split('/').pop().replace('.glb', ''), src, template: $('#chTpl').value });
+    return create({ name: $('#chName').value || src.split('/').pop().replace('.glb', ''), src, template: $('#chTpl').value, quality: $('#chQ').value });
   });
+  $('#chQ').onchange = (e) => C && busy('пересчитываю качество…', async () => { await open(C.name, await post('/api/ws/chars/update', { name: C.name, quality: e.target.value })); });
   $('#chOpen').onchange = (e) => e.target.value && busy('открываю…', () => open(e.target.value));
   $('#chSkin').onchange = (e) => busy('надеваю скин…', async () => { if (!C) throw new Error('сначала персонаж'); await open(C.name, await post('/api/ws/chars/skin', { name: C.name, skin: e.target.value || null })); });
   $('#chClip').onchange = (e) => V.play(e.target.value);

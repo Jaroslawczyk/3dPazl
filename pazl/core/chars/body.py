@@ -6,7 +6,7 @@ import numpy as np
 import trimesh
 
 from ..rig import skeleton
-from .field import Grid, cone, ellipsoid, loft, smin, surface_nets
+from .field import Grid, box, cone, decimate, ellipsoid, loft, smin, surface_nets
 
 HUMAN = {"height": 1.75, "build": 1.0, "muscle": 0.0, "head": 1.0, "shoulders": 1.0, "chest": 1.0, "waist": 1.0, "hips": 1.0,
          "belly": 0.0, "bust": 0.0, "legs": 1.0, "arms": 1.0, "nose": 1.0, "ears": 1.0, "ear_tip": 0.0,
@@ -14,6 +14,8 @@ HUMAN = {"height": 1.75, "build": 1.0, "muscle": 0.0, "head": 1.0, "shoulders": 
 BEAST = {"height": 0.6, "length": 0.9, "build": 1.0, "head": 1.0, "snout": 1.0, "ears": 1.0, "ear_tip": 1.0, "tail": 1.0,
          "color": "#9a6a3e", "belly_color": "#e6d6bd", "eyes": "#3a2a1a"}
 BLOB = {"height": 1.0, "build": 1.0, "head": 1.0, "color": "#6db24f", "belly_color": "#cfe6a6", "eyes": "#d03030"}
+BLOCKY = {"height": 1.4, "build": 1.0, "head": 1.0, "arms": 1.0, "legs": 1.0, "color": "#e8b88a", "shirt_color": "#3f7fbf", "legs_color": "#3a3a44", "eyes": "#17171a"}
+QUALITY = {"low": ("Лоу-поли (~1.5 тыс.)", 1500), "mid": ("Среднее (~8 тыс.)", 8000), "high": ("Высокое (~25 тыс.)", 25000), "ultra": ("Максимум", None)}
 PRESETS = {
     "man": ("Мужчина", "human", {"shoulders": 1.08, "chest": 1.05, "waist": 1.02, "hips": .94}),
     "woman": ("Женщина", "human", {"height": 1.66, "shoulders": .9, "chest": .9, "waist": .8, "hips": 1.08, "bust": 1.0, "nose": .85, "color": "#e3b89c"}),
@@ -23,13 +25,17 @@ PRESETS = {
     "child": ("Ребёнок", "human", {"height": 1.2, "head": 1.28, "shoulders": .86, "chest": .9, "hips": .9, "legs": .88, "nose": .7}),
     "toon": ("Мультяшный", "human", {"height": 1.3, "head": 1.75, "build": 1.05, "legs": .78, "arms": .9, "nose": 1.3, "ears": 1.3}),
     "goblin": ("Гоблин", "human", {"height": 1.15, "head": 1.45, "build": .84, "belly": .5, "nose": 2.0, "ears": 2.3, "ear_tip": 1.0, "legs": .84, "arms": 1.14, "color": "#7f9c52", "eyes": "#c9a227"}),
+    "chibi": ("Чиби", "human", {"height": 1.0, "head": 2.3, "build": 1.0, "legs": .72, "arms": .8, "nose": .5, "ears": .8}),
+    "blocky": ("Кубик", "blocky", {}),
+    "blocky_slim": ("Кубик стройный", "blocky", {"build": .8, "legs": 1.15, "shirt_color": "#c0436b", "legs_color": "#2f3f6d"}),
+    "blocky_big": ("Кубик-здоровяк", "blocky", {"height": 1.7, "build": 1.3, "head": .85, "shirt_color": "#5a7a3a", "legs_color": "#4a3a2a", "color": "#9fb0c0"}),
     "dog": ("Собака", "beast", {}),
     "cat": ("Кошка", "beast", {"height": .32, "length": .5, "build": .84, "snout": .42, "color": "#7d7d85", "belly_color": "#e8e8ea", "eyes": "#6e9c2e"}),
     "horse": ("Лошадь", "beast", {"height": 1.65, "length": 1.9, "build": .86, "head": .9, "snout": 1.6, "ears": .5, "color": "#5c3a22", "belly_color": "#5c3a22"}),
     "monster": ("Монстр-капля", "blob", {}),
 }
-BASE = {"human": HUMAN, "beast": BEAST, "blob": BLOB}
-TEMPLATE = {"human": "humanoid", "beast": "quadruped", "blob": "simple"}
+BASE = {"human": HUMAN, "beast": BEAST, "blob": BLOB, "blocky": BLOCKY}
+TEMPLATE = {"human": "humanoid", "beast": "quadruped", "blob": "simple", "blocky": "humanoid"}
 
 
 def params_for(preset, over=None):
@@ -225,11 +231,49 @@ def blob_field(p, cell=None):
     return g, f, bones, eyes, []
 
 
-FIELDS = {"human": human_field, "beast": beast_field, "blob": blob_field}
+# ------------------------------------------------------------------ blocky game figure (own proportions)
+def blocky_field(p, cell=None):
+    u, B = float(p["height"]) / 1.4, float(p["build"])
+    lg, hd, ar = .55 * u * p["legs"], .34 * u * p["head"], .5 * u * p["arms"]
+    top = lg + .5 * u                    # shoulders line
+    tw, td = .25 * u * B, .125 * u * B   # torso half sizes
+    lw = tw / 2 - .004 * u               # leg half width: two legs fill the torso
+    aw = .105 * u * B
+    sy = top - aw
+    H = top + .03 * u + hd
+    b = [_bone("hips", None, (0, lg, 0), (0, lg + .08 * u, 0)), _bone("spine", "hips", (0, lg + .08 * u, 0), (0, lg + .25 * u, 0)),
+         _bone("chest", "spine", (0, lg + .25 * u, 0), (0, top, 0)), _bone("neck", "chest", (0, top, 0), (0, top + .03 * u, 0)),
+         _bone("head", "neck", (0, top + .03 * u, 0), (0, H, 0))]
+    for s, k in skeleton.SIDES:
+        x = tw / 2 * k
+        ax = tw * k
+        b += [_bone("shoulder" + s, "chest", (.03 * u * k, sy, 0), (ax, sy, 0)),
+              _bone("upper_arm" + s, "shoulder" + s, (ax, sy, 0), (ax + ar * .5 * k, sy, 0)),
+              _bone("forearm" + s, "upper_arm" + s, (ax + ar * .5 * k, sy, 0), (ax + ar * .88 * k, sy, 0)),
+              _bone("hand" + s, "forearm" + s, (ax + ar * .88 * k, sy, 0), (ax + ar * k, sy, 0)),
+              _bone("thigh" + s, "hips", (x, lg, 0), (x, lg * .5, 0)), _bone("shin" + s, "thigh" + s, (x, lg * .5, 0), (x, .07 * u, 0)),
+              _bone("foot" + s, "shin" + s, (x, .07 * u, 0), (x, 0, td))]
+    cell = cell or .0075 * u
+    span = tw + ar + .05
+    g = Grid((-span, -.02, -.3 * u * B - .05), (span, H + .04, .3 * u * B + .05), cell)
+    e = .012 * u
+    f = g.empty()
+    box(g, f, (0, lg + .25 * u, 0), (tw, .25 * u, td), e)
+    box(g, f, (0, top + .03 * u + hd / 2, 0), (hd * .56, hd / 2, hd * .52), e * 3)
+    box(g, f, (0, top + .015 * u, 0), (.08 * u, .03 * u, .08 * u), e)
+    for k in (1, -1):
+        box(g, f, ((tw + ar / 2 - .002) * k, sy, 0), (ar / 2 + .002, aw, aw), e)
+        box(g, f, (tw / 2 * k, lg / 2, 0), (lw, lg / 2, td), e)
+    hy = top + .03 * u + hd * .58
+    eyes = [(np.array((hd * .2 * k, hy, hd * .49)), hd * .075, (0, 0, 1)) for k in (1, -1)]
+    return g, f, b, eyes, []
 
 
-def _eye(c, r, fwd, iris):
-    m = trimesh.creation.icosphere(subdivisions=3, radius=r)
+FIELDS = {"human": human_field, "beast": beast_field, "blob": blob_field, "blocky": blocky_field}
+
+
+def _eye(c, r, fwd, iris, sub=3):
+    m = trimesh.creation.icosphere(subdivisions=sub, radius=r)
     d = np.asarray(fwd, float)
     d /= np.linalg.norm(d)
     a = (m.vertices / r) @ d
@@ -240,6 +284,11 @@ def _eye(c, r, fwd, iris):
 def _paint(kind, V, p, bones, marks):
     C = np.tile(rgb(p["color"]), (len(V), 1))
     top = V[:, 1].max()
+    if kind == "blocky":  # head and hands skin, shirt, trousers
+        by = {b["name"]: b for b in bones}
+        lg, neck, tw = by["hips"]["head"][1], by["neck"]["head"][1], by["upper_arm.L"]["head"][0]
+        C[V[:, 1] < lg] = rgb(p["legs_color"])
+        C[(V[:, 1] >= lg) & (V[:, 1] <= neck) & (np.abs(V[:, 0]) <= tw + .002)] = rgb(p["shirt_color"])
     if kind == "blob":  # lighter belly
         t = np.clip(1 - (np.abs(V[:, 0]) / (top * .2)) ** 2, 0, 1) * np.clip(V[:, 2] * 8, 0, 1) * (V[:, 1] < top * .6)
     elif kind == "beast":
@@ -255,7 +304,7 @@ def _paint(kind, V, p, bones, marks):
     return C
 
 
-def build(kind, p, cell=None):
+def build(kind, p, cell=None, target=None):
     """(mesh, bones): vertex-coloured trimesh in metres; eyes are added as separate little balls."""
     g, f, bones, eyes, marks = FIELDS[kind](p, cell)
     V, F = surface_nets(f, g.lo, g.cell)
@@ -266,12 +315,12 @@ def build(kind, p, cell=None):
     if m.volume < 0:
         m.invert()
     trimesh.smoothing.filter_taubin(m, iterations=4)
-    V, F = np.array(m.vertices), np.asarray(m.faces)
+    V, F = decimate(np.array(m.vertices), np.asarray(m.faces), target)
     V[:, 1] = np.maximum(V[:, 1], 0)  # soles stand on the ground
     C = _paint(kind, V, p, bones, marks)
     Vs, Fs, Cs, off = [V], [F], [C], len(V)
     for c, r, fwd in eyes:
-        v, fa, col = _eye(np.asarray(c, float), r, fwd, rgb(p["eyes"]))
+        v, fa, col = _eye(np.asarray(c, float), r, fwd, rgb(p["eyes"]), 2 if target and target < 5000 else 3)
         Vs.append(v); Fs.append(fa + off); Cs.append(col); off += len(v)
     out = trimesh.Trimesh(np.vstack(Vs), np.vstack(Fs), process=False)
     out.visual.vertex_colors = (np.clip(np.vstack(Cs), 0, 1) * 255).astype(np.uint8)

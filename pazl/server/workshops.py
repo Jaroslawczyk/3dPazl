@@ -170,13 +170,13 @@ async def chars_create(body: dict):
     """body: {name, preset, params?} or {name, src (GLB under projects/), template}"""
     from ..core import chars
     return await asyncio.to_thread(_rig_call, chars.create, body.get("name"), body.get("preset") or "man", body.get("params"),
-                                   body.get("src") or "", body.get("template") or "humanoid")
+                                   body.get("src") or "", body.get("template") or "humanoid", None, body.get("quality") or "high")
 
 
 @router.post("/chars/update")
 async def chars_update(body: dict):
     from ..core import chars
-    return await asyncio.to_thread(_rig_call, chars.update, body["name"], body.get("params") or {})
+    return await asyncio.to_thread(_rig_call, chars.update, body["name"], body.get("params") or {}, body.get("quality"))
 
 
 @router.post("/chars/sculpt")

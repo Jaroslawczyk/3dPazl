@@ -42,6 +42,15 @@ def test_same_garment_fits_different_bodies(kind):
     assert not np.allclose(sizes[0], sizes[1])
 
 
+def test_quality_limits_triangles_and_blocky_wears_clothes():
+    k, p = body.params_for("blocky")
+    m, bones = body.build(k, p, target=1500)
+    assert len(m.faces) < 3500  # 1500 + two eyes
+    fit = cloth.Fit(np.asarray(m.vertices), m.faces, np.asarray(m.vertex_normals), bones)
+    V, F, _ = cloth.make(fit, "tshirt", {}, "humanoid", 800)
+    assert 100 < len(F) <= 900
+
+
 def test_wrong_skeleton_is_refused():
     k, p = body.params_for("dog")
     m, bones = body.build(k, p, cell=.02)

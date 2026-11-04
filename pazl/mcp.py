@@ -143,18 +143,18 @@ def rig_export(name: str) -> str:
 
 @tool
 def char_make(name: str = "", preset: str = "", params: dict | None = None, src: str = "", template: str = "humanoid",
-              skin: str = "", anim: str = "") -> str:
+              skin: str = "", anim: str = "", quality: str = "") -> str:
     """Characters workshop: organic one-piece body, skeleton and idle/walk clips -> projects/chars/<name>.glb.
-    Empty name lists presets, clothes, skins. New: preset (man woman athlete chubby elder child toon goblin dog cat horse monster)
+    Empty name lists presets, clothes, skins. New: preset (man woman athlete chubby elder child toon goblin chibi blocky blocky_slim blocky_big dog cat horse monster)
     or src = any GLB under projects/. Existing name with params {height, build, head, hips...} reshapes the body and refits clothes;
-    skin = preset/saved skin name; anim = idle|walk|run|wave|jump."""
+    skin = preset/saved skin name; anim = idle|walk|run|wave|jump; quality = low|mid|high|ultra (triangles of body and clothes)."""
     if not name:
         return _j(_call("GET", "/api/ws/chars/catalog"))
     r = None
     if preset or src:
-        r = _call("POST", "/api/ws/chars/create", {"name": name, "preset": preset, "params": params, "src": src, "template": template})
-    elif params:
-        r = _call("POST", "/api/ws/chars/update", {"name": name, "params": params})
+        r = _call("POST", "/api/ws/chars/create", {"name": name, "preset": preset, "params": params, "src": src, "template": template, "quality": quality or "high"})
+    elif params or quality:
+        r = _call("POST", "/api/ws/chars/update", {"name": name, "params": params, "quality": quality or None})
     if skin:
         r = _call("POST", "/api/ws/chars/skin", {"name": name, "skin": skin})
     if anim:

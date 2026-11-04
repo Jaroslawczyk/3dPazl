@@ -10,11 +10,13 @@ import shutil
 
 import numpy as np
 import trimesh
+from scipy.spatial import cKDTree
 
 from ...paths import PROJECTS
 from .. import rig, skins
 from ..rig import gltf, skeleton
 from . import body, cloth
+from .field import decimate
 
 CHARS = PROJECTS / "chars"
 
@@ -48,11 +50,16 @@ def save(c):
 
 def catalog():
     return {"presets": {k: {"title": v[0], "kind": v[1], "params": body.params_for(k)[1]} for k, v in body.PRESETS.items()},
-            "clothes": cloth.catalog(), "skins": skins.catalog(), "chars": names()}
+            "clothes": cloth.catalog(), "skins": skins.catalog(), "chars": names(),
+            "quality": {k: v[0] for k, v in body.QUALITY.items()}}
 
 
 def _src(name):
     return rig.RIGS / "src" / f"{_rn(name)}.glb"
+
+
+def _target(c):
+    return body.QUALITY[c.get("quality") or "high"][1]
 
 
 def _write_body(c):
@@ -61,11 +68,15 @@ def _write_body(c):
     out.parent.mkdir(parents=True, exist_ok=True)
     if c.get("import"):
         V, F, N, C = rig.load_mesh(c["import"])
+        if _target(c) and len(F) > _target(c):  # colours follow the nearest original vertex
+            V2, F = decimate(V, F, _target(c))
+            C = C[cKDTree(V).query(V2)[1]]
+            V = V2
         m = trimesh.Trimesh(V, F, process=False)
         m.visual.vertex_colors = (np.clip(C, 0, 1) * 255).astype(np.uint8)
         bones = None
     else:
-        m, bones = body.build(c["kind"], c["params"], c.get("cell"))
+        m, bones = body.build(c["kind"], c["params"], c.get("cell"), _target(c))
     if c.get("sculpt"):
         m.vertices = body.sculpt(m.vertices, np.asarray(m.vertex_normals), c["sculpt"])
     m.export(out)
@@ -73,10 +84,12 @@ def _write_body(c):
     return out.relative_to(PROJECTS).as_posix(), bones, m
 
 
-def create(name, preset="man", params=None, src="", template="humanoid", cell=None):
+def create(name, preset="man", params=None, src="", template="humanoid", cell=None, quality="high"):
     """New character from a preset (organic generated body) or from any GLB under projects/ (src)."""
     name = _safe(name)
-    c = {"name": name, "skin": None, "outfit": [], "sculpt": [], "cell": cell}
+    if quality not in body.QUALITY:
+        raise KeyError(f"unknown quality {quality}; have {list(body.QUALITY)}")
+    c = {"name": name, "skin": None, "outfit": [], "sculpt": [], "cell": cell, "quality": quality}
     if src:
         c.update({"import": src, "kind": "import", "template": template, "preset": None, "params": {}})
     else:
@@ -98,15 +111,19 @@ def create(name, preset="man", params=None, src="", template="humanoid", cell=No
     return export(name)
 
 
-def update(name, params):
-    """Change body proportions: new surface and bones; clothes are refitted on export."""
+def update(name, params=None, quality=None):
+    """Change body proportions or quality: new surface and bones; clothes are refitted on export."""
     c = load(name)
-    if c.get("import"):
+    if quality:
+        if quality not in body.QUALITY:
+            raise KeyError(f"unknown quality {quality}; have {list(body.QUALITY)}")
+        c["quality"] = quality
+    if c.get("import") and params:
         raise ValueError("импортированное тело меняется только лепкой")
-    c["params"] = {**c["params"], **params}
+    c["params"] = {**c["params"], **(params or {})}
     rel, bones, _ = _write_body(c)
     r = rig.load(_rn(name))
-    r.update({"src": rel, "bones": bones})
+    r.update({"src": rel, "bones": bones or r["bones"]})
     rig.save(r)
     rig._p(_rn(name), ".weights.npz").unlink(missing_ok=True)
     for k, v in list(r["clips"].items()):  # gait depends on leg length
@@ -169,7 +186,7 @@ def _garment(c, g, fit, stamp):
     if p.exists():
         z = np.load(p)
         return z["V"], z["F"], z["N"]
-    V, F, N = cloth.make(fit, g["kind"], g, c["template"])
+    V, F, N = cloth.make(fit, g["kind"], g, c["template"], int(_target(c) * .5) if _target(c) else None)
     p.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(p, V=V.astype(np.float32), F=F.astype(np.int32), N=N.astype(np.float32))
     return V, F, N
