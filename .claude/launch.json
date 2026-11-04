@@ -4,8 +4,23 @@
     {
       "name": "pazl-server",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "pazl.server"],
+      "runtimeArgs": [
+        "-m",
+        "pazl.server"
+      ],
       "port": 8765
+    },
+    {
+      "name": "pazl-items",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "pazl.server.app:app",
+        "--port",
+        "8767"
+      ],
+      "port": 8767
     }
   ]
 }

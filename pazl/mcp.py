@@ -88,6 +88,17 @@ def guide() -> str:
 
 
 @tool
+def make_item(kind: str = "", name: str = "", size: float = 1.0, width: float = 1.0, height: float = 1.0,
+              seed: int = 1, color: str = "") -> str:
+    """Items workshop: generate a small object GLB into projects/items/<name>.glb (metres, origin bottom centre).
+    Empty kind lists available kinds. width/height scale proportions, seed picks a variant, color '#rrggbb' main colour."""
+    if not kind:
+        return _j(_call("GET", "/api/ws/items/kinds"))
+    return _j(_call("POST", "/api/ws/items/make", {"kind": kind, "name": name, "params": {
+        "size": size, "width": width, "height": height, "seed": seed, "color": color}}))
+
+
+@tool
 def list_styles() -> str:
     """Architectural styles with era/region, recommended macros and tips."""
     return _j(_call("GET", "/api/catalog/styles"))
@@ -131,9 +142,13 @@ def get_recipe() -> str:
 
 
 @tool
-def tree() -> str:
-    """Built elements (incl. macro children) with host, errors and anchor names."""
-    return _j(_call("GET", "/api/tree"))
+def tree(full: bool = False, root: str = "", depth: int = 99) -> str:
+    """Element hierarchy as a compact indented outline (cheap in tokens; runs like awL0..5 folded).
+    root = only that subtree, depth = levels. full=True -> JSON with host, errors and anchor names."""
+    if full:
+        return _j(_call("GET", "/api/tree"))
+    from urllib.parse import quote
+    return _call("GET", f"/api/tree?compact=1&root={quote(root)}&depth={depth}")
 
 
 @tool

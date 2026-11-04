@@ -40,3 +40,24 @@ def models(wid: str):
     d.mkdir(parents=True, exist_ok=True)
     return [{"path": p.relative_to(PROJECTS).as_posix(), "name": p.stem, "kb": round(p.stat().st_size / 1e3)}
             for p in sorted(d.rglob("*.glb"))]
+
+
+# ---------------------------------------------------------------- items workshop
+@router.get("/items/kinds")
+def item_kinds():
+    from ..core import items
+    return items.catalog()
+
+
+@router.post("/items/make")
+async def item_make(body: dict):
+    """body: {kind, name?, params: {size, width, height, seed, seg, color}} -> builds projects/items/<name>.glb."""
+    import re
+    from ..core import items
+    kind = body.get("kind", "")
+    if kind not in items.FUNCS:
+        raise HTTPException(400, f"unknown item kind {kind}")
+    name = re.sub(r"[^\w\-]+", "_", body.get("name") or kind).strip("_") or kind
+    path = PROJECTS / WORKSHOPS["items"]["dir"] / f"{name}.glb"
+    info = await asyncio.to_thread(items.export_glb, kind, body.get("params") or {}, path)
+    return {**info, "path": path.relative_to(PROJECTS).as_posix()}
