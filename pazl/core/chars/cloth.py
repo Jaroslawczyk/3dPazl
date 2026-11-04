@@ -49,6 +49,8 @@ KINDS = {
         "beard": ("Борода", "Волосы", {"beard": True, "color": "#3b2a1c", "ease": .012, "wrinkle": 2.5}),
         "bird": ("Птичка на плече", "Аксессуары", {"pet": "bird", "color": "#2bb5ea"}),
         "hair_spiky": ("Волосы-пряди (игровые)", "Волосы", {"pet": "spiky", "color": "#3b2a1c"}),
+        "acc_head": ("Аксессуар из файла (голова)", "Аксессуары", {"pet": "file", "bone": "head", "color": "#cccccc"}),
+        "acc_chest": ("Аксессуар из файла (корпус)", "Аксессуары", {"pet": "file", "bone": "chest", "color": "#cccccc"}),
         "beanie_back": ("Шапка на затылке", "Голова", {"pet": "slouch", "color": "#3a3a3e", "skin": "knit_red"}),
     },
     "quadruped": {

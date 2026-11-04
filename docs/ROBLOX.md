@@ -7,6 +7,16 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 2. `char_wear(name, kind, color=..., skin=...)`. Kinds: tshirt longsleeve tank jacket pants shorts skirt dress cloak boots shoes gloves scarf belt beanie hat hair_short hair_long beard.
 3. Look at the result in the app: tabs Персонажи, Одежда.
 
+## 1:1 rebuild of a reference model with its own textures (the way to do "сделай 1 к 1")
+`scripts/rebuild_roblox_avatar.py [ref.glb] [name]` (~45 s) -> character `galaxy_1to1`, 4,440 tris vs 5,078, same look and pose:
+1. Reference moved into our frame (studs x 0.28 = metres, turned to face +Z).
+2. Body cut into head/torso/arms/legs by whole reference pieces; each block = our grid box shrinkwrapped onto it (exact closest point on the reference triangles), head = shrinkwrapped icosphere. Hair, hat, pet piece by piece: strands -> 4-triangle cards, bigger pieces shrinkwrapped (`pazl/core/retopo.py`).
+3. Own UV atlas (xatlas), then the ORIGINAL textures baked onto it (closest reference point facing the same way). No hand-made pictures.
+4. Arms raised about their joint for a T-pose bind; the measured arm angle is stored as `rest_pose`, so the file shows the reference pose and clips still work. Block -> bone map in `body_t.labels.npz` (`labels` in the recipe).
+5. Hair+hat and pet are `acc_head` / `acc_chest` (textured GLB that follows a bone), so nothing clips: they keep the reference placement.
+Outputs in `projects/refs/<case>/rebuild/`: `posed_all.glb` (compare with the original in the app), `body_t.glb`, `hair_hat.glb`, `pet.glb`.
+Mistakes found on the way: glTF metallic defaults to 1 (set `metallicFactor=0` or the model renders dark); snapping to surface samples makes flat faces ripple (project onto the triangles); a mirrored oriented box turns a primitive inside out (check the determinant); cutting by triangle centres puts shoulder caps into the torso (cut by whole pieces).
+
 ## Lessons from a real Roblox avatar (user's original, 2026-11-04, `projects/refs/roblox_galaxy/`)
 - Real avatar: 5,078 triangles. Body = ONE mesh of 2,436 tris; shirt, pants, face are all texture on it. Hair + beanie 1,520, pet 1,122.
 - My first try had 45,451 (x9): every garment was a second 3D shell. Now on block bodies `tshirt longsleeve tank jacket pants shorts boots shoes gloves` are **painted onto the body faces** (`cloth.PAINT`); hair/hats stay 3D but are capped at 1,200 tris. Set `cloth3d: true` in the recipe to get the old shells.

@@ -232,3 +232,19 @@ def test_card_hair_and_back_beanie_are_light(tmp_path, monkeypatch):
     top = V[:, 1].max()
     assert max(x.bounds[1][1] for x, _ in hat) > top  # sits on the head
     assert min(x.bounds[0][2] for x, _ in hat) < V[:, 2].min() + .01  # hangs over the back
+
+
+def test_retopo_shrinkwrap_box_and_bake():
+    """1:1 rebuild tools: a grid box pulled onto a reference block keeps its size; baking copies the reference colours."""
+    from PIL import Image
+    from pazl.core import retopo
+    ref = trimesh.creation.box([.4, 1.0, .3])
+    m = retopo.shrinkwrap(ref, grow=1.08, box=6)
+    assert np.allclose(m.extents, ref.extents, atol=.01) and m.volume > 0
+    uv = np.c_[(ref.vertices[:, 0] + .2) / .4, (ref.vertices[:, 1] + .5)]  # left half red, right half blue
+    img = Image.new("RGB", (64, 64), (255, 0, 0))
+    img.paste((0, 0, 255), (32, 0, 64, 64))
+    s = retopo.Sampler(ref, uv, img, count=20000)
+    V, F, UV = retopo.unwrap(m)
+    tex = np.asarray(retopo.bake(V, F, UV, s, 128))
+    assert tex.reshape(-1, 3).max(0)[0] > 200 and tex.reshape(-1, 3).max(0)[2] > 200

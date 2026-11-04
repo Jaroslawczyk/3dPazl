@@ -62,11 +62,37 @@ def _target(c):
     return body.QUALITY[c.get("quality") or "high"][1]
 
 
+def _uv_image(g):
+    """(uv in glTF convention, PNG bytes) of a mesh with a base colour texture, else None."""
+    from io import BytesIO
+    vis = getattr(g, "visual", None)
+    if getattr(vis, "kind", None) != "texture" or getattr(vis, "uv", None) is None:
+        return None
+    mat = vis.material
+    img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
+    if img is None or len(vis.uv) != len(g.vertices):
+        return None
+    buf = BytesIO()
+    img.convert("RGB").save(buf, "PNG")
+    uv = np.asarray(vis.uv, float)
+    return np.c_[uv[:, 0], 1 - uv[:, 1]], buf.getvalue()
+
+
+def _src_texture(src):
+    """Texture of a body file, matched to rig.load_mesh's vertex order (one textured mesh only)."""
+    sc = trimesh.load(PROJECTS / src, force="scene")
+    gs = [g for g in sc.dump(concatenate=False) if hasattr(g, "faces") and len(g.faces)]
+    return _uv_image(gs[0]) if len(gs) == 1 else None
+
+
 def _write_body(c):
     """(Re)generate the body mesh file from the recipe and clay strokes; bones stay in the rig."""
     out = _src(c["name"])
     out.parent.mkdir(parents=True, exist_ok=True)
-    if c.get("import"):
+    tm = trimesh.load(PROJECTS / c["import"], force="mesh") if c.get("import") else None
+    if tm is not None and _uv_image(tm) is not None and len(tm.faces) <= 20000:  # textured model: keep its UVs and picture
+        m, bones = tm, None
+    elif c.get("import"):
         V, F, N, C = rig.load_mesh(c["import"])
         limit = _target(c) if c.get("quality") == "low" else max(_target(c) or 0, 20000)  # up to the Roblox mesh limit, keep painted faces sharp
         if _target(c) and len(F) > limit:  # colours follow the nearest original vertex
@@ -364,7 +390,14 @@ def _slouch_beanie(c, r, V, F, N, g, names_):
     return out, names_.index("head")
 
 
-PROPS = {"bird": _bird, "spiky": _spiky_hair, "slouch": _slouch_beanie}
+def _file_prop(c, r, V, F, N, g, names_):
+    """A ready model (GLB under projects/, in the character's bind frame) that follows one bone; keeps its texture."""
+    o = cloth.kinds_for(c["template"])[g["kind"]][2]
+    m = trimesh.load(PROJECTS / g["file"], force="mesh")
+    return [(m, None)], names_.index(g.get("bone") or o["bone"])
+
+
+PROPS = {"bird": _bird, "spiky": _spiky_hair, "slouch": _slouch_beanie, "file": _file_prop}
 
 
 def prop_mesh(c, r, V, F, N, g):
@@ -376,6 +409,16 @@ def prop_mesh(c, r, V, F, N, g):
 
 def prop_part(c, r, V, F, N, g):
     parts, bone = prop_mesh(c, r, V, F, N, g)
+    if len(parts) == 1 and parts[0][1] is None:  # textured model from a file
+        m = parts[0][0]
+        uv, png = _uv_image(m) or (None, None)
+        n = len(m.vertices)
+        J = np.zeros((n, 4), np.uint16)
+        J[:, 0] = bone
+        W = np.zeros((n, 4), np.float32)
+        W[:, 0] = 1
+        return {"name": g["kind"], "V": np.asarray(m.vertices), "F": np.asarray(m.faces), "N": np.asarray(m.vertex_normals), "J": J, "W": W, "rough": .8,
+                "C": None if png else np.full((n, 3), .8), "UV": uv, "png": png}
     Vs, Fs, Ns, Cs, off = [], [], [], [], 0
     for m, col in parts:
         Vs.append(m.vertices), Fs.append(m.faces + off), Ns.append(m.vertex_normals), Cs.append(np.tile(col, (len(m.vertices), 1)))
@@ -437,7 +480,16 @@ def export_c(c):
     names_, *_ = skeleton.order(r["bones"])
     if c.get("blocks"):
         J, W = _rigid(V, N, r["bones"], names_)
+    if c.get("labels"):  # explicit block -> bone map saved next to a rebuilt body (points + bone names, matched by position)
+        z = np.load(PROJECTS / c["labels"])
+        J = np.zeros((len(V), 4), np.uint16)
+        J[:, 0] = [names_.index(str(b)) for b in z["bone"][cKDTree(z["P"]).query(V)[1]]]
+        W = np.zeros((len(V), 4), np.float32)
+        W[:, 0] = 1
     parts = [{"name": "Body", "V": V, "F": F, "N": N, "C": C, "J": J, "W": W}]
+    tex = _src_texture(r["src"]) if c.get("import") else None
+    if tex is not None and len(tex[0]) == len(V):
+        parts[0].update({"C": None, "UV": tex[0], "png": tex[1], "rough": .8})
     if c.get("skin"):
         eye = _eyes(C) if not c.get("import") else None
         if eye is not None and eye.any():  # eyes keep their colours
@@ -483,8 +535,8 @@ def export_c(c):
                     parts.append(pp)
             fits.append({"kind": g["kind"], "tris": len(Fg)})
     out = CHARS / f"{c['name']}.glb"
-    rest = {}
-    if c["template"] == "humanoid" and c.get("rest", "down") == "down":  # file default pose: arms down like a game avatar; the bind stays T-pose
+    rest = {k: np.asarray(v, float) for k, v in (c.get("rest_pose") or {}).items()}  # measured pose, e.g. from a reference model
+    if not rest and c["template"] == "humanoid" and c.get("rest", "down") == "down":  # file default pose: arms down like a game avatar; the bind stays T-pose
         H = float(np.max([b["tail"][1] for b in r["bones"]]))
         rest = {k: v.as_quat() for k, v in rig.anim._humanoid_pose("idle", 0, H).items() if k.startswith(("shoulder", "upper_arm"))}
     size = gltf.write_parts(out, parts, r["bones"], r["clips"], rest)

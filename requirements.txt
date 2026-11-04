@@ -21,3 +21,4 @@ pytest
 pycollada
 lxml
 networkx
+xatlas
