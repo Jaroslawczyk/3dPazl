@@ -28,6 +28,7 @@ datas = [
     (str(ROOT / "docs"), "docs"),
     (str(ROOT / "pazl" / "styles"), "pazl/styles"),
     (str(ROOT / "pazl" / "core" / "materials.yaml"), "pazl/core"),
+    (str(ROOT / "pazl" / "blender_scripts"), "pazl/blender_scripts"),  # run by the user's blender.exe, not imported
     (str(ROOT / "textures" / "library"), "textures/library"),
     (str(ROOT / "LICENSE"), "."),
     (str(ROOT / "THIRD_PARTY_NOTICES.txt"), "."),

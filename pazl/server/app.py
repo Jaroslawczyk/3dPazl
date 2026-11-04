@@ -18,6 +18,7 @@ from .chat import Chat, usage_total
 from . import library as LIB
 from .logs import log, log_exception, report_zip
 from .project import PROJECTS, ROOT, Project
+from .workshops import router as workshops_router
 
 HOST, PORT = "127.0.0.1", 8765
 WEB = ROOT / "web"
@@ -492,6 +493,7 @@ def list_glbs():
 
 
 PROJECTS.mkdir(exist_ok=True)
+app.include_router(workshops_router)
 app.mount("/files", StaticFiles(directory=str(PROJECTS)), name="files")
 app.mount("/", StaticFiles(directory=str(WEB), html=True), name="web")
 

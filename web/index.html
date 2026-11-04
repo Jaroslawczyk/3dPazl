@@ -12,28 +12,31 @@
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
 </script>
 </head>
-<body>
+<body data-ws="build">
 <header id="top">
   <div class="brand" id="brand" title="О программе">3d<b>Pazl</b></div>
-  <input id="projName" title="Название проекта" spellcheck="false">
-  <details class="menu"><summary title="Новый, открыть, автосохранения">Проект ▾</summary><div class="menu-pop">
+  <div class="seg" id="segWs" title="Рабочее пространство: здания, предметы, одежда, риг и анимация">
+    <button data-ws="build" class="on">🏛 Здания</button><button data-ws="items">🍽 Предметы</button><button data-ws="clothes">👕 Одежда</button><button data-ws="rig">🦴 Риг и анимация</button>
+  </div>
+  <input id="projName" class="ws-build" title="Название проекта" spellcheck="false">
+  <details class="menu ws-build"><summary title="Новый, открыть, автосохранения">Проект ▾</summary><div class="menu-pop">
     <button id="btnNew" title="Новый проект">Новый проект</button>
     <select id="selProjects" title="Открыть сохранённый проект"><option value="">Открыть…</option></select>
     <select id="selAutosave" title="Каждое изменение сразу сохраняется; здесь — снимки проекта, к которым можно вернуться."><option value="">🕘 Автосохранения…</option></select>
     <button id="btnReport" title="Отчёт: журнал действий и ошибок, расход ИИ, рецепт — одним ZIP-файлом для анализа">📄 Скачать отчёт</button>
   </div></details>
-  <div class="grp">
+  <div class="grp ws-build">
     <button id="btnUndo" class="icon" title="Отменить (Ctrl+Z)">↶</button>
     <button id="btnRedo" class="icon" title="Повторить (Ctrl+Y)">↷</button>
   </div>
-  <div class="grp style-grp">
+  <div class="grp style-grp ws-build">
     <select id="selStyle" title="Стиль"></select>
     <select id="selStyle2" title="Смешать со вторым стилем (первый главный: материалы и пропорции, второй дополняет)"><option value="">+ стиль</option></select>
     <div class="seg" id="segDetail" title="Реализм — с PBR-текстурами; Low-poly — без текстур, плоские цвета">
       <button data-v="realistic">Реализм</button><button data-v="lowpoly">Low-poly</button>
     </div>
   </div>
-  <details class="menu"><summary title="Быстрые действия со всеми зданиями">Здание ▾</summary><div class="menu-pop">
+  <details class="menu ws-build"><summary title="Быстрые действия со всеми зданиями">Здание ▾</summary><div class="menu-pop">
     <button id="btnPaint" title="Случайно покрасить фасады по палитре стиля">🎲 Покрасить</button>
     <button id="btnReroll" title="Перебросить случайности (этажи-диапазоны, миксы, декали)">🎲 Сид</button>
     <button id="btnInterior" title="Сгенерировать интерьер: комнаты, лестницы, лифты, мебель">🏠 Интерьер</button>
@@ -52,7 +55,7 @@
       <option value="bow">Выпуклый фасад</option><option value="cut_corner">Срезанный угол</option><option value="cross">Крест</option>
     </select>
   </div></details>
-  <details class="menu"><summary title="Украшения и мелкие объекты: фонари, скамейки, деревья, кондиционеры, антенны">Украшения ▾</summary><div class="menu-pop">
+  <details class="menu ws-build"><summary title="Украшения и мелкие объекты: фонари, скамейки, деревья, кондиционеры, антенны">Украшения ▾</summary><div class="menu-pop">
     <label class="row"><input type="checkbox" id="chkProps" checked> Показывать украшения</label>
     <button id="btnPropsAuto" title="Расставить фонари, скамейки, кадки, деревья, кондиционеры, оборудование на крышах">✨ Расставить автоматически</button>
     <label class="row">Плотность <input type="range" id="rngPropsDens" min="10" max="100" value="60"></label>
@@ -61,9 +64,9 @@
   </div></details>
   <div class="grp right">
     <button id="btnGlbView" class="act" title="Открыть любую GLB-модель из projects/ (скриптовые и эталоны) только для просмотра">🗂 GLB</button>
-    <button id="btnValidate" class="act" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
-    <button id="btnRender" class="icon" title="Скриншоты со всех сторон одним листом">📷</button>
-    <details class="menu"><summary class="primary" title="Экспорт модели">⬇ Экспорт ▾</summary><div class="menu-pop menu-right">
+    <button id="btnValidate" class="act ws-build" title="Проверить цельность: щели, висящие части, ошибки">✓ Проверить</button>
+    <button id="btnRender" class="icon ws-build" title="Скриншоты со всех сторон одним листом">📷</button>
+    <details class="menu ws-build"><summary class="primary" title="Экспорт модели">⬇ Экспорт ▾</summary><div class="menu-pop menu-right">
       <select id="selExport" title="Экспорт цельной модели">
         <option value="">Экспорт…</option><option value="glb">GLB (игры, Unity/Unreal/Godot)</option>
         <option value="gltf">glTF (JSON + буферы)</option><option value="obj">OBJ (почти везде, Roblox Studio)</option>
@@ -134,6 +137,8 @@
       <div id="matList"></div>
     </section>
   </aside>
+
+  <aside id="wsLeft"></aside>
 
   <section id="center">
     <div id="viewport"></div>
@@ -243,5 +248,6 @@
   <button id="aboutClose">Закрыть</button>
 </div></div>
 <script type="module" src="app.js"></script>
+<script type="module" src="workspaces.js"></script>
 </body>
 </html>

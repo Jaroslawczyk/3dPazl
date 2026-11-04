@@ -106,6 +106,7 @@ function loop() {
 const loader = new GLTFLoader();
 let loading = false, pendingReload = false;
 async function reloadModel(fit = false) {
+  if (document.body.dataset.ws !== 'build') return;  // another workshop owns the viewport
   if (loading) { pendingReload = true; return; }
   loading = true; $('#busy').hidden = false;
   try {
@@ -187,9 +188,13 @@ async function viewGlb(path) {
     }
     invalidate(true); fitView(box, 'iso'); S.lastCenter = box.getCenter(new THREE.Vector3());
     $('#status').textContent = `просмотр GLB: ${path} · треугольников ${countTris().toLocaleString('ru')} · только просмотр (вернуться: выберите проект)`;
+    $('#busy').hidden = true;
+    return gltf;
   } catch (e) { feedLine({ type: 'error', agent: 'ui', note: e.message }); }
   $('#busy').hidden = true;
 }
+// shared with the workshop modules (web/workspaces.js, web/ws/*.js)
+window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
 $('#btnGlbView').onclick = async () => {
   const list = await fetch('/api/glbs').then((r) => r.json());
   let box = $('#glbPick');

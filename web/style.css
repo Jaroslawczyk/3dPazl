@@ -241,3 +241,11 @@ button.icon { min-width: 34px; padding: 4px 8px; }
 @media (max-width: 860px) { main { grid-template-columns: 56px 0 minmax(0, 1fr) 280px; } #left { display: none; } }
 #center { overflow: hidden; }
 #vtools .vrow { flex-wrap: wrap; max-width: 100%; }
+/* ---- workspaces (Здания / Предметы / Одежда / Риг): building-only controls hide in the other workshops */
+#segWs button { padding: 5px 10px; }
+#wsLeft { display: none; overflow: auto; padding: 10px 12px; border-right: 1px solid var(--line); }
+body:not([data-ws="build"]) .ws-build, body:not([data-ws="build"]) main > .rail, body:not([data-ws="build"]) #left { display: none !important; }
+body:not([data-ws="build"]) #wsLeft { display: block; grid-column: 1 / span 2; }
+#wsLeft h3 { margin: 4px 0 6px; } #wsLeft h4 { margin: 14px 0 6px; }
+.ws-model { padding: 5px 8px; border-radius: 5px; cursor: pointer; } .ws-model:hover { background: var(--panel2); }
+.ws-model.on { outline: 1px solid var(--acc); }
