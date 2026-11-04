@@ -168,3 +168,22 @@ def test_block_garment_is_a_closed_shell_per_block():
     tw = next(b for b in bones if b["name"] == "shoulder.L")["head"][0]
     side = V[(L == names.index("chest")) & (V[:, 1] > bones[0]["tail"][1])]
     assert side[:, 0].max() > tw  # the torso piece has its own side wall under the arm
+
+
+def test_two_figures_in_one_file_are_found():
+    a, b = trimesh.creation.box(extents=(1, 2, 1)), trimesh.creation.box(extents=(1, 2, 1))
+    b.apply_translation((5, 0, 0))
+    m = trimesh.util.concatenate([a, b])
+    assert len(importer.groups(np.asarray(m.vertices), np.asarray(m.faces))) == 2
+
+
+def test_figures_with_own_materials_are_split_but_head_stays():
+    def box(x, y, h):
+        m = trimesh.creation.box(extents=(.6, h, .4))
+        m.apply_translation((x, y, 0))
+        return m
+    parts = [box(0, 1, 2), box(.6, 1, 2), box(0, 2.2, .4)]  # two touching bodies, a separate head material
+    m = trimesh.util.concatenate(parts)
+    M = np.repeat([0, 1, 2], [len(p.vertices) for p in parts])
+    g = importer.groups(np.asarray(m.vertices), np.asarray(m.faces), M)
+    assert sorted(len(x) for x in g) == [8, 16]

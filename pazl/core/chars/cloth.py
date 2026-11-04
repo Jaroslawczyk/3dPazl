@@ -105,6 +105,7 @@ class Fit:
             m = trimesh.Trimesh(V, F, process=False)
             V, fi = trimesh.sample.sample_surface(m, 60000, seed=1)
             V, N = np.asarray(V, float), np.asarray(m.face_normals[fi], float)
+            self.spots = (np.asarray(F)[fi], trimesh.triangles.points_to_barycentric(m.triangles[fi], V))  # skin weights at each point
         self.V, self.N = V, N
         self.tree = cKDTree(V)
         self.bones = {b["name"]: (np.array(b["head"], float), np.array(b["tail"], float)) for b in bones}
@@ -319,6 +320,17 @@ def make(fit, kind, spec, template, target=None):
     return V, np.asarray(m.faces), np.asarray(m.vertex_normals, float)
 
 
+def _block_of(bone):
+    """Which block of a toy-like body a bone belongs to."""
+    b = bone.split(".")[0]
+    side = bone[len(b):]
+    if b in ("neck", "head"):
+        return "head"
+    if b in ("hips", "spine", "chest"):
+        return "torso"
+    return ("arm" if b in ("shoulder", "upper_arm", "forearm", "hand") else "leg") + side
+
+
 def make_blocks(fit, kind, spec, template, target=None):
     """(V, F, N, bone per vertex) for a block body: one closed shell per block, so nothing stretches between blocks."""
     if kind not in kinds_for(template):
@@ -335,11 +347,23 @@ def make_blocks(fit, kind, spec, template, target=None):
         V, F, N = make(fit, kind, spec, template, target)
         return V, F, N, np.full(len(V), whole)
     res, off = [], 0
+    wanted = {_block_of(b) for b in o.get("cover", {})}
     for lab in np.unique(fit.lab):
+        if _block_of(fit.names[lab]) not in wanted:
+            continue  # a jacket must not leave a thin rim on the head or the legs
+        sub = fit.only(lab)
         try:
-            V, F, N = make(fit.only(lab), kind, spec, template, max(1500, target // 3) if target else None)
+            V, F, N = make(sub, kind, spec, template, max(3000, target // 2) if target else None)
         except ValueError:
             continue  # this garment does not reach this block
+        pad = .05 + float(spec.get("ease") or o.get("ease", .012))  # nothing may stray from its own block
+        c = V[F].mean(1)
+        F = F[((c > sub.V.min(0) - pad) & (c < sub.V.max(0) + pad)).all(1)]
+        if not len(F):
+            continue
+        use, F = np.unique(F, return_inverse=True)
+        F = F.reshape(-1, 3)
+        V, N = V[use], N[use]
         res.append((V, F + off, N, np.full(len(V), lab)))
         off += len(V)
     if not res:
@@ -354,7 +378,10 @@ def _inverted(m, fit):
 
 def transfer(fit, Vg, Wd, k=4, rigid=None):
     """Skin weights for garment vertices: inverse-distance mix of the k nearest body vertices (Wd: dense n x bones)."""
-    d, i = fit.skin_tree.query(Vg, k=[*range(1, k + 1)], workers=-1)
+    spots = getattr(fit, "spots", None)
+    if spots:  # few big triangles: the nearest vertex can be on another limb, the nearest surface point cannot
+        Wd = (Wd[spots[0]] * spots[1][..., None]).sum(1)
+    d, i = (fit.tree if spots else fit.skin_tree).query(Vg, k=[*range(1, k + 1)], workers=-1)
     w = 1 / np.maximum(d, 1e-3) ** 2
     w /= w.sum(1, keepdims=True)
     W = (Wd[i] * w[..., None]).sum(1)

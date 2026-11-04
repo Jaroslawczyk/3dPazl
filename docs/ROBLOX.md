@@ -7,6 +7,8 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 2. `char_wear(name, kind, color=..., skin=...)`. Kinds: tshirt longsleeve tank jacket pants shorts skirt dress cloak boots shoes gloves scarf belt beanie hat hair_short hair_long beard.
 3. Look at the result in the app: tabs Персонажи, Одежда.
 
+A file with several figures (separate meshes standing apart) becomes `<name>_1`, `<name>_2`, ... Block bodies (R6 style) are dressed block by block, so cloth does not tear when they walk.
+
 ## Textures from the internet
 1. `skin_search("leather")` searches Poly Haven and ambientCG. Both are CC0: free, commercial use allowed, no attribution required.
 2. `skin_download(source, id)` saves the texture as a skin in `projects/skins/`, with its source and license in `<id>.skin.json`.

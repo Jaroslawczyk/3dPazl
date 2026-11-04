@@ -205,8 +205,9 @@ async def chars_import(body: dict):
     files = {f["name"]: base64.b64decode(f["data"].split(",", 1)[-1]) for f in body.get("files", [])}
 
     def run():
-        m = importer.convert(files, body.get("name") or "", float(body.get("height") or 0), body.get("up") or "auto", body.get("turn") or 0)
-        return {**chars.create(m["name"], src=m["src"], template=body.get("template") or "humanoid", quality=body.get("quality") or "high", crotch=m["crotch"], torso=m["torso"]), "size_m": m["size_m"]}
+        ms = importer.convert_all(files, body.get("name") or "", float(body.get("height") or 0), body.get("up") or "auto", body.get("turn") or 0)
+        rs = [{**chars.create(m["name"], src=m["src"], template=body.get("template") or "humanoid", quality=body.get("quality") or "high", crotch=m["crotch"], torso=m["torso"]), "size_m": m["size_m"]} for m in ms]
+        return {**rs[0], "all": [x["name"] for x in rs]}
     return await asyncio.to_thread(_rig_call, run)
 
 

@@ -159,16 +159,17 @@ def _bake(g):
 
 def _read_scene(path):
     sc = trimesh.load(path, force="scene")
-    Vs, Fs, Cs, off = [], [], [], 0
+    Vs, Fs, Cs, Ms, off, mats = [], [], [], [], 0, {}
     for g in sc.dump(concatenate=False):
         if not hasattr(g, "faces") or not len(g.faces):
             continue
+        mid = mats.setdefault(id(g), len(mats))  # one mesh of the file
         try:
             b = _bake(g) if getattr(g.visual, "kind", None) == "texture" else None
         except Exception:
             b = None
         if b:
-            Vs.append(b[0]); Fs.append(b[1] + off); Cs.append(b[2])
+            Vs.append(b[0]); Fs.append(b[1] + off); Cs.append(b[2]); Ms.append(np.full(len(b[0]), mid))
             off += len(b[0])
             continue
         try:
@@ -177,11 +178,11 @@ def _read_scene(path):
             c = np.full((len(g.vertices), 3), .8)
         if len(c) != len(g.vertices):
             c = np.full((len(g.vertices), 3), .8)
-        Vs.append(np.asarray(g.vertices, float)); Fs.append(np.asarray(g.faces) + off); Cs.append(c)
+        Vs.append(np.asarray(g.vertices, float)); Fs.append(np.asarray(g.faces) + off); Cs.append(c); Ms.append(np.full(len(g.vertices), mid))
         off += len(g.vertices)
     if not Vs:
         raise ValueError("в файле нет геометрии")
-    return np.vstack(Vs), np.vstack(Fs), np.vstack(Cs)
+    return np.vstack(Vs), np.vstack(Fs), np.vstack(Cs), np.concatenate(Ms)
 
 
 def straighten(V, F):
@@ -242,29 +243,115 @@ def straighten(V, F):
     return V, float(torso["lo"][1]), float(tw)
 
 
-def convert(files: dict[str, bytes], name="", height=0.0, up="auto", turn=0) -> dict:
-    """files: file name -> bytes (a model and its .mtl/textures). height: resize to this many metres (0 keeps the size).
-    up: which axis of the file is up, turn: degrees about the vertical so that the model faces +Z."""
+def _by_material(V, M):
+    """Figures of one file are usually separate meshes: same-size meshes standing apart are separate figures.
+    Small ones (a head, goggles) join the nearest figure, overlapping ones (shirt and trousers) merge."""
+    ids = [i for i in np.unique(M) if i >= 0]
+    box = {i: (V[M == i].min(0), V[M == i].max(0)) for i in ids}
+    tall = float(np.median([np.ptp(np.array(box[i]), 0).max() for i in ids]))
+    main = [i for i in ids if float(np.ptp(np.array(box[i]), 0).max()) > tall * .5]
+    def linked(a, b):  # really overlapping: figures in a row only touch at the fingertips
+        lo, hi = np.maximum(box[a][0], box[b][0]), np.minimum(box[a][1], box[b][1])
+        return bool(((hi - lo) > .02 * np.minimum(box[a][1] - box[a][0], box[b][1] - box[b][0])).all())
+
+    figs = []
+    for i in main:
+        near = [f for f in figs if any(linked(i, j) for j in f)]
+        figs = [f for f in figs if not any(f is x for x in near)] + [[i, *[j for f in near for j in f]]]
+    if len(figs) < 2:
+        return None
+    cen = [np.mean([V[M == i].mean(0) for i in f], 0) for f in figs]
+    for i in ids:
+        if not any(i in f for f in figs):
+            figs[int(np.argmin([np.linalg.norm(V[M == i].mean(0) - c) for c in cen]))].append(i)
+    return [np.flatnonzero(np.isin(M, f)) for f in figs]
+
+
+def groups(V, F, M=None):
+    """Several characters in one file: lists of vertex ids, one per figure. M: material id per vertex."""
+    if M is not None:
+        by = _by_material(V, M)
+        if by:
+            return by
+    from scipy import sparse
+    from scipy.sparse.csgraph import connected_components
+    from ..rig.weights import weld
+    first, inv = weld(V, 1e-4)
+    f = inv[F]
+    e = np.vstack([f[:, [0, 1]], f[:, [1, 2]]])
+    n, lab = connected_components(sparse.coo_matrix((np.ones(len(e)), (e[:, 0], e[:, 1])), shape=(len(first), len(first))), directed=False)
+    lab = lab[inv]
+    order = np.argsort(lab, kind="stable")
+    parts = [(V[i].min(0), V[i].max(0), i) for i in np.split(order, np.flatnonzero(np.diff(lab[order])) + 1)]
+    size = np.ptp(V, 0)
+    big = float(np.max([p[1] - p[0] for p in parts]))
+    m = big * .05
+    root = list(range(len(parts)))
+
+    def find(a):
+        while root[a] != a:
+            root[a] = root[root[a]]
+            a = root[a]
+        return a
+    for a in range(len(parts)):
+        for b in range(a):
+            if (parts[a][0] - m < parts[b][1]).all() and (parts[b][0] - m < parts[a][1]).all():
+                root[find(a)] = find(b)
+    res = {}
+    for a, p in enumerate(parts):
+        res.setdefault(find(a), []).append(p)
+    res = [np.concatenate([p[2] for p in v]) for v in res.values()]
+    res = [v for v in res if np.ptp(V[v], 0).max() > float(size.max()) * .05 and len(v) > len(V) * .01]
+    return sorted(res, key=lambda v: V[v].mean(0)[int(size.argmax())])
+
+
+def convert_all(files, name="", height=0.0, up="auto", turn=0) -> list[dict]:
+    """One result per character found in the file."""
+    return [convert(files, name if n == 1 else f"{name or 'model'}_{i + 1}", height, up, turn, (i, n)) for n in [_count(files)] for i in range(n)]
+
+
+def _count(files):
+    V, F, _, M = _load(files)
+    return max(1, len(groups(V, F, M)))
+
+
+def _load(files):
     safe = {Path(k).name: v for k, v in files.items()}
     main = next((k for k in safe if Path(k).suffix.lower() in FORMATS), None)
     if not main:
         raise ValueError(f"нужен файл модели: {', '.join(FORMATS)}")
-    name = re.sub(r"[^\w\-]+", "_", name or Path(main).stem).strip("_") or "model"
     if main.lower().endswith(".fbx"):
-        V, F, C = read_fbx(safe[main])
-    else:
-        tmp = IMPORTS / "_tmp" / name
+        return (*read_fbx(safe[main]), None)
+    tmp = IMPORTS / "_tmp" / re.sub(r"[^\w\-]+", "_", Path(main).stem)
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    try:
+        for k, v in safe.items():
+            (tmp / k).write_bytes(v)
+        return _read_scene(tmp / main)
+    finally:
         shutil.rmtree(tmp, ignore_errors=True)
-        tmp.mkdir(parents=True)
-        try:
-            for k, v in safe.items():
-                (tmp / k).write_bytes(v)
-            V, F, C = _read_scene(tmp / main)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def convert(files: dict[str, bytes], name="", height=0.0, up="auto", turn=0, pick=None) -> dict:
+    """files: file name -> bytes (a model and its .mtl/textures). height: resize to this many metres (0 keeps the size).
+    up: which axis of the file is up, turn: degrees about the vertical so that the model faces +Z."""
+    main = next((k for k in files if Path(k).suffix.lower() in FORMATS), "model")
+    name = re.sub(r"[^\w\-]+", "_", name or Path(main).stem).strip("_") or "model"
+    V, F, C, M = _load(files)
+    if pick and pick[1] > 1:  # keep only this character of the file
+        keep = groups(V, F, M)[pick[0]]
+        mask = np.zeros(len(V), bool)
+        mask[keep] = True
+        F = F[mask[F].all(1)]
+        new = np.cumsum(mask) - 1
+        V, C, F = V[mask], C[mask], new[F]
     size = np.ptp(V, 0)
     if up == "z" or (up == "auto" and size[1] < size[2] * .6):
         V = V[:, [0, 2, 1]] * (1, 1, -1)
+    size = np.ptp(V, 0)
+    if up == "auto" and not turn and size[2] > size[0] * 1.2 and size[2] > size[1] * .6:
+        turn = 90  # spread arms run along Z: stand the figure square to the camera
     a = math.radians(float(turn))
     V = V @ np.array([[math.cos(a), 0, -math.sin(a)], [0, 1, 0], [math.sin(a), 0, math.cos(a)]]).T
     lo, hi = V.min(0), V.max(0)

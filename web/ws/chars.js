@@ -90,7 +90,7 @@ export async function mount(el, ctx) {
     const fs = [...$('#chFile').files]; if (!fs.length) throw new Error('выберите файл модели');
     const r = await post('/api/ws/chars/import', { name: $('#chName').value, files: await Promise.all(fs.map(read)), height: +$('#chH').value, up: $('#chUp').value, turn: +$('#chTurn').value, template: $('#chTpl').value, quality: $('#chQ').value });
     fillOpen((await getJson('/api/ws/chars/catalog')).chars, r.name); await open(r.name, r);
-    out(`✓ ${r.name}: ${r.size_m.join('×')} м, ${r.tris.toLocaleString('ru')} треуг. Модель лежит боком? Выберите другой верх или поворот и загрузите снова.`);
+    out(`${r.all?.length > 1 ? `В файле персонажей: ${r.all.length} (${r.all.join(', ')}). ` : ''}✓ ${r.name}: ${r.size_m.join('×')} м, ${r.tris.toLocaleString('ru')} треуг. Модель лежит боком? Выберите другой верх или поворот и загрузите снова.`);
   });
   $('#chOpen').onchange = (e) => e.target.value && busy('открываю…', () => open(e.target.value));
   $('#chSkin').onchange = (e) => busy('надеваю скин…', async () => { if (!C) throw new Error('сначала персонаж'); await open(C.name, await post('/api/ws/chars/skin', { name: C.name, skin: e.target.value || null })); });

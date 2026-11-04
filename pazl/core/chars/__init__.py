@@ -197,10 +197,10 @@ def _garment(c, g, fit, stamp):
     return V, F, N, L
 
 
-def _rigid(V, bones, names_):
-    """Block bodies move like toys: each block follows one bone."""
+def _rigid(V, N, bones, names_):
+    """Block bodies move like toys: each block follows one bone. Stepping inside along the normal keeps two touching faces apart."""
     J = np.zeros((len(V), 4), np.uint16)
-    J[:, 0] = cloth.block_label(V, bones, names_)
+    J[:, 0] = cloth.block_label(V - N * .004, bones, names_)
     W = np.zeros((len(V), 4), np.float32)
     W[:, 0] = 1
     return J, W
@@ -226,7 +226,7 @@ def export_c(c):
     J, W, st = rig.weights(rn)
     names_, *_ = skeleton.order(r["bones"])
     if c.get("blocks"):
-        J, W = _rigid(V, r["bones"], names_)
+        J, W = _rigid(V, N, r["bones"], names_)
     parts = [{"name": "Body", "V": V, "F": F, "N": N, "C": C, "J": J, "W": W}]
     if c.get("skin"):
         eye = _eyes(C) if not c.get("import") else None
@@ -240,7 +240,7 @@ def export_c(c):
     if c["outfit"]:
         Wd = np.zeros((len(V), len(names_)), np.float32)
         np.put_along_axis(Wd, J.astype(int), W.astype(np.float32), 1)
-        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 5]
+        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         fit = fit_for(c, r, V, F, N)
         for g in c["outfit"]:
             Vg, Fg, Ng, Lg = _garment(c, g, fit, stamp)

@@ -180,7 +180,7 @@ def export_char(name):
     if acc:
         V, F, N, _ = rig.load_mesh(r["src"])
         fit = chars.fit_for(c, r, V, F, N)
-        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 5]
+        stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         (out / "accessories").mkdir()
         for g in acc:
             v, f, *_ = chars._garment(c, g, fit, stamp)
