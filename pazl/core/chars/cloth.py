@@ -31,7 +31,7 @@ KINDS = {
         "tshirt": ("Футболка", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, .5)})}, "color": "#d8d8d8", "ease": .019}),
         "longsleeve": ("Свитер", "Верх", {"cover": {**TOPL, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .94)})}, "color": "#7a2f35", "ease": .022, "skin": "knit_red"}),
         "tank": ("Майка", "Верх", {"cover": TOPL, "cut": _both({"upper_arm": (-.25, 1)}), "color": "#f0f0f0", "ease": .017}),
-        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True}),
+        "jacket": ("Куртка", "Верх", {"cover": {"hips": (0, 1), **TOP, **_both({"shoulder": (-.4, 1), "upper_arm": (0, 1), "forearm": (0, .98)})}, "color": "#3a3f4a", "ease": .03, "skin": "leather", "open": True, "reach_k": 1.4}),
         "pants": ("Брюки", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, 1), "shin": (0, .92)})}, "color": "#333a4d", "ease": .01, "skin": "denim"}),
         "shorts": ("Шорты", "Низ", {"cover": {**LEG, **_both({"thigh": (-.2, .6)})}, "color": "#6d6a52", "ease": .011}),
         "skirt": ("Юбка", "Низ", {"band": ("spine", .1, "thigh.L", .75), "flare": .17, "color": "#8c3a5c"}),
@@ -171,12 +171,12 @@ def _region(fit, o, P):
     r = np.full(len(P), 1.0)
     for n, (t0, t1) in o.get("cover", {}).items():
         if n in fit.bones:
-            r = np.minimum(r, _tube(P, *fit.bones[n], t0, t1, fit.reach[n]))
+            r = np.minimum(r, _tube(P, *fit.bones[n], t0, t1, fit.reach[n] * o.get("reach_k", 1)))
     for n, (t0, t1) in o.get("cut", {}).items():
         if n in fit.bones:
             r = np.maximum(r, -_tube(P, *fit.bones[n], t0, t1, fit.reach[n]))
     if "neck" in fit.bones and "head" in fit.bones and not {"neck", "head"} & set(o.get("cover", {})):
-        r = np.maximum(r, P[:, 1] - fit.y_at("neck", .15))  # body clothes never climb the neck
+        r = np.maximum(r, np.where(np.abs(P[:, 0]) < fit.reach.get("chest", 1e3) * .8, P[:, 1] - fit.y_at("neck", .15), -1))  # body clothes never climb the neck (arms are beyond it: their tops must stay covered)
     if "foot.L" in o.get("cover", {}) and "shin.L" in o["cover"]:  # a flat top: the slanted foot tube must not arch above the shaft
         r = np.maximum(r, P[:, 1] - fit.y_at("shin.L", o["cover"]["shin.L"][0]))
     return r
