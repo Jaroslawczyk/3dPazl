@@ -72,6 +72,15 @@ def _ensure():
 def _call(method, path, body=None, raw=False):
     _ensure()
     r = httpx.request(method, BASE + path, json=body, headers={"X-Agent": AGENT}, timeout=300)
+    if r.status_code in (404, 405) and path.startswith("/api/ws"):  # a server started before an update has no new routes
+        from . import __version__
+        try:
+            run = httpx.get(BASE + "/openapi.json", timeout=10).json()["info"]["version"]
+        except Exception:
+            run = "?"
+        if run != __version__:
+            return {"error": f"the app at {BASE} runs old code v{run}, this checkout is v{__version__}: restart the app "
+                             f"(close it, then start.bat or `.venv/Scripts/python.exe -m pazl.server`); do not fall back to the UI"}
     if r.status_code >= 400:
         try:
             return {"error": r.json().get("detail", r.text)}
