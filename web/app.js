@@ -199,23 +199,48 @@ async function viewGlb(path) {
 // shared with the workshop modules (web/workspaces.js, web/ws/*.js)
 window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
 debugTick = initDebugView({ THREE, scene, root, invalidate, uvBox: $('#chkUV'), nBox: $('#chkNormals'), wireBox: $('#chkWire') });
-$('#btnGlbView').onclick = async () => {
-  const list = await fetch('/api/glbs').then((r) => r.json());
-  let box = $('#glbPick');
-  if (!box) {
-    box = document.createElement('div'); box.id = 'glbPick';
-    box.style.cssText = 'position:fixed;top:60px;right:200px;z-index:50;background:#1d2027;border:1px solid #444;border-radius:8px;padding:8px;max-height:70vh;overflow:auto;min-width:360px';
-    document.body.appendChild(box);
-  }
-  box.hidden = false;
-  box.innerHTML = '<div style="margin:2px 0 6px;color:#aaa">GLB в projects/ (клик — открыть, Esc — закрыть)</div>' + list.map((g) =>
-    `<div class="glbrow" data-p="${g.path}" style="padding:5px 8px;cursor:pointer;border-radius:4px">${g.ref ? "📌 эталон · " : "🏠 "}${g.path} <span style="color:#888">${g.mb} МБ</span></div>`).join('');
-  box.querySelectorAll('.glbrow').forEach((el) => {
-    el.onmouseenter = () => { el.style.background = '#2c313b'; }; el.onmouseleave = () => { el.style.background = ''; };
-    el.onclick = () => { box.hidden = true; viewGlb(el.dataset.p); };
-  });
+// GLB picker: a floating window (web/windows.js), filtered by the active workspace tab; chips switch to other groups
+const GLB_CATS = [['build', '🏛 Здания'], ['items', '🍽 Предметы'], ['transport', '🚗 Транспорт'], ['chars', '🧍 Персонажи'], ['clothes', '👕 Одежда'],
+  ['skins', '🎨 Скины'], ['rig', '🦴 Риг'], ['roblox', '🧱 Roblox'], ['imports', '📥 Импорт'], ['refs', '📌 Эталоны']];
+const glbCat = (g) => {
+  const d = g.path.split('/')[0];
+  return g.ref || d === 'refs' ? 'refs' : d === 'chars' ? 'chars' : d === 'clothes' ? 'clothes' : d === 'items' ? 'items' : d === 'transport' ? 'transport'
+    : d === 'skins' ? 'skins' : d === 'rigs' ? 'rig' : d.startsWith('roblox') ? 'roblox' : d === 'imports' ? 'imports' : 'build';
 };
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#glbPick')) $('#glbPick').hidden = true; });
+const GLB = { list: [], cat: null, q: '' };
+const wsCat = () => document.body.dataset.ws || 'build';
+function glbBox() {
+  let box = $('#glbPick');
+  if (box) return box;
+  box = document.createElement('div'); box.id = 'glbPick';
+  box.innerHTML = '<div class="glb-body"><input id="glbQ" placeholder="Поиск…" spellcheck="false"><div class="glb-chips" id="glbChips"></div><div id="glbList"></div></div>';
+  document.body.appendChild(box);
+  window.pazlWin?.adopt('glb', box, '🗂 GLB-модели');
+  $('#glbQ').oninput = (e) => { GLB.q = e.target.value.toLowerCase(); glbRender(); };
+  return box;
+}
+function glbRender() {
+  const cur = wsCat(), cat = GLB.cat || cur;
+  const cnt = {}; GLB.list.forEach((g) => { const c = glbCat(g); cnt[c] = (cnt[c] || 0) + 1; });
+  $('#glbChips').innerHTML = GLB_CATS.filter(([id]) => cnt[id] || id === cur).map(([id, n]) =>
+    `<button data-c="${id}" class="${id === cat ? 'on' : id === cur ? 'cur' : ''}">${n} ${cnt[id] || 0}</button>`).join('') +
+    `<button data-c="*" class="${cat === '*' ? 'on' : ''}">Все ${GLB.list.length}</button>`;
+  $('#glbChips').querySelectorAll('button').forEach((b) => { b.onclick = () => { GLB.cat = b.dataset.c; glbRender(); }; });
+  const rows = GLB.list.filter((g) => (cat === '*' || glbCat(g) === cat) && g.path.toLowerCase().includes(GLB.q));
+  $('#glbList').innerHTML = rows.length ? rows.map((g) =>
+    `<div class="glbrow" data-p="${g.path}">${g.ref ? '📌 ' : '🏠 '}${g.path} <span style="color:#888">${g.mb} МБ</span></div>`).join('')
+    : '<div class="hint">В этой вкладке моделей пока нет. Другие группы — кнопками выше.</div>';
+  $('#glbList').querySelectorAll('.glbrow').forEach((el) => { el.onclick = () => viewGlb(el.dataset.p); });
+}
+$('#btnGlbView').onclick = async () => {
+  glbBox();
+  if (window.pazlWin.isOpen('glb')) { window.pazlWin.hide('glb'); return; }   // the same button closes it
+  window.pazlWin.show('glb');
+  GLB.list = await fetch('/api/glbs').then((r) => r.json()).catch(() => []);
+  glbRender();
+};
+window.addEventListener('pazl-ws', () => { GLB.cat = null; if ($('#glbPick') && window.pazlWin?.isOpen('glb')) glbRender(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.pazlWin?.isOpen('glb')) window.pazlWin.hide('glb'); });
 // ---------------------------------------------------------------- textures, overlays, interior illusion
 const texLoader = new THREE.TextureLoader();
 const texCache = new Map();

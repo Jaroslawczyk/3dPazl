@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3dPazl — конструктор зданий</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="windows.css">
 <script>  /* theme before first paint (no flash) */
   try { document.documentElement.dataset.theme = localStorage.getItem('pazl.theme') || 'graphite'; } catch (e) {}
 </script>
@@ -83,6 +84,7 @@
         <option value="dl_all">Скачать все паки (~70 × 8 МБ)</option><option value="prompts">Промпты для ИИ-генерации</option>
       </select>
     </div></details>
+    <details class="menu"><summary title="Окна: перетаскивать, растягивать, скрывать, закреплять; вернуть по умолчанию">🪟 Окна ▾</summary><div class="menu-pop menu-right" id="winMenu"></div></details>
     <button id="btnSettings" class="icon" title="Настройки">⚙</button>
   </div>
 </header>
@@ -243,7 +245,8 @@
     <optgroup label="Светлые"><option value="paper">Бумага</option><option value="sky">Небо</option><option value="mint">Мята</option>
       <option value="sand">Песок</option><option value="rose">Роза</option></optgroup>
   </select></label>
-  <p class="hint">Язык и тема сохраняются на этом компьютере.</p>
+  <label class="row">Окна <button id="settingsWinReset" title="Панели вернутся на свои места и размеры">↺ Вернуть окна по умолчанию</button></label>
+  <p class="hint">Язык, тема и раскладка окон сохраняются на этом компьютере. Окна: меню «🪟 Окна» вверху.</p>
   <button id="settingsClose">Закрыть</button>
 </div></div>
 <div id="about" hidden><div class="about-card">
@@ -258,5 +261,6 @@
 </div></div>
 <script type="module" src="app.js"></script>
 <script type="module" src="workspaces.js"></script>
+<script type="module" src="windows.js"></script>
 </body>
 </html>
