@@ -18,20 +18,21 @@ DOWN = {".L": q("z", -60), ".R": q("z", 60)}
 
 
 def leg(i, u, sd, side, ph):
-    """One leg on its own. The Roblox body leg is one rigid block that follows the thigh bone only, so a leg moves by its
-    thigh (knee and ankle stay straight, the standing leg stays vertical). Segment 0 marching knee lifts, 1 heel taps
-    (leg forward), 2 side steps, 3 small out-of-phase kicks."""
+    """One leg on its own (thigh, shin and foot are separate blocks, so the knee really bends). Standing leg: a light
+    bounce with the foot flat under the hip. Segment 0 knee lifts, 1 heel taps, 2 side steps, 3 out-of-phase knee bends."""
     lift = max(0.0, math.sin(math.pi * u + ph))  # this leg is in the air during its own beat
+    bounce = 6 + 8 * (.5 + .5 * math.cos(2 * math.pi * u + ph))  # standing knee flex, down on the beat
+    ab, toe = 0.0, 0.0
     if i == 0:
-        t, ab = -58 * lift, 4 * lift
+        t, sh, toe, ab = -(bounce + 48 * lift), 2 * bounce + 62 * lift, 18 * lift, 3 * lift
     elif i == 1:
-        t, ab = -32 * lift, 0
+        t, sh, toe = -(bounce + 30 * lift), 2 * bounce + 2 * lift, -28 * lift
     elif i == 2:
-        t, ab = -8 * lift, 32 * lift
+        t, sh, toe, ab = -(bounce + 14 * lift), 2 * bounce + 30 * lift, 8 * lift, 28 * lift
     else:
-        m = .5 + .5 * math.cos(2 * math.pi * u + ph)
-        t, ab = -22 * m, 6 * m
-    return {"thigh" + sd: q("x", t) * q("z", side * ab)}
+        b = 8 + 22 * (.5 + .5 * math.cos(2 * math.pi * u + ph))
+        t, sh, ab = -b, 2 * b, 7 * (.5 + .5 * math.cos(2 * math.pi * u + ph))
+    return {"thigh" + sd: q("x", t) * q("z", side * ab), "shin" + sd: q("x", sh), "foot" + sd: q("x", -(t + sh) + toe)}
 
 
 def segment(i, u):

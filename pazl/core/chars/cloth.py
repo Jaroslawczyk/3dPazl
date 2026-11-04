@@ -98,6 +98,11 @@ def block_label(P, bones, names):
     lab[y > neck * .999] = ix["head"]
     low = y < crotch
     lab[low & (x > 0)], lab[low & (x <= 0)] = ix["thigh.L"], ix["thigh.R"]
+    for sd, side in ((".L", x > 0), (".R", x <= 0)):  # R15 style: thigh, shin and foot are separate blocks, so knees and ankles bend
+        if "shin" + sd in ix and "foot" + sd in ix:
+            knee, ankle = by["shin" + sd]["head"][1], by["foot" + sd]["head"][1]
+            lab[low & side & (y < knee)] = ix["shin" + sd]
+            lab[low & side & (y < ankle)] = ix["foot" + sd]
     sh = by["shoulder.L"]
     top = sh["head"][1] + (sh["tail"][0] - sh["head"][0]) * 1.1  # the arm is as thick as its joint is far from the torso edge
     arm = (np.abs(x) > tw) & ~low & (y <= top)  # torso corners above it stay with the torso
