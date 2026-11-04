@@ -353,6 +353,7 @@ def _spiky_hair(c, r, V, F, N, g, names_):
     cap = trimesh.Trimesh(V[use] + N[use] * hh[1] * .06, Fc.reshape(-1, 3), process=False)
     rng = np.random.default_rng(int(g.get("seed", 3)))
     sweep = np.array([1 if g.get("side") == "L" else -1, 0, 0.])
+    scalp = trimesh.Trimesh(V, F[head[F].all(1)], process=False)  # roots sit ON the scalp: not in the air, not deep inside
     cards = []
     for el in (78, 60, 42, 24, 6, -14, -32):
         n = max(4, int(26 * np.cos(np.radians(el))))
@@ -363,7 +364,11 @@ def _spiky_hair(c, r, V, F, N, g, names_):
                 continue  # leave the face open
             if sd[2] < -.2 and el < -20 and abs(sd[0]) < .3:
                 pass
-            a = hc + sd * hh * .95
+            a = hc + sd * hh * 1.2
+            cp, dist, tri = trimesh.proximity.closest_point(scalp, [a])
+            if dist[0] > hh[1] * .45:  # no scalp under this direction (below the head): no strand in the air
+                continue
+            a = cp[0] - scalp.face_normals[tri[0]] * hh[1] * .02  # just under the surface, so no gap shows
             fr = sd[2] > .45  # fringe: short, sideways over the forehead
             d = sd * (.35 if fr else .55) + np.array([0, -1., 0]) * (.55 if fr else .75) + sweep * (.6 if fr else .3)
             d /= np.linalg.norm(d)

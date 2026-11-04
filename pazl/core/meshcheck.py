@@ -27,7 +27,7 @@ def _load(path):
             continue
         g = g.copy()
         g.apply_transform(T)
-        g.merge_vertices(merge_tex=True, merge_norm=True)  # UV / shading seams are not holes
+        g.merge_vertices(merge_tex=True, merge_norm=True, digits_vertex=6)  # UV / shading seams and float32 noise (<1 micron) are not holes
         out.append((node, g))
     return out
 
@@ -44,6 +44,8 @@ def _sheetlike(piece):
     """Hair cards, ribbons, flat locks: open by design (many border edges for their size)."""
     e = piece.edges_sorted
     _, cnt = np.unique(e, axis=0, return_counts=True)
+    if not (cnt == 1).any():
+        return False  # closed, however small (a hair lock, a spike): solid
     return (cnt == 1).mean() > .15 or len(piece.faces) < 12
 
 
@@ -87,7 +89,8 @@ def _holes(name, g, lo, hi, min_len, solids, seams=None):
             c = PV[list(comp)].mean(0)
             if seams is not None and len(seams.data) and (seams.query(PV[list(comp)])[0] < 1e-4).mean() > .8:
                 continue  # the border is shared with another part (clothes painted on the body): a seam, not a hole
-            through = [n for n, m in solids if n != name and np.all((c > m.bounds[0]) & (c < m.bounds[1])) and m.contains([c])[0]]
+            whole = PV[np.unique(open_e)].mean(0)  # a rim broken into arcs by touching strands: judge the whole border too
+            through = [n for n, m in solids if n != name and any(np.all((q > m.bounds[0]) & (q < m.bounds[1])) and m.contains([q])[0] for q in (c, whole))]
             res.append({"kind": "opening" if through else "hole", "part": name, "edges": sub.number_of_edges(), "perimeter": round(L, 4),
                         "at": np.round(c, 3).tolist(), "where": _place(c, lo, hi),
                         **({"around": through[0]} if through else {"fix": "close the hole (fill / weld the border) or cover it"})})
@@ -108,6 +111,17 @@ def _orientation(name, g, lo, hi):
     return res
 
 
+def lock_faces(m, max_faces=60):
+    """Faces of small closed pieces (hair locks, spikes, claws): long and thin by design, never cut as slivers."""
+    lab = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+    out = np.zeros(len(m.faces), bool)
+    for k in np.unique(lab):
+        f = lab == k
+        if f.sum() < max_faces and trimesh.Trimesh(m.vertices, m.faces[f]).is_watertight:
+            out |= f
+    return out
+
+
 def bad_faces(m, scale):
     """(degenerate, sliver) masks with the same rules the report uses; scale = the whole model's diagonal."""
     T = m.triangles
@@ -117,6 +131,16 @@ def bad_faces(m, scale):
 
 
 def _triangles(name, g, lo, hi, scale):
+    g = g.copy()
+    lab = trimesh.graph.connected_component_labels(g.face_adjacency, len(g.faces))
+    keep = np.ones(len(g.faces), bool)
+    for k in np.unique(lab):  # small closed pieces (hair locks, spikes) are long and thin by design: not slivers
+        f = lab == k
+        if f.sum() < 60 and trimesh.Trimesh(g.vertices, g.faces[f]).is_watertight:
+            keep[f] = False
+    g.update_faces(keep)
+    if not len(g.faces):
+        return []
     T = g.triangles
     a, b, c = (np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3))
     area = g.area_faces
@@ -137,7 +161,7 @@ def _between(parts, lo, hi, scale, samples):
     Z-fighting: two parts' surfaces on top of each other facing the same way - they flicker."""
     res = []
     for i, (na, A) in enumerate(parts):
-        solid = [x for x in A.split(only_watertight=False, repair=False) if not _sheetlike(x)]
+        solid = [x for x in A.split(only_watertight=False, repair=False) if not _sheetlike(x) and len(x.faces) >= 60]  # locks: roots buried on purpose
         if not solid:
             continue
         A = trimesh.util.concatenate(solid)  # hair cards / strand roots are buried in the scalp on purpose
@@ -170,6 +194,41 @@ def _between(parts, lo, hi, scale, samples):
     return res
 
 
+def _loose(parts, lo, hi, scale):
+    """floating: a piece of an accessory/garment that touches nothing (hair strand in the air);
+    flat_sheet: one-sided paper pieces (hair cards) that look flat from the side - game hair should be solid locks."""
+    from scipy.spatial import cKDTree
+    res = []
+    if len(parts) < 2:
+        return res
+    for name, g in parts:
+        pieces = g.split(only_watertight=False, repair=False)
+        if len(pieces) < 2 and len(parts) < 2:
+            continue
+        others_v = [h.vertices for n2, h in parts if n2 != name]
+        seam = cKDTree(np.vstack(others_v)) if others_v else None
+        # open pieces that are not patches stitched to another part (clothes painted on a block body are)
+        flat = [x for x in pieces if _sheetlike(x) and len(x.faces) >= 2
+                and not (seam is not None and (seam.query(x.vertices)[0] < 1e-5).mean() > .2)]
+        if flat and name.lower() not in ("body",):
+            c = np.vstack([x.centroid for x in flat]).mean(0)
+            res.append({"kind": "flat_sheet", "part": name, "pieces": len(flat), "at": np.round(c, 3).tolist(), "where": _place(c, lo, hi),
+                        "fix": "make them solid locks (retopo.lock) or thicken them"})
+        if name.lower() == "body":
+            continue
+        rest = [h for n2, h in parts if n2 != name]
+        for i, x in enumerate(pieces):
+            if len(x.faces) > 400:
+                continue
+            near = trimesh.util.concatenate([y for j, y in enumerate(pieces) if j != i] + rest)
+            d = float(trimesh.proximity.closest_point(near, x.vertices)[1].min())  # to the surface, not to sparse vertices
+            if d > scale * .01:
+                c = x.centroid
+                res.append({"kind": "floating", "part": name, "faces": int(len(x.faces)), "gap": round(float(d), 4),
+                            "at": np.round(c, 3).tolist(), "where": _place(c, lo, hi), "fix": "move it onto the surface it should grow from"})
+    return res
+
+
 def check(path, hole_min=None, samples=2500, openings=False):
     """{'model', 'size', 'tris', 'problems': [...], 'summary': {kind: count}} - biggest first."""
     parts = _load(path)
@@ -184,10 +243,10 @@ def check(path, hole_min=None, samples=2500, openings=False):
         others = [x.vertices for n, x in parts if n != name]
         seams = cKDTree(np.vstack(others)) if others else None
         probs += _holes(name, g, lo, hi, hole_min, solids, seams) + _orientation(name, g, lo, hi) + _triangles(name, g, lo, hi, scale)
-    probs += _between(parts, lo, hi, scale, samples)
+    probs += _between(parts, lo, hi, scale, samples) + _loose(parts, lo, hi, scale)
     if not openings:  # sleeves, collars, hems: expected; ask for them with openings=True
         probs = [p for p in probs if p["kind"] != "opening"]
-    w = {"poke_through": 0, "hole": 1, "inside_out": 2, "mixed_winding": 3, "z_fighting": 4, "non_manifold": 5, "sliver": 6, "degenerate": 7}
+    w = {"floating": 0, "poke_through": 0, "hole": 1, "flat_sheet": 8, "inside_out": 2, "mixed_winding": 3, "z_fighting": 4, "non_manifold": 5, "sliver": 6, "degenerate": 7}
     probs.sort(key=lambda p: (w.get(p["kind"], 9), -p.get("perimeter", p.get("points", p.get("faces", 0)))))
     summ = {}
     for p in probs:
@@ -220,10 +279,10 @@ def push_out_faces(m: trimesh.Trimesh, inner: trimesh.Trimesh, rounds=8):
     m = m.copy()
     lab = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
     solid_f = np.zeros(len(m.faces), bool)
-    for k in np.unique(lab):  # hair cards / strands keep their buried roots; only solid pieces are pushed
+    for k in np.unique(lab):  # hair cards / strands / small locks keep their buried roots; only big solid pieces are pushed
         f = lab == k
         piece = trimesh.Trimesh(m.vertices, m.faces[f], process=False)
-        solid_f[f] = not _sheetlike(piece)
+        solid_f[f] = not _sheetlike(piece) and f.sum() >= 60
     if not solid_f.any():
         return m
     vmask = np.zeros(len(m.vertices), bool)
@@ -261,12 +320,19 @@ def clean(m: trimesh.Trimesh, max_hole=12, scale=None):
     open_v = np.zeros(len(m.vertices), bool)
     open_v[e[cnt == 1].ravel()] = True
     open_piece = {k for k in np.unique(lab) if open_v[m.faces[lab == k]].any()}
-    m.update_faces(~zero & ~(sliver & np.isin(lab, list(open_piece))))
+    on_border = open_v[m.faces].any(1)  # only slivers on an open border go: a closed lock glued to the hat keeps its faces
+    m.update_faces(~zero & ~(sliver & on_border))
     m.remove_unreferenced_vertices()
     # slivers left in closed pieces have one very short edge: collapse it (both ends meet), drop what became flat
     T = m.triangles
     E = np.stack([np.linalg.norm(T[:, i] - T[:, (i + 1) % 3], axis=1) for i in range(3)], 1)
-    short = E.min(1) < E.max(1) * .05
+    labc = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+    locks = np.zeros(len(m.faces), bool)  # small closed pieces (hair locks): collapsing their short fold edges tears them
+    for k in np.unique(labc):
+        f = labc == k
+        if f.sum() < 60 and trimesh.Trimesh(m.vertices, m.faces[f]).is_watertight:
+            locks |= f
+    short = (E.min(1) < E.max(1) * .05) & ~locks
     if short.any():
         V = np.array(m.vertices)
         remap = np.arange(len(V))
@@ -281,8 +347,18 @@ def clean(m: trimesh.Trimesh, max_hole=12, scale=None):
         m.remove_unreferenced_vertices()
     if scale:  # whatever the report would still call degenerate / sliver (needles with no short edge): out, then refill
         deg, sl = bad_faces(m, scale)
-        if (deg | sl).any():
-            m.update_faces(~(deg | sl))
+        lab2 = trimesh.graph.connected_component_labels(m.face_adjacency, len(m.faces))
+        small_closed = np.zeros(len(m.faces), bool)  # thin closed locks of hair: their long faces are fine, cutting them opens holes
+        for k in np.unique(lab2):
+            f = lab2 == k
+            if f.sum() < 60 and trimesh.Trimesh(m.vertices, m.faces[f]).is_watertight:
+                small_closed |= f
+        e2, c2 = np.unique(m.edges_sorted, axis=0, return_counts=True)
+        ov = np.zeros(len(m.vertices), bool)
+        ov[e2[c2 == 1].ravel()] = True
+        drop = deg | (sl & ~small_closed & ov[m.faces].any(1))  # needles only where the surface is already open
+        if drop.any():
+            m.update_faces(~drop)
             m.remove_unreferenced_vertices()
     return fill_small_holes(m, max_hole)
 

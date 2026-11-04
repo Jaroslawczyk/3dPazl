@@ -209,6 +209,17 @@ async function viewGlb(path) {
 }
 // shared with the workshop modules (web/workspaces.js, web/ws/*.js)
 window.pazl = { THREE, scene, root, camera, orbit, renderer, api, viewGlb, reloadModel, invalidate, fitView, modelBox, countTris };
+// perspective on/off: off = a very narrow lens from far away (looks orthographic, no near/far distortion), same framing
+const FOV = camera.fov;
+$('#chkPersp')?.addEventListener('change', (e) => {
+  const to = e.target.checked ? FOV : 2;
+  const dir = camera.position.clone().sub(orbit.target);
+  const k = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.tan(THREE.MathUtils.degToRad(to / 2));
+  camera.position.copy(orbit.target).add(dir.multiplyScalar(k));
+  camera.fov = to;
+  camera.far = Math.max(camera.far, dir.length() * 4);
+  camera.updateProjectionMatrix(); orbit.update(); invalidate(true);
+});
 debugTick = initDebugView({ THREE, scene, root, invalidate, uvBox: $('#chkUV'), nBox: $('#chkNormals'), wireBox: $('#chkWire') });
 // GLB picker: a floating window (web/windows.js), filtered by the active workspace tab; chips switch to other groups
 const GLB_CATS = [['build', '🏛 Здания'], ['items', '🍽 Предметы'], ['transport', '🚗 Транспорт'], ['chars', '🧍 Персонажи'], ['clothes', '👕 Одежда'],

@@ -24,6 +24,14 @@ v0.63 (after "всё кривое и косое"): the body is no longer shrinkw
 Fixes after the user's wireframe check (v0.61.2): the body is rebuilt piece by piece like R15 (head, upper torso, lower torso = `hips`, arms, legs; the hip piece spanning both legs stays whole); an open side of a piece (shirt hem) gets a flat cap instead of a funnel (`shrinkwrap(box=...)`); flat pieces (hair locks, hat fold, joint discs) become one-layer sheets (`retopo.sheet`), never slabs. The original is exported unlit (`KHR_materials_unlit`), so it always looks brighter than a lit model.
 Mistakes found on the way: glTF metallic defaults to 1 (set `metallicFactor=0` or the model renders dark); snapping to surface samples makes flat faces ripple (project onto the triangles); a mirrored oriented box turns a primitive inside out (check the determinant); cutting by triangle centres puts shoulder caps into the torso (cut by whole pieces).
 
+## Hair, hats, torso: rules learned from the original (v0.67)
+- Game hair in the original = ~140 tiny strands (2-11 triangles each), each a small BENT open sheet ~4 cm wide, ~20 cm long, ~1.3 cm deep in its bend, rooted under the hat / in the scalp. Rebuild each as a closed solid lock = convex hull of the strand (`retopo.lock`): same place, width, bend; never paper-flat, never floating. Flat ribbons or random cards look "кривые, плоские, летают".
+- Strand roots are buried in the scalp on purpose: pushing (`push_out`), sliver cutting and edge collapsing must leave small closed pieces (< 60 faces) alone (`meshcheck.lock_faces`), or they lift into the air or tear.
+- Weld vertices BEFORE pushing anything out of the body: a shared vertex moved on one side only tears the seam.
+- A beanie = one dome loft along its own axis (`retopo.dome`) with a straight band at the bottom; all same-coloured brim layers merge into it (they may hang below the dome box). Separate brim rings leave a gap that shows the head.
+- Lower torso continues the upper torso's bottom section exactly (no wider, no shifted band): the shirt must read as one piece.
+- mesh_check now also reports `floating` (a piece touching nothing, measured to surfaces) and `flat_sheet` (one-sided paper pieces not stitched to another part).
+
 ## Lessons from a real Roblox avatar (user's original, 2026-11-04, `projects/refs/roblox_galaxy/`)
 - Real avatar: 5,078 triangles. Body = ONE mesh of 2,436 tris; shirt, pants, face are all texture on it. Hair + beanie 1,520, pet 1,122.
 - My first try had 45,451 (x9): every garment was a second 3D shell. Now on block bodies `tshirt longsleeve tank jacket pants shorts boots shoes gloves` are **painted onto the body faces** (`cloth.PAINT`); hair/hats stay 3D but are capped at 1,200 tris. Set `cloth3d: true` in the recipe to get the old shells.

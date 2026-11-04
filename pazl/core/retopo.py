@@ -224,7 +224,7 @@ def rebuild(ref: trimesh.Trimesh, small=24, sub_for=lambda n: 1 if n < 150 else 
         pieces = [p for p in pieces if id(p) not in merged] + [trimesh.util.concatenate(g) for g in groups.values()]
     for p in pieces:
         if len(p.faces) <= small:
-            out.append(ribbon(p, root_near) if root_near is not None else card(p))
+            out.append(lock(p) if root_near is not None else card(p))  # hair strands: solid locks, not flat ribbons
         elif is_flat(p) and not is_curved(p):
             out.append(sheet(p))
         elif is_flat(p):  # a curved shell (scalp cap of hair): wrap it, pure projection keeps its bend
@@ -356,6 +356,23 @@ def pack(islands, size=1024, pad=6):
     return UV
 
 
+def lock(part: trimesh.Trimesh, min_thick=None):
+    """A hair lock as a closed solid wedge: the convex hull of the reference strand (a small bent sheet in game hair),
+    so it keeps its width, bend, length and place but is never paper-flat. Too-flat strands get a minimal thickness."""
+    V = np.asarray(part.vertices)
+    c = V.mean(0)
+    _, S, Vt = np.linalg.svd(V - c, full_matrices=False)
+    t = min_thick if min_thick is not None else max(S[0] / np.sqrt(len(V)) * .12, 1e-3)
+    if len(V) < 4 or np.ptp((V - c) @ Vt[2]) < t:  # (almost) flat: give it a back side
+        V = np.vstack([V, V + Vt[2] * t])
+    try:
+        m = trimesh.convex.convex_hull(V)
+    except Exception:
+        return card(part)
+    m.fix_normals()
+    return m
+
+
 def ribbon(part: trimesh.Trimesh, root_near):
     """A hair strand as a flat tapering ribbon along its own centre line: root (the end closer to root_near) wide, tip a point."""
     V = np.asarray(part.vertices)
@@ -411,5 +428,11 @@ def dome(part: trimesh.Trimesh, rings=9, n=20):
         a, b = np.percentile(sel, 2, 0), np.percentile(sel, 98, 0)
         s = .15 if f == 1 else 1.0  # the crown ring shrinks to a point-like cap
         R.append((y, (a[0] + b[0]) / 2, (a[2] + b[2]) / 2, (b[0] - a[0]) / 2 * s, (b[2] - a[2]) / 2 * s))
+    # the brim: a straight band of equal width at the bottom (a measured wavy rim looked torn)
+    yb = lo + (hi - lo) * .2
+    band = [r for r in R if r[0] <= yb + 1e-9]
+    if band:
+        w = max(band, key=lambda r: r[3] * r[4])
+        R = [r for r in R if r[0] > yb + 1e-9] + [(yb, w[1], w[2], w[3], w[4]), (lo, w[1], w[2], w[3], w[4])]
     m, _ = loft(M, R, n, 2.2, caps=(True, False))
     return m

@@ -147,10 +147,13 @@ def _manifold(F, w, P):
     return F[keep], int((~keep).sum())
 
 
-def _drop_bad(P, F, scale):
+def _drop_bad(P, F, scale, w=None):
     T = P[F]
     A, L = _quality(T)
     bad = (A < (scale * 1e-4) ** 2) | (2 * A / np.maximum(L, 1e-12) < L * .02)
+    if w is not None and bad.any():  # thin faces of closed hair locks stay (same rule as mesh_check)
+        locks = meshcheck.lock_faces(trimesh.Trimesh(P, w[F], process=False))
+        bad &= ~locks | (A < (scale * 1e-4) ** 2)
     return F[~bad], int(bad.sum())
 
 
@@ -241,7 +244,7 @@ def fix(path, rounds=5, max_hole=12, log=None):
         for name, prim, M, P, F in parts:
             w = _weld(P)
             F2, nm = _manifold(F, w, P)
-            F2, d = _drop_bad(P, F2, scale)
+            F2, d = _drop_bad(P, F2, scale, w)
             d += nm
             F2, f, cracks = _fill(P, F2, w, max_hole)
             zipped = 0
@@ -257,7 +260,7 @@ def fix(path, rounds=5, max_hole=12, log=None):
                 solid_v = np.zeros(len(P), bool)
                 for k in np.unique(lab):
                     piece = trimesh.Trimesh(P, w[F2][lab == k], process=False)
-                    if not meshcheck._sheetlike(piece):
+                    if not meshcheck._sheetlike(piece) and (lab == k).sum() >= 60:  # small locks keep buried roots
                         solid_v[F2[lab == k].ravel()] = True
                 if solid_v.any():
                     body = trimesh.util.concatenate(inner)
