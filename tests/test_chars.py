@@ -212,3 +212,23 @@ def test_roblox_glb_turn_faces_minus_z(tmp_path):
     assert js["nodes"][js["scenes"][0]["nodes"][0]]["rotation"] == [0, 1, 0, 0]
     assert struct.unpack_from("<I", b, 8)[0] == len(b)
     assert abs(trimesh.load(f, force="scene").bounds[0][2] + 1) < 1e-6  # z 1 -> -1
+
+
+def test_card_hair_and_back_beanie_are_light(tmp_path, monkeypatch):
+    """Roblox-like accessories from primitives: spiky card hair under 1k triangles, slouchy beanie under 600."""
+    from pazl.core import chars
+    monkeypatch.setattr(chars, "CHARS", tmp_path)
+    import pazl.core.rig as rig
+    monkeypatch.setattr(rig, "RIGS", tmp_path / "rigs", raising=False)
+    k, p = body.params_for("roblox")
+    m, bones = body.build(k, p, None, 8000)
+    names_ = chars_skeleton.order(bones)[0]
+    r = {"bones": bones}
+    V, F, N = np.asarray(m.vertices), np.asarray(m.faces), np.asarray(m.vertex_normals)
+    hair, hb = chars._spiky_hair({}, r, V, F, N, {"kind": "hair_spiky"}, names_)
+    hat, _ = chars._slouch_beanie({}, r, V, F, N, {"kind": "beanie_back"}, names_)
+    assert sum(len(x.faces) for x, _ in hair) < 1000 and sum(len(x.faces) for x, _ in hat) < 600
+    assert hb == names_.index("head")
+    top = V[:, 1].max()
+    assert max(x.bounds[1][1] for x, _ in hat) > top  # sits on the head
+    assert min(x.bounds[0][2] for x, _ in hat) < V[:, 2].min() + .01  # hangs over the back

@@ -259,16 +259,22 @@ def _blob(sub, scale, at, col):
     return m, col
 
 
-def pet_mesh(c, r, V, g):
-    """Small pet sitting on the right shoulder: list of (trimesh, rgb). Built from primitives, faces +Z like the body."""
-    names_ = skeleton.order(r["bones"])[0]
-    lab = cloth.block_label(V, r["bones"], names_)
-    side = "upper_arm.L" if g.get("side") == "L" else "upper_arm.R"
-    P = V[lab == names_.index(side)]
+def _head_box(r, V, names_):
+    """Centre and half sizes of the head block (eye balls left out by percentiles)."""
+    P = V[cloth.block_label(V, r["bones"], names_) == names_.index("head")]
+    lo, hi = np.percentile(P, 1, 0), np.percentile(P, 99, 0)
+    return (lo + hi) / 2, (hi - lo) / 2
+
+
+def _bird(c, r, V, F, N, g, names_):
+    """Small bird sitting on the shoulder at the torso edge (follows the chest, so lowered arms do not carry it away)."""
+    P = V[cloth.block_label(V, r["bones"], names_) == names_.index("chest")]
     top = P[:, 1].max()
-    cap = P[P[:, 1] > top - (top - P[:, 1].min()) * .1]
-    base = np.array([cap[:, 0].mean(), top, cap[:, 2].mean()])
+    k = 1 if g.get("side") == "L" else -1
     s = float(np.max([b["tail"][1] for b in r["bones"]])) * .085 * float(g.get("size", 1))
+    hc, hh = _head_box(r, V, names_)
+    x = max(np.abs(P[:, 0]).max() * .8, hh[0] * 1.3 + s * 1.05)  # clear of the head and its hair
+    base = np.array([k * x, top, P[:, 2].mean()])
     blue = body.rgb(g.get("color") or "#2bb5ea")
     parts = [_blob(2, [s * .95, s, s * .9], [0, s * 1.3, 0], blue),
              _blob(1, [s * .22, s * .55, s * .5], [s * .9, s * 1.15, -s * .05], blue * .8),
@@ -293,11 +299,83 @@ def pet_mesh(c, r, V, g):
         parts += [(leg, body.rgb("#d9a520")), (foot, body.rgb("#d9a520"))]
     for m, _ in parts:
         m.apply_translation(base)
-    return parts, names_.index(side)
+    return parts, names_.index("chest")
 
 
-def pet_part(c, r, V, g):
-    parts, bone = pet_mesh(c, r, V, g)
+def _card(a, d, L, w, t):
+    """One hair strand: a thin flat pyramid, 4 triangles, base buried at a, tip at a + d*L."""
+    side = np.cross(d, [0, 1, 0] if abs(d[1]) < .9 else [1, 0, 0])
+    side /= np.linalg.norm(side)
+    nrm = np.cross(side, d)
+    v = np.array([a + side * w / 2, a - side * w / 2, a + nrm * t, a + d * L])
+    m = trimesh.Trimesh(v, [[0, 1, 3], [1, 2, 3], [2, 0, 3], [0, 2, 1]], process=False)
+    m.fix_normals()
+    return m
+
+
+def _spiky_hair(c, r, V, F, N, g, names_):
+    """Game-avatar hair: a thin cap on the scalp plus ~100 flat strands swept down and to one side (~600 triangles)."""
+    hc, hh = _head_box(r, V, names_)
+    head = cloth.block_label(V, r["bones"], names_) == names_.index("head")
+    Fc = F[head[F].all(1)]
+    cen = V[Fc].mean(1) - hc
+    keep = (cen[:, 1] > hh[1] * .25) | ((cen[:, 2] < -hh[2] * .3) & (cen[:, 1] > -hh[1] * .55))  # scalp and back, face stays free
+    use, Fc = np.unique(Fc[keep], return_inverse=True)
+    cap = trimesh.Trimesh(V[use] + N[use] * hh[1] * .06, Fc.reshape(-1, 3), process=False)
+    rng = np.random.default_rng(int(g.get("seed", 3)))
+    sweep = np.array([1 if g.get("side") == "L" else -1, 0, 0.])
+    cards = []
+    for el in (78, 60, 42, 24, 6, -14, -32):
+        n = max(4, int(26 * np.cos(np.radians(el))))
+        for az in np.linspace(0, 2 * np.pi, n, endpoint=False) + rng.uniform(0, .4):
+            e = np.radians(el + rng.uniform(-6, 6))
+            sd = np.array([np.cos(e) * np.sin(az), np.sin(e), np.cos(e) * np.cos(az)])
+            if sd[2] > .45 and el < 30:
+                continue  # leave the face open
+            if sd[2] < -.2 and el < -20 and abs(sd[0]) < .3:
+                pass
+            a = hc + sd * hh * .95
+            fr = sd[2] > .45  # fringe: short, sideways over the forehead
+            d = sd * (.35 if fr else .55) + np.array([0, -1., 0]) * (.55 if fr else .75) + sweep * (.6 if fr else .3)
+            d /= np.linalg.norm(d)
+            L = hh[1] * (.55 if fr else .8) * rng.uniform(.75, 1.25)
+            cards.append(_card(a, d, L, hh[0] * rng.uniform(.28, .4), hh[0] * .06))
+    col = body.rgb(g.get("color") or "#3b2a1c")
+    return [(cap, col), (trimesh.util.concatenate(cards), col)], names_.index("head")
+
+
+def _slouch_beanie(c, r, V, F, N, g, names_):
+    """Knitted beanie pulled onto the back of the head: tilted dome + ribbed band (~400 triangles)."""
+    hc, hh = _head_box(r, V, names_)
+    tilt = trimesh.transformations.rotation_matrix(np.radians(-float(g.get("tilt", 28))), [1, 0, 0])
+    dome = trimesh.creation.icosphere(subdivisions=2)
+    dome.update_faces(dome.vertices[dome.faces].mean(1)[:, 1] > -.1)
+    dome.remove_unreferenced_vertices()
+    dome.apply_scale([hh[0] * 1.2, hh[1] * .95, hh[2] * 1.3])
+    band = trimesh.creation.annulus(r_min=.95, r_max=1.0, height=hh[1] * .3, sections=20)
+    band.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
+    band.apply_scale([hh[0] * 1.2, 1, hh[2] * 1.3])
+    band.apply_translation([0, -hh[1] * .05, 0])
+    out = []
+    for m in (dome, band):
+        m.apply_transform(tilt)
+        m.apply_translation(hc + [0, hh[1] * .38, -hh[2] * .32])
+        out.append((m, body.rgb(g.get("color") or "#3a3a3e")))
+    return out, names_.index("head")
+
+
+PROPS = {"bird": _bird, "spiky": _spiky_hair, "slouch": _slouch_beanie}
+
+
+def prop_mesh(c, r, V, F, N, g):
+    """Garments built from primitives (pets, card hair, slouchy hats): list of (trimesh, rgb) and the one bone they follow."""
+    names_ = skeleton.order(r["bones"])[0]
+    o = cloth.kinds_for(c["template"])[g["kind"]][2]
+    return PROPS[o["pet"]](c, r, V, F, N, g, names_)
+
+
+def prop_part(c, r, V, F, N, g):
+    parts, bone = prop_mesh(c, r, V, F, N, g)
     Vs, Fs, Ns, Cs, off = [], [], [], [], 0
     for m, col in parts:
         Vs.append(m.vertices), Fs.append(m.faces + off), Ns.append(m.vertex_normals), Cs.append(np.tile(col, (len(m.vertices), 1)))
@@ -307,7 +385,8 @@ def pet_part(c, r, V, g):
     J[:, 0] = bone
     W = np.zeros((len(Vb), 4), np.float32)
     W[:, 0] = 1
-    return {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .5}
+    part = {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .7}
+    return _textured(part, g["skin"]) if g.get("skin") else part
 
 
 def _paint_outfit(c, r, V, F, N, C, J, W, painted, names_):
@@ -382,7 +461,7 @@ def export_c(c):
                 continue
             o = cloth.kinds_for(c["template"])[g["kind"]][2]
             if o.get("pet"):
-                parts.append(pet_part(c, r, V, g))
+                parts.append(prop_part(c, r, V, F, N, g))
                 fits.append({"kind": g["kind"], "tris": len(parts[-1]["F"])})
                 continue
             Vg, Fg, Ng, Lg = _garment(c, g, fit, stamp)
@@ -404,7 +483,11 @@ def export_c(c):
                     parts.append(pp)
             fits.append({"kind": g["kind"], "tris": len(Fg)})
     out = CHARS / f"{c['name']}.glb"
-    size = gltf.write_parts(out, parts, r["bones"], r["clips"])
+    rest = {}
+    if c["template"] == "humanoid" and c.get("rest", "down") == "down":  # file default pose: arms down like a game avatar; the bind stays T-pose
+        H = float(np.max([b["tail"][1] for b in r["bones"]]))
+        rest = {k: v.as_quat() for k, v in rig.anim._humanoid_pose("idle", 0, H).items() if k.startswith(("shoulder", "upper_arm"))}
+    size = gltf.write_parts(out, parts, r["bones"], r["clips"], rest)
     return {"name": c["name"], "path": out.relative_to(PROJECTS).as_posix(), "kb": round(size / 1e3), "clips": list(r["clips"]),
             "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "max_part": int(max(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"]}
 

@@ -17,7 +17,7 @@ def write(path, V, F, N, C, joints, weights, bones, clips: dict):
     return write_parts(path, [{"name": "Body", "V": V, "F": F, "N": N, "C": C, "J": joints, "W": weights}], bones, clips)
 
 
-def write_parts(path, parts, bones, clips: dict):
+def write_parts(path, parts, bones, clips: dict, rest=None):
     """Several skinned meshes on one skeleton. Part: {name, V, F, N, J, W, C? (vertex colours), UV? + png? (texture),
     metal?, rough?}; used by clothes: each garment keeps its own material."""
     names, par, heads, _ = order(bones)
@@ -68,7 +68,8 @@ def write_parts(path, parts, bones, clips: dict):
     nodes = [{"name": p["name"], "mesh": i, "skin": 0} for i, p in enumerate(parts)]
     for i, n in enumerate(names):
         t = heads[i] - (heads[par[i]] if par[i] >= 0 else 0)
-        nodes.append({"name": n, "translation": [round(float(v), 6) for v in t]})
+        nodes.append({"name": n, "translation": [round(float(v), 6) for v in t],
+                      **({"rotation": [round(float(v), 6) for v in rest[n]]} if rest and n in rest else {})})  # pose shown without a clip
     for i in range(len(names)):
         ch = [j + M for j in range(len(names)) if par[j] == i]
         if ch:

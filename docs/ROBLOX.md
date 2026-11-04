@@ -13,7 +13,9 @@ Works the same from MCP (`pazl`), from the app's chat and over HTTP (`http://127
 - Block bodies are built straight from boxes on a grid (`body.blocky_mesh`), head rounded like a Roblox head: ~1.8k tris at `mid`, clean clothing lines (sampled at grid-quad centres).
 - Preset `roblox` has R15 proportions: legs 0.47 of the height (to the top of the head), torso 0.33, head 0.23, torso width 0.4.
 - Roblox avatars face **-Z**, ours +Z: `roblox_export` now turns `model.glb` and accessories half round.
-- Still different from the original: it stands arms-down (ours T-pose for rigging), its hair is many thin spiky cards and the beanie hangs on the back of the head, its face is a texture.
+- Arms down: the bind stays T-pose (rigging, clay, clips need it), but the GLB's default node pose has the arms lowered (`rest: "down"`, the default; `"t"` for a T-pose file), so viewers and Studio show the figure like a game avatar and every clip still plays.
+- Game hair and hats from primitives (`chars.PROPS`, follow the head bone): `hair_spiky` = scalp cap + ~100 flat strands swept to one side (~800 tris, `side`, `seed`), `beanie_back` = slouchy beanie on the back of the head (~340 tris, `tilt`), `bird` sits on the chest edge beside the head.
+- `galaxy_woof` now: 4,436 tris (original 5,078). Its face is a texture in the original and is not made here (textures come from the user).
 
 Extras: `print="skins/prints/<file>.png"` (+ `print_size`, share of chest width) on a top puts a picture on the chest, also on the Roblox shirt front; kind `bird` is a pet on the right shoulder (`side="L"` for the left), exported as `accessories/bird.glb`; skin preset `galaxy` is a space pattern. Example: character `galaxy_woof` (blocky, longsleeve+pants `galaxy`, white `tank` with a chest print, grey shoes, galaxy hair, beanie, bird).
 

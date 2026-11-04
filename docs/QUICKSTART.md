@@ -31,12 +31,12 @@ The running app server keeps old Python code until it is restarted; the web file
 ```bash
 .venv/Scripts/python.exe -I scripts/glb_compare.py projects/refs/<case>/original.glb projects/refs/<case>/mine.glb
 ```
-One table: triangles (total and per mesh), proportions, silhouette per height band, "worse" marks. Copy refs into `projects/refs/<case>/` so the app can open them.
+One table: triangles (total and per mesh), proportions, silhouette per height band, "worse" marks. It reads the bind pose: a skinned file whose default pose differs (our arms-down characters) still measures as T-pose. Copy refs into `projects/refs/<case>/` so the app can open them.
 
 ## Budgets (from the user's originals)
 | Model | Original | Ours now |
 |---|---|---|
-| Roblox avatar (body + hair/hat + pet) | 5,078 tris (body 2,436, hair+hat 1,520, pet 1,122) | 5,716 (`galaxy_woof`) |
+| Roblox avatar (body + hair/hat + pet) | 5,078 tris (body 2,436, hair+hat 1,520, pet 1,122) | 4,436 (`galaxy_woof`: box body, painted clothes, `hair_spiky`, `beanie_back`, `bird`) |
 | Game building | 3.7-4k tris, windows are texture | see docs/photo_to_model.md |
 | Vehicle | Kenney/KayKit 300-1,500 | docs/model_craft.md |
 

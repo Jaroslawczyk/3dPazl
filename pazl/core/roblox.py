@@ -30,7 +30,7 @@ LIMBS = [{"up": (217, 289, 64, 64), "down": (217, 485, 64, 64), "sides": [(19, 3
 CLASSIC = {"tshirt": ("shirt", .5, 1), "longsleeve": ("shirt", 1, 1), "tank": ("shirt", 0, 1), "jacket": ("shirt", 1, 1), "dress": ("shirt", 0, 1),
            "cloak": ("shirt", 0, 0), "gloves": ("shirt", -.14, 0),
            "pants": ("pants", 1, .22), "shorts": ("pants", .55, .22), "skirt": ("pants", .5, .3), "boots": ("pants", -.35, 0), "shoes": ("pants", -.14, 0)}
-ACCESSORY = ("bird", "hat", "beanie", "hair_short", "hair_long", "beard", "scarf", "belt")
+ACCESSORY = ("bird", "hair_spiky", "beanie_back", "hat", "beanie", "hair_short", "hair_long", "beard", "scarf", "belt")
 MESH_TRIS, ACC_TRIS, IMG_MAX = 20000, 4000, 1024
 
 
@@ -211,12 +211,12 @@ def export_char(name):
         stamp = [r["src"], (PROJECTS / r["src"]).stat().st_mtime, 6]
         (out / "accessories").mkdir()
         for g in acc:
-            if g["kind"] == "bird":
-                ms, _ = chars.pet_mesh(c, r, V, g)
+            if cloth.kinds_for(c["template"])[g["kind"]][2].get("pet"):
+                ms, _ = chars.prop_mesh(c, r, V, F, N, g)
                 for m, col in ms:
                     m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.r_[col * 255, 255].astype(np.uint8))
-                trimesh.util.concatenate([m for m, _ in ms]).apply_transform(TURN).export(out / "accessories" / "bird.glb")
-                files.append("accessories/bird.glb")
+                trimesh.util.concatenate([m for m, _ in ms]).apply_transform(TURN).export(out / "accessories" / f"{g['kind']}.glb")
+                files.append(f"accessories/{g['kind']}.glb")
                 continue
             v, f, *_ = chars._garment(c, g, fit, stamp)
             v, f = decimate(np.asarray(v, float), np.asarray(f), ACC_TRIS)

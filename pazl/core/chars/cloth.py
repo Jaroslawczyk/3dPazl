@@ -48,6 +48,8 @@ KINDS = {
         "hair_long": ("Длинные волосы", "Волосы", {"hair": .1, "mane": True, "color": "#5b3a1e", "ease": .012, "wrinkle": 2.2}),
         "beard": ("Борода", "Волосы", {"beard": True, "color": "#3b2a1c", "ease": .012, "wrinkle": 2.5}),
         "bird": ("Птичка на плече", "Аксессуары", {"pet": "bird", "color": "#2bb5ea"}),
+        "hair_spiky": ("Волосы-пряди (игровые)", "Волосы", {"pet": "spiky", "color": "#3b2a1c"}),
+        "beanie_back": ("Шапка на затылке", "Голова", {"pet": "slouch", "color": "#3a3a3e", "skin": "knit_red"}),
     },
     "quadruped": {
         "coat": ("Попона", "Верх", {"cover": {"hips": (.25, 1), "spine": (0, 1), "chest": (0, .8)}, "color": "#8c2f2f", "ease": .012, "skin": "tartan"}),
