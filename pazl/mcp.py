@@ -608,6 +608,16 @@ def sprite_sheet(paths: list | None = None, name: str = "sheet", cols: int = 0, 
                                                     "cols": cols, "rows": rows}))
 
 
+@tool
+def mesh_check(path: str, openings: bool = False) -> str:
+    """Find mesh defects by code (run it after building, before showing): hole (a tear you see through), poke_through
+    (body showing through clothes / hat into hair), inside_out, mixed_winding, z_fighting (two surfaces flicker),
+    non_manifold, sliver, degenerate. Each has a world point `at` and a plain place `where`. path = GLB under projects/
+    (e.g. 'chars/hero.glb'); openings=True also lists expected openings (sleeves, collars) with what passes through."""
+    from .core import meshcheck
+    return _j(meshcheck.check(path, openings=openings))
+
+
 def main():
     mcp.run()
 

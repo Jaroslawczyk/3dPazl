@@ -27,6 +27,12 @@ The running app server keeps old Python code until it is restarted; the web file
 - Показ menu: «Каркас», «UV-чекер», «Нормали» work for every model.
 - Do not add `?r=N` to `viewGlb` paths: it breaks the file URL.
 
+## Check the mesh by code before showing it
+```bash
+.venv/Scripts/python.exe scripts/mesh_check.py chars/hero.glb      # MCP: mesh_check(path)
+```
+Finds: `hole` (a tear you see through; sleeves/collars that a limb passes through are skipped, `--openings` lists them), `poke_through` (body through clothes, hat into hair, with depth), `inside_out`, `mixed_winding`, `z_fighting`, `non_manifold`, `sliver`, `degenerate`. Each has a world point `at` and a place like "спереди слева, 62% высоты": point the camera there to confirm, fix, run again until empty.
+
 ## Compare with the user's original (do this before any change)
 ```bash
 .venv/Scripts/python.exe -I scripts/glb_compare.py projects/refs/<case>/original.glb projects/refs/<case>/mine.glb

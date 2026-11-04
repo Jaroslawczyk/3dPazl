@@ -278,3 +278,29 @@ def test_loft_part_has_upright_unmirrored_uv_and_packs():
     assert np.all(np.diff(UV[ids][front][order, 0]) > 0)  # u grows with +X on the front
     top, bot = UV[ids][V[:, 1] > .9, 1].mean(), UV[ids][V[:, 1] < .6, 1].mean()
     assert top < bot  # glTF: the top of the part is higher in the picture
+
+
+def test_mesh_check_finds_tear_and_poke_through(tmp_path):
+    """A torn sheet over a box: the tear is a hole (nothing passes through it); a box dipping into a shell is poke_through."""
+    from pazl.core import meshcheck
+    body = trimesh.creation.box([.4, 1.0, .3])
+    shirt = trimesh.creation.box([.44, .6, .34])
+    shirt = shirt.subdivide().subdivide()
+    c = shirt.triangles_center
+    tear = (np.abs(c[:, 0]) < .12) & (np.abs(c[:, 1]) < .12) & (c[:, 2] > .16)  # cut a hole in the front
+    shirt.update_faces(~tear)
+    shirt.remove_unreferenced_vertices()
+    sc = trimesh.Scene({"Body": body, "shirt": shirt})
+    f = tmp_path / "m.glb"
+    sc.export(f)
+    r = meshcheck.check(f)
+    kinds = [p["kind"] for p in r["problems"]]
+    assert "hole" in kinds and r["problems"][kinds.index("hole")]["part"] == "shirt"
+    shirt2 = trimesh.creation.box([.44, .6, .34]).subdivide().subdivide()
+    v = shirt2.vertices.copy()
+    v[(v[:, 2] > .16) & (np.abs(v[:, 1]) < .2) & (np.abs(v[:, 0]) < .15), 2] = .12  # the shirt dips into the body at the front
+    shirt2.vertices = v
+    sc2 = trimesh.Scene({"Body": body, "shirt": shirt2})
+    f2 = tmp_path / "m2.glb"
+    sc2.export(f2)
+    assert any(p["kind"] == "poke_through" for p in meshcheck.check(f2)["problems"])
