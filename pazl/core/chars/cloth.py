@@ -287,7 +287,7 @@ def _inverted(m, fit):
 
 def transfer(fit, Vg, Wd, k=4, rigid=None):
     """Skin weights for garment vertices: inverse-distance mix of the k nearest body vertices (Wd: dense n x bones)."""
-    d, i = fit.skin_tree.query(Vg, k=k, workers=-1)
+    d, i = fit.skin_tree.query(Vg, k=[*range(1, k + 1)], workers=-1)
     w = 1 / np.maximum(d, 1e-3) ** 2
     w /= w.sum(1, keepdims=True)
     W = (Wd[i] * w[..., None]).sum(1)

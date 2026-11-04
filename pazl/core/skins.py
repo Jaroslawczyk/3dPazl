@@ -165,6 +165,70 @@ def box_uv(V, F, tile):
     return idx, inv.reshape(-1, 3), np.stack([u, v], 1) / float(tile)
 
 
+# ------------------------------------------------------------------ textures from the internet (CC0 only)
+UA = {"User-Agent": "3dPazl texture browser"}
+RU = {"джинс": "denim", "ткан": "fabric", "кож": "leather", "дерев": "wood", "камен": "rock", "металл": "metal", "кирпич": "brick",
+      "мех": "fur", "шерст": "wool", "трав": "grass", "песок": "sand", "плитк": "tiles", "ржав": "rust", "вязан": "knit", "ковёр": "carpet"}
+
+
+def _en(q):
+    q = q.strip().lower()
+    return next((v for k, v in RU.items() if k in q), q)
+
+
+def web_search(q, limit=24):
+    """[{source, id, title, thumb, license}] from Poly Haven and ambientCG; a dead source is simply skipped."""
+    import httpx
+    q, out = _en(q), []
+    with httpx.Client(follow_redirects=True, headers=UA, timeout=20) as c:
+        try:
+            a = c.get("https://api.polyhaven.com/assets", params={"t": "textures"}).json()
+            for k, v in a.items():
+                if q in " ".join([k, v["name"], *v.get("tags", []), *v.get("categories", [])]).lower():
+                    out.append({"source": "polyhaven", "id": k, "title": v["name"], "license": "CC0",
+                                "thumb": f"https://cdn.polyhaven.com/asset_img/thumbs/{k}.png?width=128&height=128", "downloads": v.get("download_count", 0)})
+            out.sort(key=lambda x: -x.pop("downloads"))
+        except (httpx.HTTPError, ValueError):
+            pass
+        try:
+            a = c.get("https://ambientcg.com/api/v2/full_json", params={"q": q, "type": "Material", "limit": limit, "include": "imageData"}).json()
+            for v in a.get("foundAssets", []):
+                im = v.get("previewImage") or {}
+                out.append({"source": "ambientcg", "id": v["assetId"], "title": v.get("displayName") or v["assetId"], "license": "CC0",
+                            "thumb": im.get("128-PNG") or im.get("256-PNG") or ""})
+        except (httpx.HTTPError, ValueError):
+            pass
+    return out[:limit]
+
+
+def web_download(source, asset, res="1k"):
+    """Save a web texture as a skin; returns its name. Colour map only, 1k: enough for clothes, small in the GLB."""
+    import io
+    import zipfile
+    import httpx
+    SKINS.mkdir(parents=True, exist_ok=True)
+    name = _safe(f"web_{asset}").lower()
+    with httpx.Client(follow_redirects=True, headers=UA, timeout=120) as c:
+        if source == "polyhaven":
+            info = c.get(f"https://api.polyhaven.com/info/{asset}").json()
+            files = c.get(f"https://api.polyhaven.com/files/{asset}").json()
+            m = files.get("Diffuse") or files.get("diffuse") or files.get("albedo") or files["Color"]
+            data = c.get(m[res]["jpg"]["url"]).raise_for_status().content
+            dim = info.get("dimensions") or [1000]
+            tile, url = float(dim[0]) / 1000, f"https://polyhaven.com/a/{asset}"
+        elif source == "ambientcg":
+            z = c.get(f"https://ambientcg.com/get?file={asset}_{res.upper()}-JPG.zip").raise_for_status().content
+            with zipfile.ZipFile(io.BytesIO(z)) as f:
+                data = f.read(next(n for n in f.namelist() if "_Color." in n))
+            tile, url = 1.0, f"https://ambientcg.com/view?id={asset}"
+        else:
+            raise KeyError(f"unknown source {source}")
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    img.save(SKINS / f"{name}.jpg", quality=90)
+    save(name, {"title": asset, "pattern": "image", "file": f"skins/{name}.jpg", "tile": tile, "rough": .8, "source": url, "license": "CC0"})
+    return {"name": name, "tile_m": tile, "source": url, "license": "CC0"}
+
+
 def _safe(n):
     return re.sub(r"[^\w\-]+", "_", n or "skin").strip("_") or "skin"
 

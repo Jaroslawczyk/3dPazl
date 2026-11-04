@@ -36,6 +36,9 @@ mcp = FastMCP("pazl", instructions=(
 TOOLS: dict = {}  # name -> function: the in-app AI chat (pazl.server.chat) offers the very same tools to any AI
 
 
+from urllib.parse import quote  # noqa: E402
+
+
 def tool(fn):
     TOOLS[fn.__name__] = fn
     mcp.tool()(fn)
@@ -197,6 +200,25 @@ def skin_apply(src: str, skin: str | dict, name: str = "", parts: list | None = 
     """Skin any static GLB under projects/ (items, exports, imports) -> projects/skins/<name>.glb. skin: preset name
     (denim tartan camo dragon tiger oak marble rust ...) or {pattern, colors, tile (m), seed, metal, rough}."""
     return _j(_call("POST", "/api/ws/skins/apply", {"src": src, "skin": skin, "name": name, "parts": parts}))
+
+
+@tool
+def skin_search(query: str) -> str:
+    """Find free CC0 textures on the internet (Poly Haven, ambientCG). Then skin_download. Instructions: docs/ROBLOX.md."""
+    return _j(_call("GET", "/api/ws/skins/web?q=" + quote(query)))
+
+
+@tool
+def skin_download(source: str, id: str) -> str:
+    """Download a skin_search result as a skin usable in char_wear, char_make, skin_apply."""
+    return _j(_call("POST", "/api/ws/skins/web", {"source": source, "id": id}))
+
+
+@tool
+def roblox_export(char: str = "", path: str = "") -> str:
+    """Files ready for Roblox in projects/roblox/<name>/ with README: char -> shirt.png, pants.png (585x559 template), model.glb,
+    anim_*.rbxmx (R6), accessories; path -> any GLB or picture under projects/. Limits and links: docs/ROBLOX.md."""
+    return _j(_call("POST", "/api/ws/roblox/export", {"char": char, "path": path}))
 
 
 @tool

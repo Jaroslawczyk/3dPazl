@@ -90,14 +90,14 @@ def create(name, preset="man", params=None, src="", template="humanoid", cell=No
     name = _safe(name)
     if quality not in body.QUALITY:
         raise KeyError(f"unknown quality {quality}; have {list(body.QUALITY)}")
-    c = {"name": name, "skin": None, "outfit": [], "sculpt": [], "cell": cell, "quality": quality}
+    c = {"name": name, "skin": None, "outfit": [], "sculpt": [], "cell": cell, "quality": quality, "blocks": crotch is not None}
     if src:
         c.update({"import": src, "kind": "import", "template": template, "preset": None, "params": {}})
     else:
         if preset not in body.PRESETS:
             raise KeyError(f"unknown preset {preset}; have {list(body.PRESETS)}")
         kind, p = body.params_for(preset, params)
-        c.update({"kind": kind, "preset": preset, "params": p, "template": body.TEMPLATE[kind]})
+        c.update({"kind": kind, "preset": preset, "params": p, "template": body.TEMPLATE[kind], "blocks": kind == "blocky"})
     rel, bones, m = _write_body(c)
     if not bones and template == "humanoid":
         bones = body.fit_tpose(trimesh.sample.sample_surface(m, 80000, seed=1)[0], crotch)  # block bodies have too few vertices to measure
@@ -195,6 +195,25 @@ def _garment(c, g, fit, stamp):
     return V, F, N
 
 
+def _rigid(V, bones, names_):
+    """Block bodies move like toys: each block follows one bone, so clothes on it do not stretch and tear."""
+    by = {b["name"]: b for b in bones}
+    tw, neck, crotch = by["upper_arm.L"]["head"][0], by["neck"]["head"][1], by["hips"]["head"][1]
+    side = np.where(V[:, 0] > 0, ".L", ".R")
+    n = np.full(len(V), "chest", dtype=object)
+    n[V[:, 1] > neck] = "head"
+    low = V[:, 1] < crotch
+    n[low] = np.char.add("thigh", side[low])
+    arm = (np.abs(V[:, 0]) > tw) & ~low
+    n[arm] = np.char.add("upper_arm", side[arm])
+    ix = {k: i for i, k in enumerate(names_)}
+    J = np.zeros((len(V), 4), np.uint16)
+    J[:, 0] = [ix[k] for k in n]
+    W = np.zeros((len(V), 4), np.float32)
+    W[:, 0] = 1
+    return J, W
+
+
 def _textured(part, s):
     """Box-mapped copy of a part with the skin's texture."""
     s = skins.resolve(s)
@@ -209,6 +228,8 @@ def export_c(c):
     V, F, N, C = rig.load_mesh(r["src"])
     J, W, st = rig.weights(rn)
     names_, *_ = skeleton.order(r["bones"])
+    if c.get("blocks"):
+        J, W = _rigid(V, r["bones"], names_)
     parts = [{"name": "Body", "V": V, "F": F, "N": N, "C": C, "J": J, "W": W}]
     if c.get("skin"):
         eye = _eyes(C) if not c.get("import") else None
@@ -227,7 +248,10 @@ def export_c(c):
         for g in c["outfit"]:
             Vg, Fg, Ng = _garment(c, g, fit, stamp)
             Vg, Ng = np.asarray(Vg, float), np.asarray(Ng, float)
-            Jg, Wg = cloth.transfer(fit, Vg, Wd, cloth.soft(g["kind"], c["template"]), cloth.rigid_bone(g["kind"], c["template"], names_))
+            Jg, Wg = cloth.transfer(fit, Vg, Wd, 1 if c.get("blocks") else cloth.soft(g["kind"], c["template"]), cloth.rigid_bone(g["kind"], c["template"], names_))
+            if c.get("blocks"):  # cloth does not stretch across a block joint: each block keeps its own piece
+                Fg = np.asarray(Fg)
+                Fg = Fg[(Jg[Fg, 0] == Jg[Fg[:, :1], 0]).all(1)]
             o = cloth.kinds_for(c["template"])[g["kind"]][2]
             col = body.rgb(g.get("color") or o["color"])
             skin = g.get("skin") or (None if g.get("color") else o.get("skin"))
@@ -237,7 +261,7 @@ def export_c(c):
     out = CHARS / f"{c['name']}.glb"
     size = gltf.write_parts(out, parts, r["bones"], r["clips"])
     return {"name": c["name"], "path": out.relative_to(PROJECTS).as_posix(), "kb": round(size / 1e3), "clips": list(r["clips"]),
-            "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"]}
+            "template": c["template"], "tris": int(sum(len(p["F"]) for p in parts)), "max_part": int(max(len(p["F"]) for p in parts)), "outfit": fits, "unweighted": st["unweighted"]}
 
 
 def _eyes(C):

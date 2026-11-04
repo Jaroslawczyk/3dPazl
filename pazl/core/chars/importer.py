@@ -208,10 +208,10 @@ def straighten(V, F):
         lo, hi = V[idx].min(0), V[idx].max(0)
         if (hi - lo)[1] > H * .1 and min((hi - lo)[0], (hi - lo)[2]) > H * .03:
             parts.append({"i": idx, "lo": lo, "hi": hi, "c": (lo + hi) / 2})
-    if len(parts) < 6:
+    if len(parts) < 6 or np.ptp(V[:, 0]) > H * .9:  # not blocks, or the arms are already spread
         return V, None
     y0, y1 = V[:, 1].min(), V[:, 1].max()
-    if sum(p["hi"][1] > y1 - H * .05 for p in parts) > sum(p["lo"][1] < y0 + H * .05 for p in parts):
+    if sum(p["hi"][1] > y1 - H * .05 for p in parts) == 2 and sum(p["lo"][1] < y0 + H * .05 for p in parts) != 2:
         V = V * (1, -1, -1) + (0, y0 + y1, 0)  # two legs on top, one head below: the file is upside down
         for p in parts:
             lo, hi = p["lo"], p["hi"]
@@ -220,7 +220,7 @@ def straighten(V, F):
             p["c"] = (p["lo"] + p["hi"]) / 2
     parts.sort(key=lambda p: -p["hi"][1])
     rest = parts[1:]  # the highest is the head
-    torso = min(rest, key=lambda p: abs(p["c"][0]) + (p["hi"][1] < V[:, 1].max() - H * .5) * H)
+    torso = max(rest, key=lambda p: float(np.prod(p["hi"] - p["lo"])) * (abs(p["c"][0]) < H * .1))
     tw = (torso["hi"][0] - torso["lo"][0]) / 2
     V = V.copy()
     for p in rest:

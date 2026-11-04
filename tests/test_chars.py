@@ -139,3 +139,18 @@ def test_block_body_with_lowered_arms_is_straightened_and_measured():
     assert abs(crotch - .7) < 1e-6 and V[:, 0].max() > .85  # arms went out from .6 to .9
     b = {x["name"]: x for x in body.fit_tpose(trimesh.sample.sample_surface(trimesh.Trimesh(V, m.faces, process=False), 40000, seed=1)[0], crotch)}
     assert abs(b["hips"]["head"][1] - .7) < .01 and abs(b["upper_arm.L"]["head"][0] - .3) < .03 and b["head"]["head"][1] < 1.45
+
+
+def test_classic_template_and_r6_rest_pose():
+    from pazl.core import roblox
+    from pazl.core.rig import anim
+    a = roblox.classic([{"kind": "tshirt", "color": "#ff0000"}, {"kind": "pants", "color": "#0000ff"}], "humanoid", 1.6)
+    assert a["shirt"].shape == (559, 585, 4)
+    assert a["shirt"][130, 300, 0] == 255 and a["shirt"][360, 50, 3] == 255 and a["shirt"][470, 50, 3] == 0  # torso, sleeve top, bare forearm
+    assert a["pants"][470, 50, 2] == 255
+    k, p = body.params_for("blocky")
+    _, bones = body.build(k, p, cell=.03)
+    clip = anim.make(bones, "idle")
+    poses, _ = roblox.r6_poses(bones, clip, 0)
+    for n in ("Left Arm", "Right Arm", "Left Leg", "Head"):  # idle arms hang down = almost the R6 rest pose
+        assert np.trace(poses[n]) > 2.2, n

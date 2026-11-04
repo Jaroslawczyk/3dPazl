@@ -19,6 +19,9 @@ export async function mount(el, ctx) {
       <div ${row}><input id="skFile" type="file" accept="image/*" style="flex:1;min-width:0" title="Своя картинка как скин"></div>
       <div ${row}><input id="skName" placeholder="имя скина" style="flex:1"><button id="skSave">Сохранить</button></div>
     </div>
+    <h4>Из интернета (CC0)</h4>
+    <div ${row}><input id="skQ" placeholder="кожа, denim, wood…" style="flex:1"><button id="skFind">Найти</button></div>
+    <div id="skWeb" style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;max-height:190px;overflow:auto"></div>
     <img id="skTileImg" alt="образец" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin:4px 0">
     <h4>2. На что</h4>
     <select id="skSrc" style="width:100%"><option value="">— объект (GLB) —</option>${glbs.map((g) => `<option>${esc(g.path)}</option>`).join('')}</select>
@@ -38,6 +41,16 @@ export async function mount(el, ctx) {
   };
   $('#skPreset').onchange = () => { $('#skCustom').hidden = !!$('#skPreset').value; image = null; preview().catch((e) => out('⚠ ' + e.message)); };
   el.querySelectorAll('#skCustom input:not([type=file]):not(#skName), #skCustom select').forEach((i) => { i.onchange = () => { image = null; preview().catch((e) => out('⚠ ' + e.message)); }; });
+  $('#skFind').onclick = () => busy('ищу текстуры…', async () => {
+    const r = await getJson('/api/ws/skins/web?q=' + encodeURIComponent($('#skQ').value));
+    $('#skWeb').innerHTML = r.map((t) => `<img src="${esc(t.thumb)}" title="${esc(t.title)} (${esc(t.source)}, ${esc(t.license)})" data-s="${esc(t.source)}" data-i="${esc(t.id)}" style="width:100%;cursor:pointer;border-radius:4px">`).join('');
+    out(r.length ? `Найдено ${r.length}. Нажмите на текстуру, чтобы скачать.` : 'Ничего не нашлось: попробуйте по-английски');
+    $('#skWeb').querySelectorAll('img').forEach((i) => { i.onclick = () => busy('скачиваю…', async () => {
+      const d = await post('/api/ws/skins/web', { source: i.dataset.s, id: i.dataset.i });
+      $('#skPreset').insertAdjacentHTML('beforeend', `<option>${esc(d.name)}</option>`); $('#skPreset').value = d.name; $('#skCustom').hidden = true; image = null;
+      await preview(); out(`✓ ${d.name} (${d.license}) ${d.source}`);
+    }); });
+  });
   $('#skRnd').onclick = () => { $('#skSeed').value = 1 + Math.floor(Math.random() * 9999); image = null; preview(); };
   $('#skFile').onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;

@@ -65,9 +65,20 @@ async function renderWs(id) {
   const info = infos.find((w) => w.id === id);
   el.innerHTML = `<h3>${esc(info.title)}</h3><div class="hint">${esc(info.about)}</div>
     <div class="hint" id="wsBlender">${blenderLine(null)}</div>
-    <h4>Модели</h4><div id="wsModels"></div><div id="wsTools"></div>`;
+    <h4>Модели</h4><div id="wsModels"></div><button id="wsRoblox" style="width:100%;margin:4px 0" title="Готовые файлы и инструкция в projects/roblox/">⬇ Для Roblox</button><pre id="wsRbxOut" class="hint" style="white-space:pre-wrap;font-size:11px"></pre><div id="wsTools"></div>`;
   blenderInfo().then((b) => { const n = $('#wsBlender'); if (n && document.body.dataset.ws === id) n.innerHTML = blenderLine(b); });
+  let picked = null;
+  $('#wsRoblox').onclick = async () => {
+    const out = $('#wsRbxOut');
+    const char = ['chars', 'clothes'].includes(id) ? (localStorage.getItem('pazl.char') || '') : '';
+    if (!char && !picked) { out.textContent = 'Сначала выберите модель'; return; }
+    out.textContent = '⏳ готовлю файлы…';
+    const r = await fetch('/api/ws/roblox/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(char ? { char } : { path: picked }) });
+    const j = await r.json();
+    out.textContent = r.ok ? `✓ ${j.abs}\n${j.files.join(', ')}${j.notes.length ? '\n⚠ ' + j.notes.join('\n⚠ ') : ''}` : '⚠ ' + j.detail;
+  };
   const open = async (path) => {
+    picked = path;
     document.querySelectorAll('#wsModels .ws-model').forEach((m) => m.classList.toggle('on', m.dataset.p === path));
     if (info.dim === '2d') { if (ctx.pick) return ctx.pick(path); return view2d().show('/files/' + path); }
     return window.pazl.viewGlb(path);

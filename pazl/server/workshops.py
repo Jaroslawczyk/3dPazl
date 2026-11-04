@@ -232,6 +232,32 @@ async def clothes_copy(body: dict):
     return await asyncio.to_thread(_rig_call, chars.copy_outfit, body["from"], body["to"])
 
 
+@router.get("/skins/web")
+async def skins_web(q: str):
+    from ..core import skins
+    return await asyncio.to_thread(skins.web_search, q)
+
+
+@router.post("/skins/web")
+async def skins_web_get(body: dict):
+    """body: {source: polyhaven|ambientcg, id} -> a saved skin."""
+    import httpx
+    from ..core import skins
+    try:
+        return await asyncio.to_thread(_rig_call, skins.web_download, body["source"], body["id"])
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"не удалось скачать: {e}")
+
+
+@router.post("/roblox/export")
+async def roblox_export(body: dict):
+    """body: {char} or {path under projects/} -> projects/roblox/<name>/"""
+    from ..core import roblox
+    if body.get("char"):
+        return await asyncio.to_thread(_rig_call, roblox.export_char, body["char"])
+    return await asyncio.to_thread(_rig_call, roblox.export_file, body.get("path", ""))
+
+
 @router.get("/skins/catalog")
 def skins_catalog():
     from ..core import skins
