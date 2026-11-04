@@ -13,7 +13,7 @@ async function blenderInfo() {
 
 function blenderLine(b) {
   if (!b) return '⏳ проверяю Blender…';
-  if (!b.found) return '⚠ Blender не найден — риг, ткань и анимация недоступны. Установите Blender или задайте PAZL_BLENDER.';
+  if (!b.found) return 'Blender не найден (не обязателен: встроенные инструменты работают без него; PAZL_BLENDER — путь, если нужен).';
   if (b.error) return '⚠ Blender найден, но не запустился: ' + esc(b.error);
   const ok = Object.entries(b.addons || {}).filter(([, v]) => v).map(([k]) => k).join(', ');
   return `✓ Blender ${esc(b.version)} · ${esc(ok)}`;

@@ -21,6 +21,18 @@
         "8767"
       ],
       "port": 8767
+    },
+    {
+      "name": "pazl-rig",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "pazl.server.app:app",
+        "--port",
+        "8768"
+      ],
+      "port": 8768
     }
   ]
 }

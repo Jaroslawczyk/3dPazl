@@ -66,3 +66,80 @@ async def item_make(body: dict):
     path = PROJECTS / WORKSHOPS["items"]["dir"] / f"{name}.glb"
     info = await asyncio.to_thread(items.export_glb, kind, body.get("params") or {}, path)
     return {**info, "path": path.relative_to(PROJECTS).as_posix()}
+
+
+# ---------------------------------------------------------------- rig & animation workshop (native, no Blender)
+def _rig_call(fn, *a, **k):
+    try:
+        return fn(*a, **k)
+    except (FileNotFoundError, KeyError, ValueError) as e:
+        raise HTTPException(400, str(e).strip("'\""))
+
+
+@router.get("/rig/templates")
+def rig_templates():
+    from ..core import rig
+    return {"templates": {k: v[0] for k, v in rig.skeleton.TEMPLATES.items()}, "presets": rig.anim.PRESETS,
+            "rigs": sorted(p.name[:-9] for p in rig.RIGS.glob("*.rig.json")) if rig.RIGS.exists() else []}
+
+
+@router.post("/rig/mannequin")
+async def rig_mannequin(body: dict):
+    from ..core import rig
+    return await asyncio.to_thread(rig.mannequin, body.get("name") or "mannequin", float(body.get("height") or 1.8))
+
+
+@router.get("/rig/get/{name}")
+def rig_get(name: str):
+    from ..core import rig
+    r = _rig_call(rig.load, name)
+    return {"name": r["name"], "src": r["src"], "template": r["template"], "bones": r["bones"],
+            "clips": {k: {"frames": c["frames"], "fps": c["fps"], "edited": c.get("edited", False)} for k, c in r["clips"].items()}}
+
+
+@router.post("/rig/auto")
+async def rig_auto(body: dict):
+    """body: {name, src (path under projects/), template} -> skeleton fitted to the mesh."""
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.auto, body.get("name") or "rig", body["src"], body.get("template") or "humanoid")
+
+
+@router.post("/rig/bones")
+async def rig_bones(body: dict):
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.set_bones, body["name"], body.get("bones") or [])
+
+
+@router.post("/rig/weights")
+async def rig_weights(body: dict):
+    from ..core import rig
+    _, _, st = await asyncio.to_thread(_rig_call, rig.weights, body["name"], True)
+    return st
+
+
+@router.post("/rig/anim")
+async def rig_anim(body: dict):
+    """body: {name, preset, clip?, frames?, fps?}"""
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.make_anim, body["name"], body.get("preset") or "walk",
+                                   body.get("clip") or "", body.get("frames"), int(body.get("fps") or 30))
+
+
+@router.post("/rig/key")
+async def rig_key(body: dict):
+    """body: {name, clip, bone, frame, euler:[x,y,z] degrees, span?}"""
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.set_key, body["name"], body["clip"], body["bone"], body["frame"],
+                                   body["euler"], int(body.get("span", 4)))
+
+
+@router.post("/rig/check")
+async def rig_check(body: dict):
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.run_check, body["name"], body["clip"], int(body.get("samples") or 24))
+
+
+@router.post("/rig/export")
+async def rig_export(body: dict):
+    from ..core import rig
+    return await asyncio.to_thread(_rig_call, rig.export, body["name"])

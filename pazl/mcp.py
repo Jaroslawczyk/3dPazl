@@ -99,6 +99,49 @@ def make_item(kind: str = "", name: str = "", size: float = 1.0, width: float = 
 
 
 @tool
+def rig_auto(src: str = "", name: str = "", template: str = "humanoid") -> str:
+    """Rig workshop (native, no Blender): fit a skeleton template (humanoid|quadruped|simple) to a GLB under projects/
+    (e.g. 'items/x.glb'). Empty src builds a test mannequin. Then: rig_weights -> anim_make -> anim_check -> rig_export."""
+    if not src:
+        src = _call("POST", "/api/ws/rig/mannequin", {"name": name or "mannequin"}).get("src", "")
+    return _j(_call("POST", "/api/ws/rig/auto", {"name": name or Path(src).stem, "src": src, "template": template}))
+
+
+@tool
+def rig_weights(name: str, bones: list | None = None) -> str:
+    """Optionally move joints (bones=[{name, head:[x,y,z], tail:[x,y,z]}]), then compute automatic skin weights
+    (max 4 influences). Returns verts, unweighted count, bones that got no vertices."""
+    if bones:
+        r = _call("POST", "/api/ws/rig/bones", {"name": name, "bones": bones})
+        if "error" in r:
+            return _j(r)
+    return _j(_call("POST", "/api/ws/rig/weights", {"name": name}))
+
+
+@tool
+def anim_make(name: str, preset: str = "walk", clip: str = "", frames: int = 0, key: dict | None = None) -> str:
+    """Create a clip from a preset (idle|walk|run|wave|jump), or with key={clip, bone, frame, euler:[x,y,z] deg, span}
+    edit one bone rotation (neighbour frames blend). Rotations are about world-aligned axes: x pitch, y twist, z side."""
+    if key:
+        return _j(_call("POST", "/api/ws/rig/key", {"name": name, **key}))
+    return _j(_call("POST", "/api/ws/rig/anim", {"name": name, "preset": preset, "clip": clip, "frames": frames or None}))
+
+
+@tool
+def anim_check(name: str, clip: str = "walk", samples: int = 24) -> str:
+    """Compact motion check: unweighted verts, joint limits, limb penetration, stretch, ground, foot sliding,
+    bone length; BAD lines name bones and frames."""
+    r = _call("POST", "/api/ws/rig/check", {"name": name, "clip": clip, "samples": samples})
+    return r.get("text") or _j(r)
+
+
+@tool
+def rig_export(name: str) -> str:
+    """Write projects/rigs/<name>.glb: skinned mesh + skeleton + all clips (opens in any glTF viewer/engine)."""
+    return _j(_call("POST", "/api/ws/rig/export", {"name": name}))
+
+
+@tool
 def list_styles() -> str:
     """Architectural styles with era/region, recommended macros and tips."""
     return _j(_call("GET", "/api/catalog/styles"))
