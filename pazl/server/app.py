@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -21,7 +22,7 @@ from .logs import log, log_exception, report_zip
 from .project import PROJECTS, ROOT, Project
 from .workshops import router as workshops_router
 
-HOST, PORT = "127.0.0.1", 8765
+HOST, PORT = "127.0.0.1", int(os.environ.get("PAZL_PORT", 8765))
 WEB = ROOT / "web"
 
 app = FastAPI(title="3dPazl building constructor", version=__version__)

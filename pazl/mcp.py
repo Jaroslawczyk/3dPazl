@@ -24,7 +24,7 @@ except ImportError:  # mcp 1.x
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-BASE = os.environ.get("PAZL_URL", "http://127.0.0.1:8765")
+BASE = os.environ.get("PAZL_URL", f"http://127.0.0.1:{os.environ.get('PAZL_PORT', 8765)}")
 AGENT = os.environ.get("PAZL_AGENT", "claude")
 ROOT = Path(__file__).resolve().parent.parent
 
