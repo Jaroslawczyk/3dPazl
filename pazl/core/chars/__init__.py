@@ -408,17 +408,20 @@ def _file_prop(c, r, V, F, N, g, names_):
 def _bomb_hat(c, r, V, F, N, g, names_):
     """Cartoon bomb worn on the head: round body sunk into the head top, collar, curved fuse, spark (~700 triangles, all closed solids)."""
     hc, hh = _head_box(r, V, names_)
-    R = hh[0] * 1.08 * float(g.get("size", 1))
+    as_head = bool(g.get("as_head"))  # the bomb IS the head: swallows the head block, eyes on the front
+    R = (hh.max() * 1.32 if as_head else hh[0] * 1.08) * float(g.get("size", 1))
     top = hc[1] + hh[1]
-    cy = top + R * .55  # body centre: lower part hides in the head, push_out lifts what pokes through
+    cy = hc[1] + hh[1] * float(g.get("lift", .12)) if as_head else top + R * .55  # body centre: lower part hides in the head, push_out lifts what pokes through
     rot = trimesh.transformations.rotation_matrix
     body_ = trimesh.creation.icosphere(subdivisions=2, radius=R)
+    if as_head:
+        body_.apply_scale([1, .84, 1])  # squashed ball: bottom stays above the torso
     body_.apply_translation([hc[0], cy, hc[2]])
     col = body.rgb(g.get("color") or "#25252b")
     metal = body.rgb("#6b6b73")
     rope = body.rgb("#c9a56a")
     parts = [(body_, col)]
-    ny = cy + R * .93  # neck: metal collar on the top of the sphere
+    ny = cy + R * (.8 if as_head else .93)  # neck: metal collar on the top of the sphere
     collar = trimesh.creation.cylinder(radius=R * .26, height=R * .22, sections=14)
     collar.apply_translation([hc[0], ny, hc[2]])
     parts.append((collar, metal))
@@ -437,16 +440,23 @@ def _bomb_hat(c, r, V, F, N, g, names_):
         joint = trimesh.creation.icosphere(subdivisions=1, radius=R * .075 * (1 - .35 * t[i]))
         joint.apply_translation(a)
         parts.append((joint, rope))
+    if as_head:
+        for sx in (-1, 1):  # big cartoon eyes on the front (+Z): white ball, black pupil, tiny highlight
+            ex, ey = hc[0] + sx * R * .34, cy + R * .12
+            ez = hc[2] + np.sqrt(max(R * R - (ex - hc[0]) ** 2 - (ey - cy) ** 2, 0)) * .9
+            for rad, dz, colr in ((.3, 0, "#ffffff"), (.17, .5, "#111116"), (.06, .75, "#ffffff")):
+                eye = trimesh.creation.icosphere(subdivisions=1, radius=R * rad)
+                eye.apply_scale([1, 1.15, .7])
+                eye.apply_translation([ex + sx * -R * .03 * (dz > 0), ey - R * .02 * (dz > .2 and 0), ez + R * dz * .3 + (0)])
+                parts.append((eye, body.rgb(colr)))
     tip = pts[-1]
     for k, (rad, colr) in enumerate(((.22, "#ff8a1f"), (.13, "#ffd84a"))):
         sp = trimesh.creation.icosphere(subdivisions=1, radius=R * rad)
         sp.apply_translation(tip + [0, R * .06 * k, 0])
         parts.append((sp, body.rgb(colr)))
     for az in np.linspace(0, 2 * np.pi, 6, endpoint=False):  # spark rays
-        ray = trimesh.creation.cone(radius=R * .05, height=R * .3, sections=5)
-        ray.apply_transform(rot(np.pi / 2, [0, 1, 0]))  # point +X
-        ray.apply_transform(rot(az, [0, 0, 1]))
-        ray.apply_translation(tip + [0, R * .04, 0])
+        ray = trimesh.creation.icosphere(subdivisions=0, radius=R * .07)  # small solid sparks (thin cones read as paper sheets)
+        ray.apply_translation(tip + [0, R * .04, 0] + R * .26 * np.array([np.cos(az), np.sin(az), 0]))
         parts.append((ray, body.rgb("#ffb62e")))
     return parts, names_.index("head")
 
@@ -466,7 +476,7 @@ def prop_part(c, r, V, F, N, g):
     parts, bone = prop_mesh(c, r, V, F, N, g)
     body_m = trimesh.Trimesh(V, F, process=False)
     for i, (m, col) in enumerate(parts):  # hats, hair, pets never sink into the body; no slivers or small gaps (mesh_check)
-        if col is None:  # a ready textured file (e.g. a 1:1 rebuild) was fixed when it was made: a second push squashes it
+        if col is None or g.get("as_head"):  # a ready textured file (e.g. a 1:1 rebuild) was fixed when it was made: a second push squashes it
             continue
         m.vertices = meshcheck.push_out_faces(m, body_m).vertices
         m = meshcheck.clean(m)
