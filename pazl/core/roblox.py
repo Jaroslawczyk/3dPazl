@@ -186,7 +186,7 @@ def export_char(name):
     r = rig.load(chars._rn(name))
     out = OUT / _safe(name)
     shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)  # rmtree can fail on Windows when a viewer holds a file
     res = chars.export_c(c)
     shutil.copy(PROJECTS / res["path"], out / "model.glb")
     _turn_glb(out / "model.glb")

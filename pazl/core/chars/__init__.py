@@ -272,7 +272,9 @@ def print_part(g, Vg, bones, names_):
     from io import BytesIO
     from PIL import Image
     pic = Image.open(PROJECTS / g["print"]).convert("RGBA")  # the material is opaque: lay the picture on the garment colour
-    bg = Image.new("RGBA", pic.size, tuple(int(v * 255) for v in body.rgb(g.get("color") or "#ffffff")) + (255,))
+    lin = body.rgb(g.get("color") or "#ffffff")  # vertex colours are linear in glTF, the picture is sRGB: encode, or the square shows as a grey patch
+    srgb = np.where(lin <= .0031308, lin * 12.92, 1.055 * np.power(lin, 1 / 2.4) - .055)
+    bg = Image.new("RGBA", pic.size, tuple(int(round(v * 255)) for v in srgb) + (255,))
     buf = BytesIO()
     Image.alpha_composite(bg, pic).convert("RGB").save(buf, "PNG")
     return _quad_part("print", cx - h, cx + h, cy - h, cy + h, z, buf.getvalue(), ix)
@@ -491,16 +493,23 @@ def prop_part(c, r, V, F, N, g):
         W[:, 0] = 1
         return {"name": g["kind"], "V": np.asarray(m.vertices), "F": np.asarray(m.faces), "N": np.asarray(m.vertex_normals), "J": J, "W": W, "rough": .8,
                 "C": None if png else np.full((n, 3), .8), "UV": uv, "png": png}
-    Vs, Fs, Ns, Cs, off = [], [], [], [], 0
-    for m, col in parts:
-        Vs.append(m.vertices), Fs.append(m.faces + off), Ns.append(m.vertex_normals), Cs.append(np.tile(col, (len(m.vertices), 1)))
-        off += len(m.vertices)
-    Vb = np.vstack(Vs)
-    J = np.zeros((len(Vb), 4), np.uint16)
-    J[:, 0] = bone
-    W = np.zeros((len(Vb), 4), np.float32)
-    W[:, 0] = 1
-    part = {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .7}
+    def merge(plist):
+        Vs, Fs, Ns, Cs, off = [], [], [], [], 0
+        for m, col in plist:
+            Vs.append(m.vertices), Fs.append(m.faces + off), Ns.append(m.vertex_normals), Cs.append(np.tile(col, (len(m.vertices), 1)))
+            off += len(m.vertices)
+        Vb = np.vstack(Vs)
+        J = np.zeros((len(Vb), 4), np.uint16)
+        J[:, 0] = bone
+        W = np.zeros((len(Vb), 4), np.float32)
+        W[:, 0] = 1
+        return {"name": g["kind"], "V": Vb, "F": np.vstack(Fs), "N": np.vstack(Ns), "C": np.vstack(Cs), "J": J, "W": W, "rough": .7}
+
+    if g.get("body_skin") and len(parts) > 1:  # first piece (the ball) takes the texture, eyes / fuse / collar keep their colours
+        ball = _textured(merge(parts[:1]), g["body_skin"])
+        ball["name"] = g["kind"] + "_body"
+        return [ball, merge(parts[1:])]
+    part = merge(parts)
     return _textured(part, g["skin"]) if g.get("skin") else part
 
 
@@ -585,8 +594,10 @@ def export_c(c):
                 continue
             o = cloth.kinds_for(c["template"])[g["kind"]][2]
             if o.get("pet"):
-                parts.append(prop_part(c, r, V, F, N, g))
-                fits.append({"kind": g["kind"], "tris": len(parts[-1]["F"])})
+                pp = prop_part(c, r, V, F, N, g)
+                pp = pp if isinstance(pp, list) else [pp]
+                parts.extend(pp)
+                fits.append({"kind": g["kind"], "tris": sum(len(x["F"]) for x in pp)})
                 continue
             Vg, Fg, Ng, Lg = _garment(c, g, fit, stamp)
             Vg, Ng = np.asarray(Vg, float), np.asarray(Ng, float)
