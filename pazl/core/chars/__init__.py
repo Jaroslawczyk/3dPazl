@@ -239,12 +239,33 @@ def fit_for(c, r, V, F, N):
     return cloth.Fit(V, F, N, r["bones"], names_)
 
 
+def _map_pngs(base, normal=None, rough=None, ao=None):
+    """Extra PBR maps next to a colour picture: normal map and packed ORM (R = occlusion, G = roughness, B = 0) as PNG bytes. Paths under projects/."""
+    from io import BytesIO
+    from PIL import Image
+    out = {}
+    nf, rf, af = (PROJECTS / x if x else None for x in (normal, rough, ao))
+    if nf and nf.exists():
+        b = BytesIO()
+        Image.open(nf).convert("RGB").save(b, "PNG")
+        out["normal_png"] = b.getvalue()
+    if (rf and rf.exists()) or (af and af.exists()):
+        ref = Image.open(rf if rf and rf.exists() else af).convert("L")
+        R = Image.open(af).convert("L").resize(ref.size) if af and af.exists() else Image.new("L", ref.size, 255)
+        G = Image.open(rf).convert("L") if rf and rf.exists() else Image.new("L", ref.size, 200)
+        b = BytesIO()
+        Image.merge("RGB", (R, G, Image.new("L", ref.size, 0))).save(b, "PNG")
+        out["orm_png"] = b.getvalue()
+    return out
+
+
 def _textured(part, s):
     """Box-mapped copy of a part with the skin's texture."""
     s = skins.resolve(s)
     idx, F, uv = skins.box_uv(part["V"], part["F"], float(s.get("tile", .3)))
     return {**part, "V": part["V"][idx], "N": part["N"][idx], "F": F, "UV": uv, "C": None, "J": part["J"][idx], "W": part["W"][idx],
-            "png": skins.png_bytes(s), "metal": float(s.get("metal", 0)), "rough": float(s.get("rough", .7))}
+            "png": skins.png_bytes(s), "metal": float(s.get("metal", 0)), "rough": float(s.get("rough", .7)),
+            **_map_pngs(None, s.get("normal_map"), s.get("rough_map"), s.get("ao_map"))}
 
 
 def _quad_part(name, x0, x1, y0, y1, z, png, bone):
@@ -277,7 +298,10 @@ def print_part(g, Vg, bones, names_):
     bg = Image.new("RGBA", pic.size, tuple(int(round(v * 255)) for v in srgb) + (255,))
     buf = BytesIO()
     Image.alpha_composite(bg, pic).convert("RGB").save(buf, "PNG")
-    return _quad_part("print", cx - h, cx + h, cy - h, cy + h, z, buf.getvalue(), ix)
+    q = _quad_part("print", cx - h, cx + h, cy - h, cy + h, z, buf.getvalue(), ix)
+    stem = str(g["print"])[:-4]  # croc_tank.png -> croc_tank_normal / _rough / _ao.png when they exist
+    q.update(_map_pngs(None, stem + "_normal.png", stem + "_rough.png", stem + "_ao.png"))
+    return q
 
 
 def _blob(sub, scale, at, col):

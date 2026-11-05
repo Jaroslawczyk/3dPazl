@@ -56,8 +56,21 @@ def write_parts(path, parts, bones, clips: dict, rest=None):
             images.append({"bufferView": len(views) - 1, "mimeType": "image/png"})
             textures.append({"source": len(images) - 1, "sampler": 0})
             pbr["baseColorTexture"] = {"index": len(textures) - 1}
+        extra = {}
+        for key, field in (("normal_png", "normalTexture"), ("orm_png", "occlusionTexture")):  # normal map; ORM = occlusion(R) roughness(G) metal(B)
+            if p.get(key) and p.get("UV") is not None:
+                while len(buf) % 4:
+                    buf.append(0)
+                views.append({"buffer": 0, "byteOffset": len(buf), "byteLength": len(p[key])})
+                buf.extend(p[key])
+                images.append({"bufferView": len(views) - 1, "mimeType": "image/png"})
+                textures.append({"source": len(images) - 1, "sampler": 0})
+                extra[field] = {"index": len(textures) - 1}
+                if key == "orm_png":
+                    pbr["metallicRoughnessTexture"] = {"index": len(textures) - 1}
+                    pbr["roughnessFactor"], pbr["metallicFactor"] = 1.0, p.get("metal", 0) and 1.0 or 0.0
         ind = add(p["F"].astype(np.uint32).reshape(-1), U32, "SCALAR", 34963)
-        materials.append({"name": p["name"], "doubleSided": True, "pbrMetallicRoughness": pbr})
+        materials.append({"name": p["name"], "doubleSided": True, "pbrMetallicRoughness": pbr, **extra})
         meshes.append({"name": p["name"], "primitives": [{"attributes": attrs, "indices": ind, "material": len(materials) - 1}]})
     ibm = np.zeros((len(names), 16), np.float32)
     ibm[:, [0, 5, 10, 15]] = 1
