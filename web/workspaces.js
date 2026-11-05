@@ -119,9 +119,17 @@ function setWs(id) {
   document.body.dataset.ws = id;
   document.querySelectorAll('#segWs button').forEach((b) => b.classList.toggle('on', b.dataset.ws === id));
   try { localStorage.setItem(KEY, id); } catch (e) { /* storage blocked */ }
-  if (id === 'build') window.pazl?.reloadModel(true);
-  else renderWs(id);
+  if (id === 'build') return window.pazl?.reloadModel(true);
+  return renderWs(id);
 }
+
+// A character GLB (chars/…) opened from outside a character workshop (e.g. by the agent) switches to the clothes tab
+// instead of showing up under whatever workshop was remembered last (e.g. transport).
+window.pazlEnsureWs = async (path) => {
+  if (!/^(projects\/)?chars\//.test(path || '')) return;
+  if (['chars', 'clothes', 'skins', 'rig'].includes(document.body.dataset.ws)) return;
+  await setWs('clothes');
+};
 
 document.querySelectorAll('#segWs button').forEach((b) => { b.onclick = () => setWs(b.dataset.ws); });
 let saved = 'build';

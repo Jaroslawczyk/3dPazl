@@ -179,6 +179,7 @@ async function reloadModel(fit = false) {
 }
 // ---------------------------------------------------------------- GLB viewer (script-built models, references)
 async function viewGlb(path) {
+  await window.pazlEnsureWs?.(path);
   S.viewing = path;
   $('#busy').hidden = false;
   try {
