@@ -405,7 +405,53 @@ def _file_prop(c, r, V, F, N, g, names_):
     return [(m, None)], names_.index(g.get("bone") or o["bone"])
 
 
-PROPS = {"bird": _bird, "spiky": _spiky_hair, "slouch": _slouch_beanie, "file": _file_prop}
+def _bomb_hat(c, r, V, F, N, g, names_):
+    """Cartoon bomb worn on the head: round body sunk into the head top, collar, curved fuse, spark (~700 triangles, all closed solids)."""
+    hc, hh = _head_box(r, V, names_)
+    R = hh[0] * 1.08 * float(g.get("size", 1))
+    top = hc[1] + hh[1]
+    cy = top + R * .55  # body centre: lower part hides in the head, push_out lifts what pokes through
+    rot = trimesh.transformations.rotation_matrix
+    body_ = trimesh.creation.icosphere(subdivisions=2, radius=R)
+    body_.apply_translation([hc[0], cy, hc[2]])
+    col = body.rgb(g.get("color") or "#25252b")
+    metal = body.rgb("#6b6b73")
+    rope = body.rgb("#c9a56a")
+    parts = [(body_, col)]
+    ny = cy + R * .93  # neck: metal collar on the top of the sphere
+    collar = trimesh.creation.cylinder(radius=R * .26, height=R * .22, sections=14)
+    collar.apply_translation([hc[0], ny, hc[2]])
+    parts.append((collar, metal))
+    # fuse: tapered segments along a bent curve, each overlapping the next (no gaps), rooted inside the collar
+    t = np.linspace(0, 1, 7)
+    pts = np.stack([hc[0] + R * (.05 + .55 * t * t) * 1.0, ny + R * (.05 + .75 * t - .35 * t * t), hc[2] + R * .12 * np.sin(t * 3)], 1)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        d = b - a
+        L = np.linalg.norm(d)
+        seg = trimesh.creation.cylinder(radius=R * .07 * (1 - .35 * t[i]), height=L * 1.25, sections=8)
+        T = trimesh.geometry.align_vectors([0, 0, 1], d / L)
+        seg.apply_transform(T)
+        seg.apply_translation((a + b) / 2)
+        parts.append((seg, rope))
+        joint = trimesh.creation.icosphere(subdivisions=1, radius=R * .075 * (1 - .35 * t[i]))
+        joint.apply_translation(a)
+        parts.append((joint, rope))
+    tip = pts[-1]
+    for k, (rad, colr) in enumerate(((.22, "#ff8a1f"), (.13, "#ffd84a"))):
+        sp = trimesh.creation.icosphere(subdivisions=1, radius=R * rad)
+        sp.apply_translation(tip + [0, R * .06 * k, 0])
+        parts.append((sp, body.rgb(colr)))
+    for az in np.linspace(0, 2 * np.pi, 6, endpoint=False):  # spark rays
+        ray = trimesh.creation.cone(radius=R * .05, height=R * .3, sections=5)
+        ray.apply_transform(rot(np.pi / 2, [0, 1, 0]))  # point +X
+        ray.apply_transform(rot(az, [0, 0, 1]))
+        ray.apply_translation(tip + [0, R * .04, 0])
+        parts.append((ray, body.rgb("#ffb62e")))
+    return parts, names_.index("head")
+
+
+PROPS = {"bird": _bird, "spiky": _spiky_hair, "slouch": _slouch_beanie, "file": _file_prop, "bomb": _bomb_hat}
 
 
 def prop_mesh(c, r, V, F, N, g):

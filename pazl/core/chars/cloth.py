@@ -51,6 +51,7 @@ KINDS = {
         "hair_spiky": ("Волосы-пряди (игровые)", "Волосы", {"pet": "spiky", "color": "#3b2a1c"}),
         "acc_head": ("Аксессуар из файла (голова)", "Аксессуары", {"pet": "file", "bone": "head", "color": "#cccccc"}),
         "acc_chest": ("Аксессуар из файла (корпус)", "Аксессуары", {"pet": "file", "bone": "chest", "color": "#cccccc"}),
+        "bomb_hat": ("Бомба с фитилём на голове", "Голова", {"pet": "bomb", "color": "#25252b"}),
         "beanie_back": ("Шапка на затылке", "Голова", {"pet": "slouch", "color": "#3a3a3e", "skin": "knit_red"}),
     },
     "quadruped": {
