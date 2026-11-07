@@ -7,7 +7,7 @@ from PIL import Image
 
 P = []
 GLOW = {"ffe28c", "7ee8ff", "ff6a3d", "9dff7a"}
-GLASS = {"cfefff"}
+GLASS = {"cfefff", "5ec8ff"}                 # glass panes, water
 
 
 def col(m, hexc):
@@ -40,6 +40,20 @@ def ball(x, y, z, r, c, sub=1):
 
 
 def hull(pts, c): return col(tm.convex.convex_hull(np.array(pts, float)), c)
+
+
+def frustum(x, z, y0, y1, r0, r1, c, n=16):
+    """Tapered round column (hull of two circles), axis along Y."""
+    return hull([[x + math.cos(t) * r, y, z + math.sin(t) * r] for t in np.linspace(0, 2 * math.pi, n, endpoint=False)
+                 for (y, r) in ((y0, r0), (y1, r1))], c)
+
+
+def ring(x, y, z, r, w, c, n=16, h=None, plane="xz"):
+    """Ring of n beams (railing, hoop): in the XZ plane at height y, or in the YZ plane (plane="yz")."""
+    for k in range(n):
+        a0, a1 = k / n * 2 * math.pi, (k + 1) / n * 2 * math.pi
+        if plane == "xz": beam([x + math.cos(a0) * r, y, z + math.sin(a0) * r], [x + math.cos(a1) * r, y, z + math.sin(a1) * r], w, c, h)
+        else: beam([x, y + math.sin(a0) * r, z + math.cos(a0) * r], [x, y + math.sin(a1) * r, z + math.cos(a1) * r], w, c, h)
 
 
 def beam(a, b, w, c, h=None):
@@ -88,7 +102,10 @@ TEX = {"9a6a40": ("wood_boards", 1.6), "6e4a2e": ("wood_dark", 1.6), "b98552": (
        "9a948c": ("stone_rubble", 2.0), "6f6a64": ("granite", 1.5), "c9c2b5": ("sandstone", 2.0),
        "c94a3a": ("clay_tile", 1.5), "3a6fb0": ("clay_tile", 1.5), "b5523b": ("brick_red", 1.5),
        "5a606c": ("steel", 1.5), "2b2f3a": ("iron", 1.5), "f2efe6": ("plaster_white", 2.0), "7fb4d6": ("wood_painted_white", 1.6),
-       "ffd23f": ("wood_boards", 1.2), "ffc83c": ("steel", 1.0), "3a3d44": ("bitumen", 2.0)}
+       "ffd23f": ("wood_boards", 1.2), "ffc83c": ("steel", 1.0), "3a3d44": ("bitumen", 2.0),
+       "f2b632": ("steel", 1.2), "d93a32": ("wood_painted_white", 1.6), "b8b4ac": ("concrete_raw", 2.0),
+       "1e3c6e": ("wood_painted_white", 1.6), "d9452f": ("plaster_white", 2.0), "7a7f8a": ("steel", 1.2),
+       "e9e4d8": ("marble", 2.0), "8c8579": ("stone_ashlar", 1.6)}
 _cache = {}
 
 

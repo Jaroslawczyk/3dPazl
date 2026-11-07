@@ -3,13 +3,14 @@ front = +Z. Run: .venv/Scripts/python.exe scripts/gen_boomland_world.py  ->  pro
 import math, sys
 import numpy as np
 sys.path.insert(0, "scripts")
-from boomland_kit import box, boxc, cyl, cylx, ball, hull, beam, rock, gable, gable_end, export
+from boomland_kit import box, boxc, cyl, cylx, ball, hull, beam, rock, gable, gable_end, frustum, ring, export
 
 WOOD, WOOD_D, PLANK, STONE, STONE_D, STONE_L = "#9a6a40", "#6e4a2e", "#b98552", "#9a948c", "#6f6a64", "#c9c2b5"
 ROOF, METAL, METAL_D, GOLD, LAMP, WHITE = "#c94a3a", "#5a606c", "#2b2f3a", "#ffc83c", "#ffe28c", "#f2efe6"
 CRYSTAL, FLAME, GLASS, SIGN, BLUE, ROPE = "#7ee8ff", "#ff6a3d", "#cfefff", "#ffd23f", "#3a6fb0", "#cfae78"
 ASPH, LINE, YEL, BRICK, MONITOR, DARK = "#3a3d44", "#f4f4f0", "#f2b632", "#b5523b", "#2a2d36", "#15120f"
 GREEN_L, ICE, FISH, FISH2, RED = "#9dff7a", "#e6f7ff", "#ff8a3d", "#c8d2dc", "#d93a32"
+CONC, CHUTE, RUBBER = "#b8b4ac", "#7a7f8a", "#22252b"
 
 
 def lantern(x, y, z, s=1.0):
@@ -196,43 +197,105 @@ for i in range(11): rock(math.cos(i * 2.1) * .8 * (i % 4) / 3, 0, math.sin(i * 2
 for i in range(4): boxc(.9 - i * .12, .1 + i * .12, .9, .5, .12, .22, GOLD, yaw=10 * i)
 export("gold_heap")
 
-# ---------------------------------------------------------------- drill rig
-box(-1.4, 0, -1.4, 1.4, .3, 1.4, METAL_D)
-for a in (0, 120, 240):
-    r = math.radians(a + 90)
-    beam([math.cos(r) * 1.2, .3, math.sin(r) * 1.2], [0, 6.0, 0], .18, YEL)
-for y in (2.0, 4.0):
-    s = 1.2 * (1 - (y - .3) / 5.7)
-    pts = [(math.cos(math.radians(a + 90)) * s, math.sin(math.radians(a + 90)) * s) for a in (0, 120, 240)]
-    for k in range(3): beam([pts[k][0], y, pts[k][1]], [pts[(k + 1) % 3][0], y, pts[(k + 1) % 3][1]], .1, YEL)
-box(-.35, 5.8, -.35, .35, 6.4, .35, METAL_D)
-cyl(0, -.5, 5.8, 0, .1, METAL, 8)
-box(.6, .3, -1.2, 1.35, 1.2, -.3, YEL); box(.62, .5, -.5, 1.33, 1.0, -.28, METAL_D)   # motor
-cyl(.95, 1.2, 1.7, -.75, .08, METAL_D, 8)
-beam([.6, .8, -.6], [.1, 2.0, 0], .07, METAL_D)
+# ---------------------------------------------------------------- drill rig (derrick on a skid, the engine drives the rotary table)
+box(-1.7, 0, -1.5, 1.7, .3, 1.7, CONC)                          # concrete pad
+for sx in (-1, 1): box(sx * 1.3 - .12, .3, -1.3, sx * 1.3 + .12, .5, 1.5, METAL_D)   # skid runners
+for z in (-1.1, 0, 1.1): box(-1.4, .5, z - .08, 1.4, .58, z + .08, METAL_D)          # cross members
+box(-1.0, .58, -1.0, 1.0, .64, 1.0, CHUTE)                       # steel floor
+DT, DH = .32, 7.0                                                # derrick: legs from the floor corners up to the crown
+for sx in (-1, 1):
+    for sz in (-1, 1): beam([sx * .9, .64, sz * .9], [sx * DT, DH, sz * DT], .14, YEL)
+LEV = (.64, 2.2, 3.7, 5.1, DH)
+def dw(y): return .9 - (y - .64) / (DH - .64) * (.9 - DT)
+for k, y in enumerate(LEV):
+    s0 = dw(y)
+    for a, b in (((-1, -1), (1, -1)), ((1, -1), (1, 1)), ((1, 1), (-1, 1)), ((-1, 1), (-1, -1))):
+        beam([a[0] * s0, y, a[1] * s0], [b[0] * s0, y, b[1] * s0], .09, YEL)
+    if k < 4:
+        y1 = LEV[k + 1]; s1 = dw(y1)
+        for sz in (-1, 1):
+            beam([-s0, y, sz * s0], [s1, y1, sz * s1], .06, YEL); beam([s0, y, sz * s0], [-s1, y1, sz * s1], .06, YEL)
+        for sx in (-1, 1):
+            beam([sx * s0, y, -s0], [sx * s1, y1, s1], .06, YEL); beam([sx * s0, y, s0], [sx * s1, y1, -s1], .06, YEL)
+box(-.5, DH, -.5, .5, DH + .35, .5, METAL_D)                     # crown block + sheave
+cylx(-.3, .3, DH + .55, 0, .28, CHUTE, 14); box(-.06, DH + .35, -.1, .06, DH + .55, .1, METAL_D)
+box(-.45, 3.7, -.6, .45, 3.76, .6, CHUTE)                        # monkey board
+for dz in (.25, -.25): beam([0, DH + .3, dz], [0, 4.6, dz], .025, METAL_D)
+box(-.22, 4.0, -.3, .22, 4.6, .3, YEL)                           # travelling block
+cyl(0, .64, 4.0, 0, .07, METAL, 8)                              # drill pipe
+box(-.45, .64, -.45, .45, .82, .45, METAL_D); cyl(0, .82, .9, 0, .3, METAL, 12)      # rotary table
+cyl(0, -.3, .3, 0, .09, METAL, 8)                               # pipe on into the ground
+box(.9, .64, 1.0, 1.65, 1.35, 1.65, YEL)                          # engine with the winch (drawworks)
+for k in range(5): box(1.65, .75 + k * .11, 1.08, 1.69, .8 + k * .11, 1.57, METAL_D)   # radiator grille
+cyl(1.45, 1.35, 1.9, 1.5, .05, METAL_D, 8); cyl(1.45, 1.9, 1.95, 1.5, .07, METAL_D, 8)  # exhaust
+beam([.9, .76, 1.2], [.3, .76, .5], .07, METAL)                    # drive shaft to the table
+cylx(.95, 1.6, 1.55, 1.25, .16, METAL_D, 12)                       # winch drum on top of the engine
+beam([1.0, 1.65, 1.25], [.25, DH + .4, .2], .025, METAL_D)          # hoist line up to the crown
+for k in range(9): box(-.95, .9 + k * .5, -1.0, -.75, .94 + k * .5, -.94, METAL_D)    # ladder up the back
+for dx in (-.95, -.75): beam([dx, .64, -.97], [dx, 5.0, -.97], .03, METAL_D)
+for sx in (-1, 1): box(sx * 1.0 - .03, .64, -1.0, sx * 1.0 + .03, 1.6, -.94, YEL)       # handrail at the back
+box(-1.0, 1.55, -1.0, 1.0, 1.6, -.94, YEL)
 export("drill_rig")
 
-# ---------------------------------------------------------------- boiler house + chimney
-box(-1.6, 0, -1.4, 1.6, 2.6, 1.4, BRICK)
+# ---------------------------------------------------------------- boiler house + chimney (real door and windows)
+box(-1.75, 0, -1.55, 1.75, .25, 1.65, CONC)                       # footing
+box(-1.6, .25, -1.4, 1.6, 2.6, 1.4, BRICK)
 box(-1.75, 2.6, -1.55, 1.75, 2.8, 1.55, STONE_D)
-box(-.5, 0, 1.38, .5, 1.9, 1.46, WOOD_D)
-for sx in (-1, 1): box(sx * 1.0 - .3, 1.2, 1.38, sx * 1.0 + .3, 1.8, 1.46, FLAME)
+for sx in (-1, 1):                                                # windows: sill + lintel, iron frame and glass,
+    x = sx * 1.0                                                  # the fire glows behind the glass, inside
+    box(x - .38, 1.08, 1.4, x + .38, 1.16, 1.52, STONE_L); box(x - .36, 1.84, 1.4, x + .36, 1.94, 1.48, STONE_L)
+    box(x - .3, 1.16, 1.3, x + .3, 1.84, 1.34, FLAME)
+    box(x - .3, 1.16, 1.38, x + .3, 1.84, 1.4, GLASS)
+    for (p0, p1, q0, q1) in ((x - .3, x - .26, 1.16, 1.84), (x + .26, x + .3, 1.16, 1.84), (x - .3, x + .3, 1.16, 1.2),
+                             (x - .3, x + .3, 1.8, 1.84), (x - .02, x + .02, 1.16, 1.84), (x - .3, x + .3, 1.48, 1.52)):
+        box(p0, q0, 1.38, p1, q1, 1.45, METAL_D)
+box(-.58, .25, 1.4, -.5, 2.05, 1.5, STONE_L); box(.5, .25, 1.4, .58, 2.05, 1.5, STONE_L)   # door frame
+box(-.58, 2.05, 1.4, .58, 2.15, 1.52, STONE_L)
+box(-.5, .25, 1.36, .5, 2.05, 1.4, WOOD_D)                         # door leaf in the opening
+for (y0, y1) in ((.4, 1.05), (1.2, 1.9)):                           # raised panels
+    for (x0, x1) in ((-.4, -.04), (.04, .4)): box(x0, y0, 1.4, x1, y1, 1.43, WOOD)
+for y in (.55, 1.75): box(-.46, y, 1.4, .1, y + .06, 1.45, METAL_D)  # iron hinge straps
+box(.32, 1.05, 1.4, .38, 1.25, 1.47, METAL_D); ball(.35, 1.15, 1.49, .035, GOLD, 0)  # handle
+box(-.7, 0, 1.65, .7, .2, 2.0, CONC)                              # step
+box(-.05, 2.2, 1.52, .05, 2.3, 1.75, METAL_D); lantern(0, 1.9, 1.72, .5)              # lamp over the door
 cyl(.8, 2.8, 8.5, -.6, .38, BRICK, 12)
 for y in (4.0, 6.0, 8.2): cyl(.8, y, y + .2, -.6, .43, METAL_D, 12)
 cylx(1.6, 2.8, .8, 0, .6, METAL, 12); cylx(2.75, 2.85, .8, 0, .62, METAL_D, 12)
 for x in (1.9, 2.5): box(x - .1, 0, -.5, x + .1, .3, .5, METAL_D)
+cylx(1.45, 1.62, 1.1, 0, .12, METAL_D, 8)                          # pipe from the boiler into the wall
 export("boiler_house")
 
-# ---------------------------------------------------------------- conveyor + hopper
-beam([0, .7, -2.6], [0, 2.7, 2.4], .9, METAL_D, .12)
-for k in range(9):
-    t = k / 8
-    cylx(-.5, .5, .78 + 2.0 * t, -2.6 + 5.0 * t, .07, METAL, 8)
-for sx in (-1, 1): beam([sx * .5, .78, -2.6], [sx * .5, 2.78, 2.4], .07, YEL, .2)
-for t in (.1, .5, .9):
-    for sx in (-1, 1): beam([sx * .45, 0, -2.6 + 5 * t], [sx * .45, .65 + 2 * t, -2.6 + 5 * t], .1, METAL_D)
-hull([[sx * .9, 3.6, 2.4 + sz * .9] for sx in (-1, 1) for sz in (-1, 1)] + [[sx * .35, 2.6, 2.4 + sz * .35] for sx in (-1, 1) for sz in (-1, 1)], WOOD)
-for i in range(4): rock(-.3 + i * .2, .9 + i * .3, -2.0 + i * .9, .15, STONE_D, i)
+# ---------------------------------------------------------------- ore conveyor: feed hopper on the ground -> belt -> chute into a cart
+ZA, YA, ZB, YB = -2.4, .55, 2.0, 2.45                             # tail / head pulley centres
+def onbelt(t, dy=0.0): return ZA + (ZB - ZA) * t, YA + (YB - YA) * t + dy
+BL = math.hypot(ZB - ZA, YB - YA); BANG = math.degrees(math.atan2(YB - YA, ZB - ZA))
+zc, yc = onbelt(.5)
+boxc(0, yc + .06, zc, .62, .03, BL, RUBBER, pitch=-BANG)           # top belt
+boxc(0, yc - .12, zc, .62, .03, BL, RUBBER, pitch=-BANG)           # return belt
+for sx in (-1, 1): boxc(sx * .37, yc, zc, .06, .3, BL + .3, YEL, pitch=-BANG)   # side frames
+for k in range(11):
+    z, y = onbelt(k / 10); cylx(-.34, .34, y, z, .05, METAL, 8)
+cylx(-.36, .36, YA, ZA, .12, METAL_D, 12); cylx(-.36, .36, YB, ZB, .14, METAL_D, 12)
+for t in (.12, .5, .88):                                           # legs on concrete footings, cross braced
+    z, y = onbelt(t, -.15)
+    for sx in (-1, 1):
+        box(sx * .45 - .14, 0, z - .14, sx * .45 + .14, .12, z + .14, CONC)
+        beam([sx * .45, .12, z], [sx * .37, y, z], .07, METAL_D)
+    if y > .8:
+        beam([-.45, .2, z], [.45, y - .1, z], .04, METAL_D); beam([.45, .2, z], [-.45, y - .1, z], .04, METAL_D)
+box(.4, YB - .2, ZB - .35, .78, YB + .15, ZB + .05, YEL); cylx(.36, .42, YB, ZB, .1, METAL_D, 8)   # drive motor
+box(-.42, YB + .05, ZB - .05, .42, YB + .35, ZB + .22, CHUTE)      # head cover
+hull([[sx * .36, YB - .05, ZB + .05] for sx in (-1, 1)] + [[sx * .36, YB + .3, ZB + .25] for sx in (-1, 1)]
+     + [[sx * .25, 1.35, ZB + .75] for sx in (-1, 1)] + [[sx * .25, 1.55, ZB + .9] for sx in (-1, 1)], CHUTE)   # discharge chute
+box(-.22, 1.2, ZB + .7, .22, 1.35, ZB + .95, CHUTE)               # spout: the cart stands under it
+for sx in (-1, 1):
+    beam([sx * .3, .05, ZB + .8], [sx * .25, 1.25, ZB + .8], .06, METAL_D)
+    box(sx * .3 - .1, 0, ZB + .7, sx * .3 + .1, .05, ZB + .9, CONC)
+hull([[sx * .75, .9, ZA - .9 + dz] for sx in (-1, 1) for dz in (0, 1.0)] + [[sx * .3, .45, ZA - .55 + dz] for sx in (-1, 1) for dz in (0, .35)], WOOD)  # feed hopper
+for sx in (-1, 1):
+    for z0 in (ZA - .9, ZA + .02): box(sx * .62 - .08, 0, z0, sx * .62 + .08, .9, z0 + .1, WOOD_D)
+for i in range(5):                                                 # ore riding up
+    z, y = onbelt(.15 + i * .17, .14); rock(-.1 + (i % 2) * .2, y, z, .1, STONE_D, i)
 export("conveyor")
 
 # ---------------------------------------------------------------- treasury (end of the mine field)
