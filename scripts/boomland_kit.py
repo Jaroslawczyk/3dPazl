@@ -58,12 +58,28 @@ def rock(x, y, z, r, c, seed=0, squash=0.7):
     pts.append([x, y + r * squash * 1.2, z]); return hull(pts, c)
 
 
-def gable(x0, x1, z0, z1, y0, h, c, over=0.25, thick=0.12):
-    """Two roof slabs, ridge along X."""
-    zc = (z0 + z1) / 2; half = (z1 - z0) / 2 + over
-    L = math.hypot(half, h); ang = math.degrees(math.atan2(h, half))
+def gable(x0, x1, z0, z1, y0, h, c, over=0.25, thick=0.12, ridge="x"):
+    """Two roof slabs over the box x0..x1, z0..z1. The underside runs from the wall tops (y0 at the eave walls) up to the
+    ridge (y0 + h) and goes on past the walls by `over`. ridge="x": ridge along X, slopes fall to -Z / +Z (gable ends at
+    x0 / x1). ridge="z": ridge along Z, slopes fall to -X / +X (gable ends at z0 / z1, the front)."""
+    a0, a1, b0, b1 = (z0, z1, x0, x1) if ridge == "x" else (x0, x1, z0, z1)   # a = across the slopes, b = along the ridge
+    ac = (a0 + a1) / 2; half = (a1 - a0) / 2; k = h / half; run = half + over
+    ang = math.atan(k); L = math.hypot(run, run * k); bc = (b0 + b1) / 2; blen = b1 - b0 + 2 * over
     for s in (-1, 1):
-        boxc((x0 + x1) / 2, y0 + h / 2, zc + s * half / 2, x1 - x0 + 2 * over, thick, L, c, pitch=s * ang)
+        ca = ac + s * (run / 2 + thick / 2 * math.sin(ang)); cy = y0 + h - run * k / 2 + thick / 2 * math.cos(ang)
+        if ridge == "x": boxc(bc, cy, ca, blen, thick, L, c, pitch=s * math.degrees(ang))
+        else: boxc(ca, cy, bc, L, thick, blen, c, roll=-s * math.degrees(ang))
+    cap = thick * 1.6
+    if ridge == "x": box(b0 - over, y0 + h, ac - cap / 2, b1 + over, y0 + h + thick * 1.3, ac + cap / 2, c)
+    else: box(ac - cap / 2, y0 + h, b0 - over, ac + cap / 2, y0 + h + thick * 1.3, b1 + over, c)
+
+
+def gable_end(a0, a1, y0, h, c, at, t=0.18, ridge="x"):
+    """Triangular gable wall under gable(): base a0..a1 at y0, peak y0 + h in the middle. ridge="x": the wall stands
+    across Z at x = at..at+t; ridge="z": across X at z = at..at+t."""
+    am = (a0 + a1) / 2; tri = [(a0, y0), (a1, y0), (am, y0 + h - .02)]
+    if ridge == "x": return hull([[x, y, a] for x in (at, at + t) for a, y in tri], c)
+    return hull([[a, y, z] for z in (at, at + t) for a, y in tri], c)
 
 
 def export(name, out="projects/boomland_world/export"):

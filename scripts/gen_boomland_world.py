@@ -3,7 +3,7 @@ front = +Z. Run: .venv/Scripts/python.exe scripts/gen_boomland_world.py  ->  pro
 import math, sys
 import numpy as np
 sys.path.insert(0, "scripts")
-from boomland_kit import box, boxc, cyl, cylx, ball, hull, beam, rock, gable, export
+from boomland_kit import box, boxc, cyl, cylx, ball, hull, beam, rock, gable, gable_end, export
 
 WOOD, WOOD_D, PLANK, STONE, STONE_D, STONE_L = "#9a6a40", "#6e4a2e", "#b98552", "#9a948c", "#6f6a64", "#c9c2b5"
 ROOF, METAL, METAL_D, GOLD, LAMP, WHITE = "#c94a3a", "#5a606c", "#2b2f3a", "#ffc83c", "#ffe28c", "#f2efe6"
@@ -74,7 +74,8 @@ for sx in (-1, 1):                                              # knee braces + 
     box(sx * 3.4 - .15, 0, -.15, sx * 3.4 + .15, 3.2, .2, WOOD_D)
 gable(-2.6, 2.6, -.9, .9, 4.15, .9, ROOF, over=.2, thick=.14)
 hull([[x, 4.15, z] for x in (-2.4, 2.4) for z in (-.9, .9)] + [[x, 5.0, 0] for x in (-2.4, 2.4)], WOOD)
-box(-1.3, 4.25, .9, 1.3, 4.9, 1.0, SIGN)                       # sign board (text added in the game)
+box(-1.3, 3.42, 1.02, 1.3, 3.86, 1.1, SIGN)                     # sign board hung under the front eave (text added in the game)
+for sx in (-1, 1): box(sx * 1.1 - .03, 3.86, 1.03, sx * 1.1 + .03, 4.0, 1.09, METAL_D)
 for sx in (-1, 1): box(sx * .46 - .05, 0, -3.0, sx * .46 + .05, .12, 1.5, METAL)  # rails coming out
 for i in range(9): box(-.7, 0, -2.9 + i * .5 - .1, .7, .07, -2.9 + i * .5 + .1, WOOD_D)
 beam([1.4, 3.7, .35], [1.4, 3.2, .35], .03, METAL_D); lantern(1.4, 2.75, .35, .9)
@@ -140,7 +141,12 @@ def wallz(x0, x1, ops):
 DOOR, WINF = (-.7, .7, .42, 2.45), [(-2.4, -1.4, 1.2, 2.2), (1.4, 2.4, 1.2, 2.2)]
 wallx(HZ - .18, HZ, [DOOR] + WINF); wallx(-HZ, -HZ + .18, [])
 wallz(-HX, -HX + .18, [(-.6, .6, 1.2, 2.2)]); wallz(HX - .18, HX, [(-.6, .6, 1.2, 2.2)])
-for k in range(1, 8): box(-HX - .02, .42 + k * .33, HZ - .02, HX + .02, .42 + k * .33 + .04, HZ + .02, WOOD_D)  # log lines
+for k in range(1, 8):                                           # log lines, cut at the door and the windows
+    y = .42 + k * .33; xs = [-HX - .02]
+    for (a, b_, y0, y1) in sorted([DOOR] + WINF):
+        if y0 - .1 <= y + .04 and y <= y1 + .1: xs += [a - .1, b_ + .1]
+    xs.append(HX + .02)
+    for x0, x1 in zip(xs[::2], xs[1::2]): box(x0, y, HZ - .02, x1, y + .04, HZ + .02, WOOD_D)
 for sx in (-1, 1):
     for sz in (-1, 1): box(sx * HX - .14, .35, sz * HZ - .14, sx * HX + .14, H + .05, sz * HZ + .14, WOOD_D)
 for (a, b, y0, y1) in WINF:                                     # front windows
@@ -152,8 +158,8 @@ for sx in (-1, 1):
 for (p0, p1, q0, q1) in ((DOOR[0] - .1, DOOR[0], .42, DOOR[3] + .1), (DOOR[1], DOOR[1] + .1, .42, DOOR[3] + .1), (DOOR[0] - .1, DOOR[1] + .1, DOOR[3], DOOR[3] + .1)):
     box(p0, q0, HZ - .02, p1, q1, HZ + .08, WOOD_D)
 box(-1.0, 0, HZ + .2, 1.0, .25, HZ + .8, STONE)                 # step
-gable(-HX - .1, HX + .1, -HZ, HZ, H, 1.5, ROOF, over=.35, thick=.14)
-for z in (-HZ, HZ - .18): hull([[x, H, zz] for x in (-HX, HX) for zz in (z, z + .18)] + [[0, H + 1.45, zz] for zz in (z, z + .18)], PLANK)
+gable(-HX, HX, -HZ, HZ, H, 1.5, ROOF, over=.35, thick=.14, ridge="z")   # ridge front-to-back: the gable with the sign faces the door
+for z in (-HZ, HZ - .18): gable_end(-HX, HX, H, 1.5, PLANK, z, ridge="z")
 box(-1.1, 2.62, HZ + .1, 1.1, 3.05, HZ + .18, SIGN)             # sign over the door
 lantern(1.0, 2.0, HZ + .3, .7)
 # inside: desk + computer at the back wall, chair, shelf with ore, ceiling lamp
@@ -168,6 +174,7 @@ box(-HX + .2, .42, 1.0, -HX + .6, 2.2, 2.0, WOOD_D)              # shelf
 for i, y in enumerate((.9, 1.4, 1.9)):
     box(-HX + .18, y, 1.0, -HX + .62, y + .05, 2.0, WOOD)
     rock(-HX + .4, y + .05, 1.3 + i * .2, .12, (GOLD, CRYSTAL, STONE_D)[i], i)
+cyl(0, H - .1, H + 1.5, 0, .025, METAL_D, 6)                      # rod from the ridge
 box(-.25, H - .1, -.25, .25, H, .25, METAL_D); box(-.15, H - .3, -.15, .15, H - .1, .15, LAMP)
 export("mine_office")
 
@@ -177,6 +184,7 @@ for sx in (-1, 1):
 for k in range(5): box(-2, .1 + k * .42, -1.55, 2, .48 + k * .42, -1.45, PLANK if k % 2 else WOOD)
 for sx in (-1, 1):
     for k in range(5): box(sx * 2 - .05, .1 + k * .42, -1.5, sx * 2 + .05, .48 + k * .42, 1.5, PLANK if k % 2 else WOOD)
+    hull([[sx * 2 + dx, y, z] for dx in (-.05, .05) for (y, z) in ((2.2, -1.5), (2.2, 1.5), (2.6, 1.5))], WOOD)   # side wall up to the sloped roof
 boxc(0, 2.5, 0, 4.6, .14, 3.6, ROOF, pitch=-6.3)
 box(-2, 0, -1.5, 2, .1, 1.5, PLANK)
 for i, (x, z, s) in enumerate(((-1.3, -.8, .7), (-1.3, -.8, .5), (-.5, -.9, .6), (1.2, -.6, .4))):
@@ -258,7 +266,8 @@ for sx in (-1, 1):                                                # torches, gol
     hull([[sx * 1.7 + dx, Y0 + 1.62, 1.9 + dz] for dx in (-.1, .1) for dz in (-.1, .1)] + [[sx * 1.7, Y0 + 2.1, 1.9]], FLAME)
     for i in range(7): rock(sx * (3.2 + (i % 3) * .5), .75, 2.6 + (i // 3) * .6 - .4, .35 - (i % 3) * .06, GOLD, i + (10 if sx > 0 else 0))
     for i, c in enumerate((CRYSTAL, "#ff4fd8", GREEN_L)):
-        hull([[sx * (3.6 + i * .3) + dx, .75, .6 - i * .7 + dz] for dx, dz in ((-.15, -.1), (.15, -.1), (0, .15))] + [[sx * (3.6 + i * .3), 1.9 + i * .3, .6 - i * .7]], c)
+        gy = (.75, .5, .25)[i]                                    # stands on its step of the plinth
+        hull([[sx * (3.6 + i * .3) + dx, gy, .6 - i * .7 + dz] for dx, dz in ((-.15, -.1), (.15, -.1), (0, .15))] + [[sx * (3.6 + i * .3), 1.9 + i * .3, .6 - i * .7]], c)
 box(-1.6, Y0 + 3.85, 3.15, 1.6, Y0 + 4.12, 3.22, SIGN)            # name board
 export("treasury")
 
@@ -279,11 +288,11 @@ for i in range(7):                                                 # fish on ice
     x = -1.6 + i * .53; c = FISH if i % 2 else FISH2
     hull([[x - .2, 1.8, .8], [x + .12, 1.8, .74], [x + .12, 1.8, .86], [x, 1.86, .8], [x + .05, 1.76, .8]], c)
     hull([[x + .12, 1.8, .8], [x + .24, 1.8, .7], [x + .24, 1.8, .9], [x + .2, 1.84, .8]], c)
-gable(-2.5, 2.5, -1.9, .95, FH, 1.3, BLUE, over=.35, thick=.14)
-for z in (-1.9, .75): hull([[x, FH, zz] for x in (-2.3, 2.3) for zz in (z, z + .18)] + [[0, FH + 1.25, zz] for zz in (z, z + .18)], WHITE)
+gable(-2.3, 2.3, -1.9, .95, FH, 1.3, BLUE, over=.35, thick=.14, ridge="z")   # ridge front-to-back, white gables front/back
+for z in (-1.9, .75): gable_end(-2.3, 2.3, FH, 1.3, WHITE, z, ridge="z")
 for i in range(10):                                                # striped awning over the counter
     x0 = -2.4 + i * .48
-    boxc(x0 + .24, 2.35, 1.55, .48, .08, 1.3, BLUE if i % 2 else WHITE, pitch=-22)
+    boxc(x0 + .24, 2.35, 1.55, .48, .08, 1.3, BLUE if i % 2 else WHITE, pitch=22)   # falls to the front posts
 for sx in (-1, 1): cyl(sx * 2.45, .62, 2.1, 2.15, .05, WOOD_D, 6)
 # the big fish sign on the ridge
 fx, fy, fz = 0, FH + 1.9, -.5
