@@ -105,7 +105,7 @@ TEX = {"9a6a40": ("wood_boards", 1.6), "6e4a2e": ("wood_dark", 1.6), "b98552": (
        "ffd23f": ("wood_boards", 1.2), "ffc83c": ("steel", 1.0), "3a3d44": ("bitumen", 2.0),
        "f2b632": ("steel", 1.2), "d93a32": ("wood_painted_white", 1.6), "b8b4ac": ("concrete_raw", 2.0),
        "1e3c6e": ("wood_painted_white", 1.6), "d9452f": ("plaster_white", 2.0), "7a7f8a": ("steel", 1.2),
-       "e9e4d8": ("marble", 2.0), "8c8579": ("stone_ashlar", 1.6)}
+       "e9e4d8": ("marble", 2.0), "8c8579": ("stone_ashlar", 1.6), "a8784a": ("wood_floor", 1.6)}
 _cache = {}
 
 

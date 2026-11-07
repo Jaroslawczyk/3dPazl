@@ -239,25 +239,33 @@ export("drill_rig")
 
 # ---------------------------------------------------------------- boiler house + chimney (real door and windows)
 box(-1.75, 0, -1.55, 1.75, .25, 1.65, CONC)                       # footing
-box(-1.6, .25, -1.4, 1.6, 2.6, 1.4, BRICK)
+box(-1.6, .25, -1.4, 1.6, 2.6, 1.15, BRICK)                       # body; the front wall below has real openings
+BOPS = [(-1.3, -.7, 1.16, 1.84), (-.5, .5, .25, 2.05), (.7, 1.3, 1.16, 1.84)]
+cuts = sorted({-1.6, 1.6, *[o[i] for o in BOPS for i in (0, 1)]})
+for a, b in zip(cuts, cuts[1:]):                                  # front wall 0.25 thick with window and door holes
+    o = next((o for o in BOPS if o[0] <= a and b <= o[1]), None)
+    if o is None: box(a, .25, 1.15, b, 2.6, 1.4, BRICK)
+    else:
+        if o[2] > .25: box(a, .25, 1.15, b, o[2], 1.4, BRICK)
+        box(a, o[3], 1.15, b, 2.6, 1.4, BRICK)
 box(-1.75, 2.6, -1.55, 1.75, 2.8, 1.55, STONE_D)
-for sx in (-1, 1):                                                # windows: sill + lintel, iron frame and glass,
-    x = sx * 1.0                                                  # the fire glows behind the glass, inside
+for sx in (-1, 1):                                                # windows: sill + lintel, glass in an iron frame set
+    x = sx * 1.0                                                  # into the wall, the fire glowing inside behind it
     box(x - .38, 1.08, 1.4, x + .38, 1.16, 1.52, STONE_L); box(x - .36, 1.84, 1.4, x + .36, 1.94, 1.48, STONE_L)
-    box(x - .3, 1.16, 1.3, x + .3, 1.84, 1.34, FLAME)
-    box(x - .3, 1.16, 1.38, x + .3, 1.84, 1.4, GLASS)
+    box(x - .3, 1.16, 1.15, x + .3, 1.84, 1.17, FLAME)
+    box(x - .3, 1.16, 1.25, x + .3, 1.84, 1.27, GLASS)
     for (p0, p1, q0, q1) in ((x - .3, x - .26, 1.16, 1.84), (x + .26, x + .3, 1.16, 1.84), (x - .3, x + .3, 1.16, 1.2),
                              (x - .3, x + .3, 1.8, 1.84), (x - .02, x + .02, 1.16, 1.84), (x - .3, x + .3, 1.48, 1.52)):
-        box(p0, q0, 1.38, p1, q1, 1.45, METAL_D)
-box(-.58, .25, 1.4, -.5, 2.05, 1.5, STONE_L); box(.5, .25, 1.4, .58, 2.05, 1.5, STONE_L)   # door frame
-box(-.58, 2.05, 1.4, .58, 2.15, 1.52, STONE_L)
-box(-.5, .25, 1.36, .5, 2.05, 1.4, WOOD_D)                         # door leaf in the opening
+        box(p0, q0, 1.23, p1, q1, 1.3, METAL_D)
+box(-.62, .25, 1.4, -.5, 2.05, 1.5, STONE_L); box(.5, .25, 1.4, .62, 2.05, 1.5, STONE_L)   # door frame round the opening
+box(-.62, 2.05, 1.4, .62, 2.17, 1.52, STONE_L)
+box(-.5, .25, 1.17, .5, 2.05, 1.25, WOOD_D)                        # door leaf, set back in the opening
 for (y0, y1) in ((.4, 1.05), (1.2, 1.9)):                           # raised panels
-    for (x0, x1) in ((-.4, -.04), (.04, .4)): box(x0, y0, 1.4, x1, y1, 1.43, WOOD)
-for y in (.55, 1.75): box(-.46, y, 1.4, .1, y + .06, 1.45, METAL_D)  # iron hinge straps
-box(.32, 1.05, 1.4, .38, 1.25, 1.47, METAL_D); ball(.35, 1.15, 1.49, .035, GOLD, 0)  # handle
+    for (x0, x1) in ((-.4, -.04), (.04, .4)): box(x0, y0, 1.25, x1, y1, 1.28, WOOD)
+for y in (.55, 1.75): box(-.48, y, 1.25, .05, y + .06, 1.29, METAL_D)   # iron hinge straps
+box(.32, 1.05, 1.25, .38, 1.25, 1.31, METAL_D); ball(.35, 1.15, 1.33, .035, GOLD, 0)  # handle
 box(-.7, 0, 1.65, .7, .2, 2.0, CONC)                              # step
-box(-.05, 2.2, 1.52, .05, 2.3, 1.75, METAL_D); lantern(0, 1.9, 1.72, .5)              # lamp over the door
+box(-.04, 2.42, 1.4, .04, 2.5, 1.66, METAL_D); lantern(0, 2.18, 1.62, .4)              # lamp on a bracket above the door frame
 cyl(.8, 2.8, 8.5, -.6, .38, BRICK, 12)
 for y in (4.0, 6.0, 8.2): cyl(.8, y, y + .2, -.6, .43, METAL_D, 12)
 cylx(1.6, 2.8, .8, 0, .6, METAL, 12); cylx(2.75, 2.85, .8, 0, .62, METAL_D, 12)

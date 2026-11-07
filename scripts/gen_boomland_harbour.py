@@ -31,17 +31,19 @@ def B(x0, y0, z0, x1, y1, z1, c): a, b = p(x0, y0, z0), p(x1, y1, z1); return bo
 def BM(a, b, w, c, h=None): return beam(p(*a), p(*b), w * S, c, h * S if h else None)
 def CY(x, y0, y1, z, r, c, n=10): return cyl((x + 30) * S, (y0 - TOP) * S, (y1 - TOP) * S, z * S, r * S, c, n)
 
-def deck_x(x0, x1, z0, z1):                      # planks across X (walkway), z0..z1
+PLANK2 = "#a8784a"                                # second plank shade (same wood texture, a bit darker)
+def deck_x(x0, x1, z0, z1):                      # planks across X (walkway) on joists, z0..z1
     k = 0
     for z in np.arange(z0, z1 - .01, 2):
-        B(x0, TOP - .7, z + .08, x1, TOP, z + 1.92, PLANK if k % 3 else WOOD); k += 1
-def deck_z(x0, x1, z0, z1):                      # planks along Z (head / fingers), x0..x1
+        B(x0, TOP - .7, z + .04, x1, TOP, z + 1.96, PLANK2 if k % 4 == 1 else PLANK); k += 1
+    for x in np.arange(x0 + 1, x1, 3.5): B(x - .5, TOP - 1.6, z0, x + .5, TOP - .7, z1, WOOD_D)
+def deck_z(x0, x1, z0, z1):                      # planks along Z (head / fingers) on joists, x0..x1
     k = 0
     for x in np.arange(x0, x1 - .01, 2):
-        B(x + .08, TOP - .7, z0, x + 1.92, TOP, z1, PLANK if k % 3 else WOOD); k += 1
-def piling(x, z, cap=True):
-    CY(x, 212, TOP + (1.6 if cap else -.7), z, .9, WOOD_D)
-    if cap: CY(x, TOP + 1.6, TOP + 2, z, 1.05, METAL_D)
+        B(x + .04, TOP - .7, z0, x + 1.96, TOP, z1, PLANK2 if k % 4 == 1 else PLANK); k += 1
+    for z in np.arange(z0 + 1, z1, 3.5): B(x0, TOP - 1.6, z - .5, x1, TOP - 1.0 + .3, z + .5, WOOD_D)
+def piling(x, z, cap=False):                     # piles end under the deck edge (no stumps standing on the deck)
+    CY(x, 212, TOP - .75, z, .9, WOOD_D, 12)
 def rail(a, b):
     d = np.array(b, float) - np.array(a, float); n = max(1, int(np.linalg.norm(d) // 4))
     for i in range(n + 1):
@@ -68,9 +70,7 @@ for x in range(HX0, HX1 + 1, 6): piling(x, HZ1 + .4)
 piling(HX0 - .4, HZ0 + 6); piling(HX1 + .4, HZ0 + 6)
 rail((X0 + .3, 0, Z0), (X0 + .3, 0, Z0 + 12)); rail((X1 - .3, 0, Z0), (X1 - .3, 0, Z0 + 12))
 rail((HX0 + .3, 0, HZ1 - .3), (HX1 - .3, 0, HZ1 - .3))
-for z in (HZ0 + 12, HZ0 + 16): cleat(HX0 + 1.2, z, False); cleat(HX1 - 1.2, z, False)
-for z in (Z0 + 18, Z0 + 26): cleat(X0 + 1, z, False); cleat(X1 - 1, z, False)
-for (x, z) in ((HX0 + 1.5, HZ1 - 1.5), (HX1 - 1.5, HZ1 - 1.5), (X0 - 1.5, Z0 + 1), (X1 + 1.5, Z0 + 1)): lamp(x, z)
+for (x, z) in ((HX0 + 1.5, HZ1 - 1.5), (HX1 - 1.5, HZ1 - 1.5), (X0 + 1.3, Z0 + 2.5), (X1 - 1.3, Z0 + 2.5)): lamp(x, z)
 for x in (X0 - 1.5, X1 + 1.5):                                   # entrance arch
     B(x - .6, TOP - 1, Z0 - 1.6, x + .6, TOP + 12.2, Z0 - .4, WOOD_D)
     BM([x, TOP + 6.5, Z0 - 1], [x + (3 if x < -30 else -3), TOP + 9.4, Z0 - 1], .5, WOOD)
@@ -94,7 +94,6 @@ for (x0, x1) in ((-62, -48), (-12, 2)):
     B(min(x0, x1), TOP - 1.9, 59.4 - .6, max(x0, x1), TOP - .7, 59.4 + .6, WOOD_D)
     rail((xo + (.3 if x0 < -30 else -.3), 0, 46.5), (xo + (.3 if x0 < -30 else -.3), 0, 59.5))
     lamp(x0 + 2 if x0 < -30 else x1 - 2, 58)
-    for x in (x0 + 4, x1 - 4): cleat(x, 46.6)
 where("pier_stage2"); export("pier_stage2")
 
 # ---- stage 3: wide outer deck (fishing ship) + a cargo crane
@@ -102,7 +101,6 @@ deck_z(-48, -12, 62, 74)
 for x in range(-48, -11, 6): piling(x, 74.4)
 for x in (-48.4, -11.6): piling(x, 68)
 B(-48, TOP - 1.9, 73.4 - .6, -12, TOP - .7, 73.4 + .6, WOOD_D)
-for x in (-44, -36, -28, -20): cleat(x, 73.2)
 lamp(-46, 72); lamp(-24, 64)
 cx, cz = -16, 68                                                  # crane: slewing base, lattice tower, cab, jib, counterweight
 B(cx - 2.6, TOP, cz - 2.6, cx + 2.6, TOP + 1.2, cz + 2.6, METAL_D)
@@ -118,26 +116,40 @@ for k, y in enumerate((TOP + 1.8, TOP + 5.4, TOP + 9, TOP + 12.6, TOP + 16)):
         for sd in (-1, 1):
             BM([cx - s0, y, cz + sd * s0], [cx + s1, y1, cz + sd * s1], .22, YEL)
             BM([cx + sd * s0, y, cz - s0], [cx + sd * s1, y1, cz + s1], .22, YEL)
-B(cx - 1.6, TOP + 16, cz - 1.6, cx + 1.6, TOP + 16.6, cz + 1.6, METAL_D)
-B(cx + 1.0, TOP + 16.6, cz - 1.0, cx + 3.4, TOP + 19.2, cz + 1.4, YEL)          # operator cab
-B(cx + 3.38, TOP + 17.6, cz - .7, cx + 3.42, TOP + 18.9, cz + 1.1, GLASS)
+where("pier_stage3"); export("pier_stage3")
+
+# ---- crane jib (turns round the mast axis at (cx, cz) world studs; the game animates it)
+B(cx - 1.6, TOP + 16, cz - 1.6, cx + 1.6, TOP + 16.6, cz + 1.6, METAL_D)       # slewing platform
+B(cx + 1.0, TOP + 16.6, cz - 1.0, cx + 3.4, TOP + 19.2, cz + 1.4, YEL)          # operator cab + windows
+B(cx + 3.38, TOP + 17.6, cz - .7, cx + 3.44, TOP + 18.9, cz + 1.1, GLASS); B(cx + 1.4, TOP + 17.6, cz + 1.38, cx + 3.0, TOP + 18.9, cz + 1.44, GLASS)
+B(cx + .9, TOP + 19.2, cz - 1.1, cx + 3.5, TOP + 19.4, cz + 1.5, METAL_D)
 for sd in (-1, 1): BM([cx + sd * .9, TOP + 16.8, cz], [cx + sd * .9, TOP + 16.8, cz + 18], .4, YEL)   # jib chords
 BM([cx, TOP + 19, cz], [cx, TOP + 17.2, cz + 18], .35, YEL)
 for k in range(9):
     z = cz + k * 2; BM([cx - .9, TOP + 16.8, z], [cx + .9, TOP + 16.8, z], .2, YEL)
     yt = TOP + 19 - 1.8 * k / 9
     for sd in (-1, 1): BM([cx + sd * .9, TOP + 16.8, z], [cx, yt, z + 1], .18, YEL)
-BM([cx, TOP + 16.8, cz], [cx, TOP + 16.8, cz - 7], .5, YEL)                         # counter-jib + counterweight
-B(cx - 1.2, TOP + 15.2, cz - 8, cx + 1.2, TOP + 17.4, cz - 5.6, CONC)
-BM([cx, TOP + 19, cz], [cx, TOP + 16.8, cz - 7], .15, METAL_D)
-B(cx - .6, TOP + 16.3, cz + 14.4, cx + .6, TOP + 16.8, cz + 15.6, METAL_D)       # trolley
-BM([cx, TOP + 16.3, cz + 15], [cx, TOP + 9.6, cz + 15], .12, METAL_D)              # hoist cable
+BM([cx, TOP + 16.6, cz], [cx, TOP + 21, cz], .4, YEL)                             # top mast + ties
+BM([cx, TOP + 21, cz], [cx, TOP + 17.2, cz + 18], .1, METAL_D); BM([cx, TOP + 21, cz], [cx, TOP + 16.8, cz - 7], .1, METAL_D)
+for sd in (-1, 1): BM([cx + sd * .6, TOP + 16.8, cz], [cx + sd * .6, TOP + 16.8, cz - 7], .35, YEL)   # counter-jib
+B(cx - 1.2, TOP + 15.2, cz - 8, cx + 1.2, TOP + 17.4, cz - 5.6, CONC)             # counterweight blocks
+for y in (TOP + 15.9, TOP + 16.6): B(cx - 1.22, y - .04, cz - 8.02, cx + 1.22, y + .04, cz - 5.58, METAL_D)
+B(cx - .6, TOP + 16.0, cz + 14.4, cx + .6, TOP + 16.6, cz + 15.6, METAL_D)       # trolley (the hoist cable hangs from it)
+cylx((cx - .7 + 30) * S, (cx + .7 + 30) * S, (TOP + 16.3 - TOP) * S, (cz + 15) * S, .3 * S, METAL, 10)
+where("crane_jib"); export("crane_jib")
+
+# ---- crane hook with a load of lumber on a pallet (moves up / down and round with the jib)
 B(cx - .7, TOP + 8.6, cz + 14.4, cx + .7, TOP + 9.6, cz + 15.6, YEL)              # hook block
-BM([cx, TOP + 8.6, cz + 15], [cx, TOP + 7.6, cz + 15], .25, METAL_D)
-for i, (dx, dz) in enumerate(((-.8, -.6), (.8, -.6), (0, .8), (0, 0))):           # cargo net with sacks
-    ball((cx + dx + 30) * S, (TOP + 5.6 + (1.1 if i == 3 else 0) - TOP) * S, (cz + 15 + dz) * S, 1.1 * S, ROPE, 1)
-for dx, dz in ((-1.2, -1), (1.2, -1), (0, 1.3)): BM([cx, TOP + 7.6, cz + 15], [cx + dx, TOP + 5.4, cz + 15 + dz], .1, ROPE)
-where("pier_stage3"); export("pier_stage3")
+cylx((cx - .75 + 30) * S, (cx + .75 + 30) * S, (TOP + 9.3 - TOP) * S, (cz + 15) * S, .35 * S, METAL_D, 10)
+BM([cx, TOP + 8.6, cz + 15], [cx, TOP + 7.9, cz + 15], .25, METAL_D)              # hook
+BM([cx, TOP + 7.9, cz + 15], [cx, TOP + 7.5, cz + 15.5], .2, METAL_D)
+for dx, dz in ((-1.3, -2.2), (1.3, -2.2), (-1.3, 2.2), (1.3, 2.2)): BM([cx, TOP + 7.7, cz + 15], [cx + dx, TOP + 5.7, cz + 15 + dz], .12, METAL_D)   # chain slings
+B(cx - 1.5, TOP + 3.0, cz + 12.4, cx + 1.5, TOP + 3.5, cz + 17.6, WOOD_D)         # pallet
+for k in range(3):                                                                 # three layers of boards
+    for j in range(4):
+        B(cx - 1.4 + j * .72, TOP + 3.5 + k * .72, cz + 12.5, cx - .74 + j * .72, TOP + 4.18 + k * .72, cz + 17.5, PLANK if (j + k) % 2 else PLANK2)
+for dz in (-1.6, 1.6): B(cx - 1.48, TOP + 3.45, cz + 15 + dz - .1, cx + 1.48, TOP + 5.72, cz + 15 + dz + .1, METAL_D)   # steel straps
+where("crane_hook"); export("crane_hook")
 
 # ============================================================ lighthouse (metres, door +Z), ~21 m
 frustum(0, 0, 0, .9, 4.4, 4.2, ASHLAR, 12)                       # plinth + steps up to the door
