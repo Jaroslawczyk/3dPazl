@@ -82,6 +82,36 @@ def gable_end(a0, a1, y0, h, c, at, t=0.18, ridge="x"):
     return hull([[a, y, z] for z in (at, at + t) for a, y in tri], c)
 
 
+LIB = pathlib.Path(__file__).resolve().parents[1] / "textures" / "library"
+# flat colour -> (CC0 texture from textures/library, metres per texture repeat); the texture is tinted to the colour
+TEX = {"9a6a40": ("wood_boards", 1.6), "6e4a2e": ("wood_dark", 1.6), "b98552": ("wood_floor", 1.6),
+       "9a948c": ("stone_rubble", 2.0), "6f6a64": ("granite", 1.5), "c9c2b5": ("sandstone", 2.0),
+       "c94a3a": ("clay_tile", 1.5), "3a6fb0": ("clay_tile", 1.5), "b5523b": ("brick_red", 1.5),
+       "5a606c": ("steel", 1.5), "2b2f3a": ("iron", 1.5), "f2efe6": ("plaster_white", 2.0), "7fb4d6": ("wood_painted_white", 1.6),
+       "ffd23f": ("wood_boards", 1.2), "ffc83c": ("steel", 1.0), "3a3d44": ("bitumen", 2.0)}
+_cache = {}
+
+
+def texture(hx, cc):
+    """Tinted tileable texture (256 px) for a flat colour, or a 4x4 flat image when there is no texture for it."""
+    if hx not in TEX: return Image.fromarray(np.full((4, 4, 3), cc, np.uint8)), None
+    if hx not in _cache:
+        t = np.asarray(Image.open(LIB / f"{TEX[hx][0]}_albedo.jpg").convert("RGB").resize((256, 256), Image.LANCZOS), float)
+        lum = t.mean(2, keepdims=True); lum = 0.55 + 0.45 * lum / lum.mean()          # keep the pattern, soften it
+        _cache[hx] = Image.fromarray(np.clip(lum * np.array(cc, float), 0, 255).astype(np.uint8))
+    return _cache[hx], TEX[hx][1]
+
+
+def box_uv(m, tile):
+    """Per-face box projection in world metres: walls get (horizontal, up), floors/roofs get (x, z)."""
+    m = m.copy(); m.unmerge_vertices()
+    fn = m.face_normals; ax = np.abs(fn).argmax(1); uv = np.zeros((len(m.vertices), 2))
+    for f, a in enumerate(ax):
+        v = m.faces[f]; p = m.vertices[v]
+        uv[v] = p[:, [2, 1]] if a == 0 else p[:, [0, 2]] if a == 1 else p[:, [0, 1]]
+    return m, uv / tile
+
+
 def export(name, out="projects/boomland_world/export"):
     global P
     scene = tm.util.concatenate(P); P = []
@@ -91,10 +121,12 @@ def export(name, out="projects/boomland_world/export"):
         m = scene.submesh([sel], append=True)
         hx = "%02x%02x%02x" % tuple(cc)
         kind = "Glass" if hx in GLASS else "Glow" if hx in GLOW else "Paint"
-        img = Image.fromarray(np.full((4, 4, 3), cc, np.uint8))
+        img, tile = texture(hx, cc) if kind == "Paint" else (Image.fromarray(np.full((4, 4, 3), cc, np.uint8)), None)
+        if tile: m, uv = box_uv(m, tile)
+        else: uv = np.full((len(m.vertices), 2), 0.5)
         mat = tm.visual.material.PBRMaterial(name=f"{kind.lower()}#{hx}", baseColorTexture=img, metallicFactor=0.0, roughnessFactor=0.8)
         if kind == "Glass": mat.alphaMode = "BLEND"; mat.baseColorFactor = [255, 255, 255, 110]
-        m.visual = tm.visual.TextureVisuals(uv=np.full((len(m.vertices), 2), 0.5), material=mat)
+        m.visual = tm.visual.TextureVisuals(uv=uv, material=mat)
         n += len(m.faces); sc.add_geometry(m, geom_name=f"{kind}_{hx}")
     o = pathlib.Path(out); o.mkdir(parents=True, exist_ok=True)
     sc.export(o / f"{name}.glb"); print(f"{name}: {n} tris, {len(sc.geometry)} materials")

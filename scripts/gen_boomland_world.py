@@ -141,20 +141,17 @@ def wallz(x0, x1, ops):
 DOOR, WINF = (-.7, .7, .42, 2.45), [(-2.4, -1.4, 1.2, 2.2), (1.4, 2.4, 1.2, 2.2)]
 wallx(HZ - .18, HZ, [DOOR] + WINF); wallx(-HZ, -HZ + .18, [])
 wallz(-HX, -HX + .18, [(-.6, .6, 1.2, 2.2)]); wallz(HX - .18, HX, [(-.6, .6, 1.2, 2.2)])
-for k in range(1, 8):                                           # log lines, cut at the door and the windows
-    y = .42 + k * .33; xs = [-HX - .02]
-    for (a, b_, y0, y1) in sorted([DOOR] + WINF):
-        if y0 - .1 <= y + .04 and y <= y1 + .1: xs += [a - .1, b_ + .1]
-    xs.append(HX + .02)
-    for x0, x1 in zip(xs[::2], xs[1::2]): box(x0, y, HZ - .02, x1, y + .04, HZ + .02, WOOD_D)
 for sx in (-1, 1):
     for sz in (-1, 1): box(sx * HX - .14, .35, sz * HZ - .14, sx * HX + .14, H + .05, sz * HZ + .14, WOOD_D)
 for (a, b, y0, y1) in WINF:                                     # front windows
     box(a, y0, HZ - .1, b, y1, HZ - .06, GLASS)
     for (p0, p1, q0, q1) in ((a - .08, a, y0, y1), (b, b + .08, y0, y1), (a - .08, b + .08, y0 - .08, y0), (a - .08, b + .08, y1, y1 + .08)):
         box(p0, q0, HZ - .02, p1, q1, HZ + .06, WHITE)
-for sx in (-1, 1):
-    box(sx * HX - .1, 1.2, -.6, sx * HX - .06, 2.2, .6, GLASS)
+for sx in (-1, 1):                                              # side windows: glass inside the wall, white frame outside
+    box(sx * (HX - .09) - .02, 1.2, -.6, sx * (HX - .09) + .02, 2.2, .6, GLASS)
+    xo = sx * HX
+    for (z0, z1, y0, y1) in ((-.68, -.6, 1.12, 2.28), (.6, .68, 1.12, 2.28), (-.68, .68, 1.12, 1.2), (-.68, .68, 2.2, 2.28)):
+        box(min(xo - sx * .02, xo + sx * .06), y0, z0, max(xo - sx * .02, xo + sx * .06), y1, z1, WHITE)
 for (p0, p1, q0, q1) in ((DOOR[0] - .1, DOOR[0], .42, DOOR[3] + .1), (DOOR[1], DOOR[1] + .1, .42, DOOR[3] + .1), (DOOR[0] - .1, DOOR[1] + .1, DOOR[3], DOOR[3] + .1)):
     box(p0, q0, HZ - .02, p1, q1, HZ + .08, WOOD_D)
 box(-1.0, 0, HZ + .2, 1.0, .25, HZ + .8, STONE)                 # step
@@ -187,10 +184,6 @@ for sx in (-1, 1):
     hull([[sx * 2 + dx, y, z] for dx in (-.05, .05) for (y, z) in ((2.2, -1.5), (2.2, 1.5), (2.6, 1.5))], WOOD)   # side wall up to the sloped roof
 boxc(0, 2.5, 0, 4.6, .14, 3.6, ROOF, pitch=-6.3)
 box(-2, 0, -1.5, 2, .1, 1.5, PLANK)
-for i, (x, z, s) in enumerate(((-1.3, -.8, .7), (-1.3, -.8, .5), (-.5, -.9, .6), (1.2, -.6, .4))):
-    y = .1 + (.7 if i == 1 else 0)
-    box(x - s / 2, y, z - s / 2, x + s / 2, y + s, z + s / 2, PLANK if i % 2 else WOOD)
-for x in (.5, 1.3): cyl(x, .1, .95, .5, .3, WOOD_D, 10); cyl(x, .5, .58, .5, .31, METAL_D, 10)
 export("mine_shed")
 
 # ---------------------------------------------------------------- ore heaps
@@ -264,10 +257,6 @@ for (p0, p1, q0, q1) in ((-1.25, -1.0, 0, 3.05), (1.0, 1.25, 0, 3.05), (-1.25, 1
 for sx in (-1, 1):                                                # torches, gold heaps, gems
     cyl(sx * 1.7, Y0, Y0 + 1.6, 1.9, .07, WOOD_D, 6); hull([[sx * 1.7 + dx, Y0 + 1.6, 1.9 + dz] for dx in (-.15, .15) for dz in (-.15, .15)] + [[sx * 1.7, Y0 + 1.45, 1.9]], METAL_D)
     hull([[sx * 1.7 + dx, Y0 + 1.62, 1.9 + dz] for dx in (-.1, .1) for dz in (-.1, .1)] + [[sx * 1.7, Y0 + 2.1, 1.9]], FLAME)
-    for i in range(7): rock(sx * (3.2 + (i % 3) * .5), .75, 2.6 + (i // 3) * .6 - .4, .35 - (i % 3) * .06, GOLD, i + (10 if sx > 0 else 0))
-    for i, c in enumerate((CRYSTAL, "#ff4fd8", GREEN_L)):
-        gy = (.75, .5, .25)[i]                                    # stands on its step of the plinth
-        hull([[sx * (3.6 + i * .3) + dx, gy, .6 - i * .7 + dz] for dx, dz in ((-.15, -.1), (.15, -.1), (0, .15))] + [[sx * (3.6 + i * .3), 1.9 + i * .3, .6 - i * .7]], c)
 box(-1.6, Y0 + 3.85, 3.15, 1.6, Y0 + 4.12, 3.22, SIGN)            # name board
 export("treasury")
 
@@ -283,29 +272,12 @@ box(-2.3, 2.2, .7, 2.3, FH, .9, "#7fb4d6")                       # front lintel 
 for k in range(6): box(-2.32, .9 + k * .35, -1.92, 2.32, .93 + k * .35, -1.68, WHITE)
 for sx in (-1, 1): box(sx * 2.3 - .12, .62, .7, sx * 2.3 + .12, FH, .95, WHITE)
 box(-2.2, .62, .55, 2.2, 1.6, 1.0, PLANK); box(-2.3, 1.6, .5, 2.3, 1.7, 1.15, WHITE)  # counter
-box(-1.9, 1.7, .55, 1.9, 1.78, 1.05, ICE)
-for i in range(7):                                                 # fish on ice
-    x = -1.6 + i * .53; c = FISH if i % 2 else FISH2
-    hull([[x - .2, 1.8, .8], [x + .12, 1.8, .74], [x + .12, 1.8, .86], [x, 1.86, .8], [x + .05, 1.76, .8]], c)
-    hull([[x + .12, 1.8, .8], [x + .24, 1.8, .7], [x + .24, 1.8, .9], [x + .2, 1.84, .8]], c)
 gable(-2.3, 2.3, -1.9, .95, FH, 1.3, BLUE, over=.35, thick=.14, ridge="z")   # ridge front-to-back, white gables front/back
 for z in (-1.9, .75): gable_end(-2.3, 2.3, FH, 1.3, WHITE, z, ridge="z")
 for i in range(10):                                                # striped awning over the counter
     x0 = -2.4 + i * .48
-    boxc(x0 + .24, 2.35, 1.55, .48, .08, 1.3, BLUE if i % 2 else WHITE, pitch=22)   # falls to the front posts
-for sx in (-1, 1): cyl(sx * 2.45, .62, 2.1, 2.15, .05, WOOD_D, 6)
-# the big fish sign on the ridge
-fx, fy, fz = 0, FH + 1.9, -.5
-hull([[fx - 1.1, fy, fz], [fx + .6, fy + .45, fz], [fx + .6, fy - .45, fz], [fx + .9, fy, fz], [fx, fy, fz + .15], [fx, fy, fz - .15], [fx - .3, fy + .35, fz], [fx - .3, fy - .35, fz]], "#4fb3e8")
-hull([[fx + .85, fy, fz], [fx + 1.4, fy + .5, fz], [fx + 1.4, fy - .5, fz], [fx + .85, fy, fz + .05], [fx + .85, fy, fz - .05]], "#4fb3e8")
-ball(fx - .7, fy + .1, fz + .14, .07, DARK, 0); ball(fx - .7, fy + .1, fz - .14, .07, DARK, 0)
-cyl(0, FH + 1.2, fy - .3, fz, .05, METAL_D, 6)
-# barrels with fish, crates, rods, life ring
-for i, x in enumerate((-2.0, -1.45)):
-    cyl(x, .62, 1.45, 2.1, .3, WOOD_D, 10); cyl(x, 1.0, 1.08, 2.1, .31, METAL_D, 10)
-    for k in range(3): hull([[x - .15 + k * .12, 1.45, 2.0], [x - .05 + k * .12, 1.7 + k * .05, 2.1], [x - .1 + k * .12, 1.45, 2.2], [x - .02 + k * .12, 1.45, 2.1]], FISH2 if k % 2 else FISH)
-box(1.3, .62, 1.8, 1.9, 1.1, 2.4, PLANK); box(1.4, 1.1, 1.85, 1.85, 1.45, 2.3, WOOD)
-for k in range(3): beam([2.0 + k * .12, .62, -1.5], [2.15 + k * .12, 2.8, -1.6], .03, WOOD_D)
+    boxc(x0 + .24, 2.65, 1.55, .48, .08, 1.3, BLUE if i % 2 else WHITE, pitch=22)   # falls to the front posts
+for sx in (-1, 1): cyl(sx * 2.45, .62, 2.42, 2.15, .05, WOOD_D, 6)
 for k in range(16):
     a0, a1 = k / 16 * 2 * math.pi, (k + 1) / 16 * 2 * math.pi
     beam([-2.42, 1.9 + math.sin(a0) * .32, -.4 + math.cos(a0) * .32], [-2.42, 1.9 + math.sin(a1) * .32, -.4 + math.cos(a1) * .32], .1, RED if k // 4 % 2 else WHITE)
